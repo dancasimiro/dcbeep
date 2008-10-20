@@ -21,6 +21,7 @@ public:
 	}
 
 	session_reference next_layer() { return session_; }
+	io_service &lowest_layer() { return session_.lowest_layer(); }
 
 	void connect(const endpoint_type &endpoint)
 	{
