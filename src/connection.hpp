@@ -6,7 +6,7 @@ namespace beep {
 
 namespace detail {
 
-void noop_message_cb(const message&) { }
+inline void noop_message_cb(const message&) { }
 
 }      // namespace detail
 

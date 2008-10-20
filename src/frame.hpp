@@ -196,6 +196,7 @@ private:
 	buffers_container         buffers_;
 };     // class frame
 
+inline
 std::ostream&
 operator<<(std::ostream &os, const frame::header& header)
 {
@@ -213,6 +214,7 @@ operator<<(std::ostream &os, const frame::header& header)
 	return os;
 }
 
+inline
 std::ostream&
 operator<<(std::ostream &os, const frame::trailer& trailer)
 {

@@ -11,6 +11,7 @@ struct entity_header {
 	string value;
 };
 
+inline
 std::ostream&
 operator<<(std::ostream &os, const entity_header &header)
 {
