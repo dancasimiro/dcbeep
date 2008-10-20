@@ -52,6 +52,8 @@ public:
 		setup_tuning_channel();
 	}
 
+	io_service &lowest_layer() { return transport_.lowest_layer(); }
+
 	connection_reference connection() { return connection_; }
 
 	void start()
