@@ -25,13 +25,25 @@ public:
 
 	void connect(const endpoint_type &endpoint)
 	{
-		session_.connection().lowest_layer().async_connect(endpoint,
-														   bind(&basic_initiator::on_connect,
-																this,
-																placeholders::error));
+		session_.connection().lowest_layer().connect(endpoint);
+		session_.start();
+	}
+
+	template <class Handler>
+	void async_connect(const endpoint_type &endpoint, Handler handler)
+	{
+		handle_ = handler;
+		session_.connection().lowest_layer()
+			.async_connect(endpoint,
+						   bind(&basic_initiator::on_connect,
+								this,
+								placeholders::error));
 	}
 private:
+	typedef function<void (boost::system::error_code)> handler_type;
+
 	session_type              session_;
+	handler_type              handle_;
 
 	void on_connect(const boost::system::error_code &error)
 	{
@@ -41,6 +53,7 @@ private:
 		} else {
 			cerr << "Problem: " << error.message() << endl;
 		}
+		handle_(error);
 	}
 };     // class basic_initiator
 
