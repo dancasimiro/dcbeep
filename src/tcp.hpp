@@ -8,15 +8,16 @@ namespace beep {
 
 /// \brief TCP/IP BEEP transport layer using ASIO
 /// \note this concept can be extended to support TLS and possible SASL
-class tcptl : private noncopyable {
+template <class StreamType = asio::ip::tcp::socket,
+		  class AcceptorType = asio::ip::tcp::acceptor>
+class basic_tcptl : private noncopyable {
 public:
-	typedef ip::tcp::socket                       stream_type;
-	typedef ip::tcp::acceptor                     acceptor_type;
-	typedef stream_type::endpoint_type            endpoint_type;
-	typedef basic_session<tcptl>                  session_type;
+	typedef StreamType                            stream_type;
+	typedef AcceptorType                          acceptor_type;
+	typedef typename acceptor_type::endpoint_type endpoint_type;
 	typedef basic_connection<stream_type>         connection_type;
 
-	tcptl(io_service &service)
+	basic_tcptl(io_service &service)
 		: service_(service)
 	{
 	}
@@ -26,6 +27,8 @@ public:
 private:
 	io_service&               service_;
 };
+
+typedef basic_tcptl<> tcptl;
 
 }      // namespace beep
 #endif // BEEP_TCP_MAPPING_HEAD
