@@ -16,7 +16,17 @@ public:
 	typedef typename session_type::transport_layer          transport_layer;
 	typedef typename transport_layer::acceptor_type         acceptor_type;
 	typedef typename transport_layer::endpoint_type         endpoint_type;
+	typedef typename acceptor_type::protocol_type           protocol_type;
+	typedef typename acceptor_type::native_type             native_acceptor;   
 	typedef shared_ptr<profile>                             profile_pointer;
+
+	basic_listener(transport_layer &transport)
+		: transport_(transport)
+		, acceptor_(transport_.lowest_layer())
+		, next_(new session_type(transport_, session_type::listening_role))
+		, sessions_()
+	{
+	}
 
 	basic_listener(transport_layer &transport, const endpoint_type &endpoint)
 		: transport_(transport)
@@ -41,6 +51,53 @@ public:
 			(*i)->install(pp);
 		}
 	}
+
+	void close()
+	{
+		acceptor_.close();
+	}
+
+	void assign(const protocol_type &protocol, const native_acceptor &native)
+				
+	{
+		acceptor_.assign(protocol, native);
+	}
+
+	void open(const protocol_type &protocol)
+	{
+		acceptor_.open(protocol);
+	}
+
+	template <typename SettableSocketOption>
+	void set_option(const SettableSocketOption &option)
+	{
+		acceptor_.set_option(option);
+	}
+
+	void bind(const endpoint_type &endpoint)
+	{
+		acceptor_.bind(endpoint);
+	}
+
+	void listen(int backlog = asio::socket_base::max_connections)
+	{
+		acceptor_.listen(backlog);
+	}
+
+	void start()
+	{
+		acceptor_.async_accept(next_->connection().lowest_layer(),
+							   ::bind(&basic_listener::on_accept, this,
+									  asio::placeholders::error));
+	}
+
+	void stop()
+	{
+		acceptor_.close();
+		// for each session
+		// *i->stop()
+		sessions_.clear();
+	}
 private:
 	typedef list<session_pointer>                           sessions_container;
 	typedef list<profile_pointer>                           profiles_container;
@@ -50,13 +107,6 @@ private:
 	session_pointer           next_; // next session
 	sessions_container        sessions_;
 	profiles_container        profiles_;
-
-	void start()
-	{
-		acceptor_.async_accept(next_->connection().lowest_layer(),
-							   bind(&basic_listener::on_accept, this,
-									placeholders::error));
-	}
 
 	void on_accept(const boost::system::error_code &error)
 	{
