@@ -23,7 +23,7 @@ public:
 	basic_listener(transport_layer &transport)
 		: transport_(transport)
 		, acceptor_(transport_.lowest_layer())
-		, next_(new session_type(transport_, session_type::listening_role))
+		, next_(new session_type(transport_, listening_role))
 		, sessions_()
 	{
 	}
@@ -31,7 +31,7 @@ public:
 	basic_listener(transport_layer &transport, const endpoint_type &endpoint)
 		: transport_(transport)
 		, acceptor_(transport_.lowest_layer())
-		, next_(new session_type(transport_, session_type::listening_role))
+		, next_(new session_type(transport_, listening_role))
 		, sessions_()
 	{
 		acceptor_.open(endpoint.protocol());
@@ -116,8 +116,7 @@ private:
 			sessions_.push_back(next_);
 			next_->start();
 			session_pointer
-				nextSession(new session_type(transport_,
-											 session_type::listening_role));
+				nextSession(new session_type(transport_, listening_role));
 			next_ = nextSession;
 			for (const_iterator i=profiles_.begin(); i!=profiles_.end();++i) {
 				next_->install(*i);

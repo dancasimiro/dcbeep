@@ -6,6 +6,11 @@
 #define BEEP_SESSION_HEAD 1
 namespace beep {
 
+enum role {
+	initiating_role,
+	listening_role,
+};
+
 /// \brief BEEP session management
 ///
 /// \note Each session has an implicit tuning channel that performs
@@ -22,11 +27,6 @@ public:
 	typedef connection_type&                      connection_reference;
 	typedef basic_channel<base_type>              channel_type;
 	typedef shared_ptr<profile>                   profile_pointer;
-
-	enum role {
-		initiating_role,
-		listening_role,
-	};
 
 	basic_session(transport_layer_reference transport)
 		: transport_(transport)

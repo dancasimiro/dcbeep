@@ -16,7 +16,7 @@ public:
 	typedef typename transport_layer::endpoint_type         endpoint_type;
 
 	basic_initiator(transport_layer &transport)
-		: session_(transport, session_type::initiating_role)
+		: session_(transport, initiating_role)
 	{
 	}
 
