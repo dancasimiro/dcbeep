@@ -27,6 +27,11 @@ using namespace boost;
 #include "initiator.hpp"
 #include "test_profile.hpp"
 
+typedef beep::tcptl                                     transport_layer;
+typedef beep::basic_session<transport_layer>            session;
+typedef beep::basic_initiator<session>                  initiator;
+typedef beep::basic_channel<session>                    channel;
+
 char a_global_buffer[4096];
 
 void
@@ -44,28 +49,29 @@ on_got_data(const boost::system::error_code &error,
 }
 
 
+void
+on_connect(initiator &client, channel &myChannel)
+{
+	client.next_layer().add(myChannel);
+	client.next_layer().connection().async_read(myChannel,
+												buffer(a_global_buffer),
+												on_got_data);
+}
 
 int
 main(int argc, char **argv)
 {
-	typedef beep::tcptl                                     transport_layer;
-	typedef beep::basic_session<transport_layer>            session;
-	typedef beep::basic_initiator<session>                  initiator;
-	typedef beep::basic_channel<session>                    channel;
-
 	try {
 		io_service service;
 		transport_layer tl(service);
 		initiator client(tl);
-		client.connect(ip::tcp::endpoint(ip::address::from_string("127.0.0.1"),
-										 12345));
 		channel myChannel(client.next_layer());
 		shared_ptr<beep::profile> pp(new test_profile);
 		myChannel.set_profile(pp);
-		client.next_layer().add(myChannel);
-		client.next_layer().connection().async_read(myChannel,
-													buffer(a_global_buffer),
-													on_got_data);
+
+		client.async_connect(ip::tcp::endpoint(ip::address::from_string("127.0.0.1"),
+											   12345),
+							 bind(on_connect, ref(client), ref(myChannel)));
 		service.run();
 	} catch (const std::exception &ex) {
 		cerr << "Fatal Error: " << ex.what() << endl;
