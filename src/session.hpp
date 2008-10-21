@@ -38,6 +38,7 @@ public:
 		, tunebuf_()
 		, tuneprof_(new channel_management_profile)
 		, ready_(false)
+		, delegate_(NULL)
 	{
 		tunebuf_.resize(4096);
 		setup_tuning_channel();
@@ -53,14 +54,20 @@ public:
 		, tunebuf_()
 		, tuneprof_(new channel_management_profile)
 		, ready_(false)
+		, delegate_(NULL)
 	{
 		tunebuf_.resize(4096);
 		setup_tuning_channel();
 	}
 
-	io_service &lowest_layer() { return transport_.lowest_layer(); }
+	class delegate {
+	public:
+		virtual void channel_is_ready(const channel_type &channel) = 0;
+	};
 
+	io_service &lowest_layer() { return transport_.lowest_layer(); }
 	connection_reference connection() { return connection_; }
+	void set_delegate(delegate * const del) { delegate_ = del; }
 
 	void start()
 	{
@@ -113,6 +120,7 @@ private:
 	vector<char>              tunebuf_;
 	tuning_profile            tuneprof_;
 	bool                      ready_;     // registration is complete.
+	delegate                  *delegate_;
 
 	void
 	on_channel_management(const boost::system::error_code &error,
@@ -189,15 +197,21 @@ private:
 								   bind(&basic_session::sent_channel_init,
 										this,
 										asio::placeholders::error,
-										asio::placeholders::bytes_transferred));
+										asio::placeholders::bytes_transferred,
+										chNum));
+		} else if (delegate_) {
+			delegate_->channel_is_ready(this->channels_[chNum]);
 		}
 	}
 
 	void
 	sent_channel_init(const boost::system::error_code &error,
-					  size_t bytes_transferred)
+					  size_t bytes_transferred, const int chNum)
 	{
 		cout << "session::sent_channel_init" << endl;
+		if (delegate_) {
+			delegate_->channel_is_ready(this->channels_[chNum]);
+		}
 	}
 
 	void
