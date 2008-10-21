@@ -102,7 +102,6 @@ public:
 
 			assert(frameParser);
 			if (frameParser) {
-				cout << frameHeader << "\n";
 				isValid = true;
 			}
 		}
@@ -124,7 +123,6 @@ public:
 		istream is(sb);
 		string frameTrailer;
 		if (getline(is, frameTrailer)) {
-			cout << frameTrailer << "\n*********" << endl;
 			isValid = true;
 		}
 		return isValid;
@@ -140,10 +138,7 @@ public:
 	frame()
 		: header_()
 		, trailer_()
-		, hdbuf_()
-		, trbuf_()
 		, payload_()
-		, buffers_()
 	{
 	}
 
@@ -151,10 +146,7 @@ public:
 	frame(const ConstBufferSequence &buffer)
 		: header_()
 		, trailer_()
-		, hdbuf_()
-		, trbuf_()
 		, payload_()
-		, buffers_()
 	{
 		payload_.resize(distance(buffer.begin(), buffer.end()));
 		copy(buffer.begin(), buffer.end(), payload_.begin());
@@ -162,38 +154,19 @@ public:
 								  detail::buffer_size_accum);
 	}
 
-	const_iterator begin() const { return buffers_.begin(); }
-	const_iterator end() const { return buffers_.end(); }
-
-	// this is temporary... (i hope)
-	void refresh()
-	{
-		ostringstream hdstrm;
-		hdstrm << header_;
-		hdbuf_ = hdstrm.str();
-
-		ostringstream trstrm;
-		trstrm << trailer_;
-		trbuf_ = trstrm.str();
-
-		buffers_.resize(payload_.size() + 2);
-		buffers_.front() = buffer(hdbuf_);
-		copy(payload_.begin(), payload_.end(), buffers_.begin() + 1);
-		buffers_.back() = buffer(trbuf_);
-		cout << "OUT header: " << hdbuf_ << endl;
-	}
+	const_iterator begin() const { return payload_.begin(); }
+	const_iterator end() const { return payload_.end(); }
 
 	header &get_header() { return header_; }
-	trailer &get_trailer() { return trailer_; }
+	const header &get_header() const { return header_; }
 
-	void set_header(const header &hd) { header_ = hd; }
+	trailer &get_trailer() { return trailer_; }
+	const trailer &get_trailer() const { return trailer_; }
 
 private:
 	header                    header_;
 	trailer                   trailer_;
-	string                    hdbuf_, trbuf_;
 	buffers_container         payload_;
-	buffers_container         buffers_;
 };     // class frame
 
 inline

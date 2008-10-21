@@ -19,7 +19,6 @@ public:
 		, seqno_(0)
 		, ansno_(0)
 	{
-		content_.push_back(buffer("\r\n"));
 	}
 
 	virtual ~message()
@@ -44,6 +43,9 @@ public:
 	void add_header(const_buffer ehbuf)
 	{
 		content_.push_front(ehbuf);
+		if (content_.size() == 1) {
+			content_.push_back(buffer("\r\n"));
+		}
 	}
 
 	void add_content(const_buffer buf)

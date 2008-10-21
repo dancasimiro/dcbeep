@@ -27,6 +27,24 @@ using namespace boost;
 #include "initiator.hpp"
 #include "test_profile.hpp"
 
+char a_global_buffer[4096];
+
+void
+on_got_data(const boost::system::error_code &error,
+			std::size_t bytes_transferred)
+{
+	if (!error || error == boost::asio::error::message_size) {
+		cout << "The initiator got " << bytes_transferred
+			 << " bytes of application data!" << endl;
+		a_global_buffer[bytes_transferred] = '\0';
+		cout << "Contents:\n" << a_global_buffer << endl;
+	} else {
+		cerr << "Error receiving application data.\n";
+	}
+}
+
+
+
 int
 main(int argc, char **argv)
 {
@@ -45,6 +63,9 @@ main(int argc, char **argv)
 		shared_ptr<beep::profile> pp(new test_profile);
 		myChannel.set_profile(pp);
 		client.next_layer().add(myChannel);
+		client.next_layer().connection().async_read(myChannel,
+													buffer(a_global_buffer),
+													on_got_data);
 		service.run();
 	} catch (const std::exception &ex) {
 		cerr << "Fatal Error: " << ex.what() << endl;

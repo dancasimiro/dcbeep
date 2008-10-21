@@ -6,7 +6,35 @@ namespace beep {
 
 namespace detail {
 
-inline void noop_message_cb(const message&) { }
+/// \brief Divide a message into frames
+struct msg2frame {
+	typedef list<frame>                           container;
+
+	// should this take the transport layer as the initializer?
+	msg2frame()
+		: frames()
+	{
+	}
+
+	template <class T>
+	void operator()(const T &channel, const message &msg)
+	{
+		frames.clear();
+		
+		//frame nextFrame(const_buffer(msg.content(), msg.content_size()));
+		frame nextFrame(msg);
+		nextFrame.get_header().type = msg.type();
+		nextFrame.get_header().channel = channel.number();
+		nextFrame.get_header().msgno = channel.next_message_number();
+		nextFrame.get_header().seqno = channel.next_sequence_number();
+		//nextFrame.get_header().ansno = channel.next_answer_number();
+		nextFrame.get_header().ansno = 0;
+
+		frames.push_back(nextFrame);
+	}
+
+	container                 frames;
+};     // struct frame_generator
 
 }      // namespace detail
 
@@ -16,30 +44,36 @@ public:
 	typedef StreamType                                      stream_type;
 	typedef stream_type                                     next_layer_type;
 	typedef typename next_layer_type::lowest_layer_type     lowest_layer_type;
-	typedef function<void (message)>                        message_callback;
-
-	template <class T> friend
-	asio::streambuf* detail::connection_send_streambuf(T&);
+	typedef boost::system::error_code                       error_code;
+	typedef function<void (error_code, size_t)>             data_callback;
 
 	basic_connection(io_service &service)
 		: stream_(service)
 		, rsb_()
 		, frame_()
-		, framebuf_()
-		, callback_(detail::noop_message_cb)
 		, ssb_()
 		, fssb_(&ssb_[0])
 		, bssb_(&ssb_[1])
+		, bufs_()
+		, rcbs_()
+		, scbs_()
+		, started_(false)
 	{
 	}
 
 	next_layer_type &next_layer() { return stream_; }
 	lowest_layer_type &lowest_layer() { return stream_.lowest_layer(); }
 
-	void install_message_callback(message_callback cb) { callback_ = cb; }
-
-	void start()
+	template <class Channel, class MutableBuffer, class Handler>
+	void async_read(Channel &chan, MutableBuffer buffer, Handler handler)
 	{
+		const int chNum = chan.number();
+		assert(bufs_.find(chNum) == bufs_.end());
+		assert(rcbs_.find(chNum) == rcbs_.end());
+
+		bufs_.insert(make_pair(chNum, buffer));
+		rcbs_.insert(make_pair(chNum, handler));
+
 		async_read_until(stream_, rsb_,
 						 frame::terminator(),
 						 bind(&basic_connection::handle_frame_header, this,
@@ -47,54 +81,82 @@ public:
 							  placeholders::bytes_transferred));
 	}
 
-	void transmit()
+	template <class Channel, class ConstBuffer, class Handler>
+	void async_send(Channel &chan, ConstBuffer buffer, Handler handler)
 	{
-		// create the frames from the message
-		// Encode the frame data and copy to the sending streambuf
-		// schedule the transmission
+		const int chNum = chan.number();
+		assert(scbs_.find(chNum) == scbs_.end());
 
-		// 1. break channel, msg into frames
-		// 2. push frames into the stream buffer
-		// 3. enqueue the write.
+		ostream bg(bssb_); // background stream
+
+		detail::msg2frame gen;
+		gen(chan, buffer);
+
+		size_t totalOctets = 0;
+		typedef detail::msg2frame::container::const_iterator const_iterator;
+		cout << "START SEND:\n";
+		for (const_iterator i = gen.frames.begin(); i != gen.frames.end(); ++i){
+			bg << i->get_header();
+			cout << i->get_header();
+			for (frame::const_iterator j = i->begin(); j != i->end(); ++j) {
+				if (bg.write(buffer_cast<const char*>(*j), buffer_size(*j))) {
+					totalOctets += buffer_size(*j);
+				} else {
+					// failure!!!
+					assert(false);
+				}
+				cout << "PL: " << buffer_cast<const char*>(*j);
+			}
+			bg << i->get_trailer();
+			cout << i->get_trailer();
+		}
+		cout << "END SEND." << endl;
+		chan.increment_message_number();
+		chan.increase_sequence_number(totalOctets);
+
+		// the write has been buffered, but not sent.
+		boost::system::error_code error;
+		stream_.get_io_service().dispatch(bind(handler, error, totalOctets));
 		this->enqueue_write();
 	}
 
+	void start()
+	{
+		started_ = true;
+	}
 private:
+	typedef map<int, data_callback>     callback_container;
+	typedef map<int, mutable_buffer>    buffers_containers;
+
 	next_layer_type           stream_;   // socket
 	asio::streambuf           rsb_;      // streambuf for receiving data
 	frame                     frame_;    // current frame
-	vector<char>              framebuf_; // buffer used to store split messages
-	message_callback          callback_; // handle incoming messages
 	asio::streambuf           ssb_[2];   // double buffered sends
 	asio::streambuf           *fssb_;    // streambuf that actively sends
 	asio::streambuf           *bssb_;    // background sending streambuf
+	buffers_containers        bufs_;     // read buffers for each channel
+	callback_container        rcbs_;     // read callbacks
+	callback_container        scbs_;     // send callbacks
+	bool                      started_;
 
 	void
 	handle_frame_header(const boost::system::error_code &error,
 						size_t bytes_transferred)
 	{
 		if (!error || error == boost::asio::error::message_size) {
-			frame::header myHead;
-			if (!parse_frame_header(bytes_transferred, myHead)) {
+			if (!parse_frame_header(bytes_transferred, frame_.get_header())) {
 				terminate_connection();
-			} else if (myHead.size > rsb_.size()) {
-				const size_t remainingBytes = myHead.size - rsb_.size();
-				cout << "Read more data: " << remainingBytes << endl;
-				cout << "RSB Size is " << rsb_.size() << endl;
-				cout << "Frame Payload Size is " << myHead.size << endl;
-				frame_.set_header(myHead);
-				async_read(stream_, rsb_,
-						   transfer_at_least(remainingBytes),
-						   bind(&basic_connection::handle_frame_payload, this,
-								placeholders::error,
-								placeholders::bytes_transferred));
+			} else if (frame_.get_header().size > rsb_.size()) {
+				const size_t remainingBytes =
+					frame_.get_header().size - rsb_.size();
+				::async_read(stream_, rsb_,
+							 transfer_at_least(remainingBytes),
+							 bind(&basic_connection::handle_frame_payload, this,
+								  placeholders::error,
+								  placeholders::bytes_transferred));
 			} else {
-				cout << "Invoke payload handler directly!" << endl;
-				frame_.set_header(myHead);
 				handle_frame_payload(error, rsb_.size());
 			}
-			//cout << "Message Number is " << frame_.get_header().msgno << endl;
-			//cout << "Message Channel is " << frame_.get_header().channel << endl;
 		} else {
 			cerr << "Bad Frame Header: " << error.message() << endl;
 		}
@@ -104,12 +166,10 @@ private:
 	handle_frame_payload(const boost::system::error_code &error,
 						 size_t bytes_transferred)
 	{
-		cout << "handle_frame_payload " << bytes_transferred << endl;
 		if (!error || error == boost::asio::error::message_size) {
 			const frame::header frameHeader(frame_.get_header());
-			cout << "Frame Header size == " << frameHeader.size << endl;
-			framebuf_.resize(frameHeader.size + 1, '\0');
-			rsb_.sgetn(&framebuf_[0], frameHeader.size);
+			rsb_.sgetn(buffer_cast<char*>(bufs_[frameHeader.channel]),
+					   frameHeader.size);
 
 			async_read_until(stream_, rsb_,
 							 frame::terminator(),
@@ -129,24 +189,19 @@ private:
 			if (!parse_frame_trailer(bytes_transferred, frame_.get_trailer())) {
 				terminate_connection();
 			} else {
-				// create a message from the payload...
-				message myMessage;
-#if 1
-				myMessage.set_channel_number(frame_.get_header().channel);
-				myMessage.set_message_number(frame_.get_header().msgno);
-				myMessage.set_sequence_number(frame_.get_header().seqno);
-				myMessage.set_type(frame_.get_header().type);
-				myMessage.add_content(buffer(framebuf_));
-#endif
-				cout << "Invoke message callback for:\n " << &framebuf_[0] << endl;
-				callback_(myMessage);
+				cout << "RECV:\n";
+				cout << frame_.get_header();
 
-				async_read_until(stream_, rsb_,
-								 frame::terminator(),
-								 bind(&basic_connection::handle_frame_header,
-									  this,
-									  placeholders::error,
-									  placeholders::bytes_transferred));
+				const int chNum = frame_.get_header().channel;
+				data_callback myCallback(rcbs_[chNum]);
+				bufs_.erase(chNum);
+				rcbs_.erase(chNum);
+				
+				boost::system::error_code noError;
+				myCallback(noError, frame_.get_header().size);
+
+				cout << frame_.get_trailer() << "\n*********" << endl;
+				cout << "RECV END." << endl;
 			}
 		} else {
 			cerr << "Bad Frame Trailer: " << error.message() << endl;
@@ -183,7 +238,7 @@ private:
 	void
 	do_enqueue_write()
 	{
-		if (fssb_->size() == 0) {
+		if (!started_ || fssb_->size() == 0) {
 			// no active write operation, so enque a new one.
 			swap(bssb_, fssb_);
 			async_write(stream_, *fssb_,

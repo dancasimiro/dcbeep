@@ -8,43 +8,6 @@ namespace beep {
 
 namespace detail {
 
-/// \brief Divide a message into frames
-struct message_splitter {
-	typedef list<frame>                           frames_container;
-
-	// should this take the transport layer as the initializer?
-	message_splitter()
-		: frames()
-	{
-	}
-
-	template <class T>
-	void operator()(const T &channel, const message &msg)
-	{
-		frames.clear();
-		
-		//frame nextFrame(const_buffer(msg.content(), msg.content_size()));
-		frame nextFrame(msg);
-		nextFrame.get_header().type = msg.type();
-		nextFrame.get_header().channel = channel.number();
-		nextFrame.get_header().msgno = channel.next_message_number();
-		nextFrame.get_header().seqno = channel.next_sequence_number();
-		//nextFrame.get_header().ansno = channel.next_answer_number();
-		nextFrame.get_header().ansno = 0;
-
-		nextFrame.refresh();
-		frames.push_back(nextFrame);
-	}
-
-	frames_container          frames;
-};     // struct frame_generator
-
-template <class T>
-asio::streambuf *connection_send_streambuf(T &connection)
-{
-	return connection.bssb_;
-}
-
 }      // namespace detail
 
 /// \brief Establish a new channel in the BEEP session
@@ -96,47 +59,18 @@ public:
 	{
 		profile_ = pp;
 	}
-	profile_pointer get_profile() { return profile_; }
+	profile_pointer get_profile() const { return profile_; }
 
 	uint32_t number() const { return num_; }
 	void set_number(uint32_t num) { num_ = num; }
 	uint32_t next_message_number() const { return msgno_; }
 	uint32_t next_sequence_number() const { return seqno_; }
-private:
 	void increment_message_number() { ++msgno_; }
 	void increase_sequence_number(const size_t octs) { seqno_ += octs; }
 
 private:
 	uint32_t                  num_, msgno_, seqno_;
 	profile_pointer           profile_;  // active profile
-public:
-	void encode(message &msg, connection_reference connection)
-	{
-		list<frame> frames;
-		detail::message_splitter frame_maker;
-		frame_maker(*this, msg);
-
-		typedef detail::message_splitter::frames_container::const_iterator
-			const_iterator;
-
-		size_t totalOctets = 0;
-		// for each frame
-		for (const_iterator i = frame_maker.frames.begin();
-			 i != frame_maker.frames.end(); ++i) {
-
-			// for each buffer within the frame
-			typedef vector<const_buffer>::const_iterator buf_const_iter;
-			asio::streambuf * const bssb =
-				detail::connection_send_streambuf(connection);
-			for (buf_const_iter j = i->begin(); j != i->end(); ++j) {
-				bssb->sputn(buffer_cast<const char*>(*j),
-							buffer_size(*j));
-				totalOctets += buffer_size(*j);
-			}
-		}
-		this->increment_message_number();
-		this->increase_sequence_number(totalOctets);
-	}
 };     // class basic_channel  
 
 }      // namespace beep

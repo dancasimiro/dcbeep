@@ -11,7 +11,9 @@ namespace beep {
 /// \note Each session has an implicit tuning channel that performs
 ///       initialization.
 template <class TransportLayer>
-class basic_session {
+class basic_session :
+		private noncopyable
+{
 public:
 	typedef TransportLayer                        transport_layer;
 	typedef transport_layer&                      transport_layer_reference;
@@ -33,9 +35,11 @@ public:
 		, profiles_()
 		, role_(initiating_role)
 		, nextchan_(1)
+		, tunebuf_()
+		, tuneprof_(new channel_management_profile)
+		, ready_(false)
 	{
-		connection_.install_message_callback(bind(&basic_session::handle_message,
-												  this, _1));
+		tunebuf_.resize(4096);
 		setup_tuning_channel();
 	}
 
@@ -46,9 +50,11 @@ public:
 		, profiles_()
 		, role_(r)
 		, nextchan_(r == initiating_role ? 1 : 2)
+		, tunebuf_()
+		, tuneprof_(new channel_management_profile)
+		, ready_(false)
 	{
-		connection_.install_message_callback(bind(&basic_session::handle_message,
-												  this, _1));
+		tunebuf_.resize(4096);
 		setup_tuning_channel();
 	}
 
@@ -58,52 +64,34 @@ public:
 
 	void start()
 	{
+		cout << "session::start" << endl;
 		connection_.start();
-		connection_.transmit();
+
+		message msg;
+		if (tuning_channel().get_profile()->initialize(msg)) {
+			connection_.async_send(tuning_channel(), msg,
+								   bind(&basic_session::sent_channel_greeting,
+										this, _1, _2));
+		} else {
+			cerr << "Failed to transmit the greeting. :-(\n";
+			assert(false);
+		}
 	}
 
 	unsigned int next_channel_number() const { return nextchan_; }
 
 	void add(channel_type &channel)
 	{
-		static const size_t max_tries = 4;
-		start_message myMessage;
-		myMessage.request_num = channel.number();
-		myMessage.profile_uri = channel.get_profile()->get_uri();
-		vector<char> encMem;
-		size_t encLen = 0;
-		size_t attempt = 0;
+		this->track_channel(channel);
 
+		// sending a new channel start message must be delayed until the
+		// supported profiles are negogiated. The registration process must
+		// be completed.
+
+		// if the registration is complete...
 		// get management syntax
-		profile_pointer pp(tuning_channel().get_profile());
-
-		encMem.resize(256, '\0');
-		encLen = encMem.size();
-		while (!pp->encode(start_message::code(), &myMessage,
-						   sizeof(start_message), &encMem[0], &encLen) &&
-			   attempt++ < max_tries) {
-			encMem.resize(4 * encMem.size());
-			encLen = encMem.size();
-		}
-
-		if (attempt < max_tries) {
-			message msg;
-			pp->setup_message(start_message::code(), &encMem[0], encLen, msg);
-
-			tuning_channel().encode(msg, connection_);
-			connection_.transmit();
-
-			if (channels_.size() <= channel.number()) {
-				channels_.resize(channel.number() * 2);
-			}
-			channels_[channel.number()] = channel;
-			nextchan_ += 2;
-#if 1
-			message newChannelInit;
-			if (channel.get_profile()->initialize(newChannelInit)) {
-				channel.encode(newChannelInit, connection_);
-			}
-#endif
+		if (ready_) { // if the registration process is complete
+			this->standup_channel(channel);
 		}
 	}
 
@@ -112,8 +100,9 @@ public:
 		profiles_.push_back(pp);
 	}
 private:
-	typedef vector<channel_type>                  channels_container;
-	typedef list<profile_pointer>                 profiles_container;
+	typedef vector<channel_type>                            channels_container;
+	typedef list<profile_pointer>                           profiles_container;
+	typedef shared_ptr<channel_management_profile>          tuning_profile;
 
 	transport_layer_reference transport_;
 	connection_type           connection_;
@@ -121,54 +110,153 @@ private:
 	profiles_container        profiles_;
 	role                      role_;
 	unsigned int              nextchan_;
+	vector<char>              tunebuf_;
+	tuning_profile            tuneprof_;
+	bool                      ready_;     // registration is complete.
 
 	void
-	handle_message(const message &msg)
+	on_channel_management(const boost::system::error_code &error,
+						  size_t bytes_transferred)
 	{
-		// set up a try/catch block... (???)
-		cout << "Handle an incoming message for channel #" << msg.channel_number() << endl;
-		// special case for tuning channel...
-		// this hard codes that the incoming message was a request to add
-		// a channel (1) with the only supported profile...
-#if 1
-		if (msg.channel_number() == 0 && msg.type() == frame::msg) {
-			cout << "set up a new channel in the listener..." << endl;
-			channel_type new_channel;
-			new_channel.set_number(1);
-			new_channel.set_profile(profiles_.back());
-			if (channels_.size() <= new_channel.number()) {
-				channels_.resize(new_channel.number() * 2);
-			}
-			channels_[new_channel.number()] = new_channel;
+		/// \todo install an XML parser here...
+		cout << "on_channel_management recveived " << bytes_transferred
+			 << " bytes:\n";
+		string myString(tunebuf_.begin(), tunebuf_.begin() + bytes_transferred);
+		cout << myString << endl;
+		
+		// if start message
+		if(myString.find("start") != string::npos) {
+			// need a profile...
+			int channel = 1;
+			string profile_uri;
+			this->setup_new_channel(channel, profile_uri);
 		}
-#endif
+		connection_.async_read(tuning_channel(),
+							   buffer(tunebuf_),
+							   bind(&basic_session::on_channel_management,
+									this,
+									asio::placeholders::error,
+									asio::placeholders::bytes_transferred));	
+	}
 
-		message theReply;
-		channel_type &theChannel(channels_[msg.channel_number()]);
-		if (theChannel.get_profile()->handle(msg, theReply)) {
-			theChannel.encode(theReply, connection_);
-			connection_.transmit();
+	void
+	sent_channel_greeting(const boost::system::error_code &error,
+						  size_t bytes_transferred)
+	{
+		cout << "session::sent_channel_greeting" << endl;
+		/// \todo negogiate the connection
+		/// for example, authorize user or set up encryption
+		connection_.async_read(tuning_channel(), buffer(tunebuf_),
+							   bind(&basic_session::negogiate_session,
+									this,
+									asio::placeholders::error,
+									asio::placeholders::bytes_transferred));
+	}
+
+	void
+	negogiate_session(const boost::system::error_code &error,
+					  size_t bytes_transferred)
+	{
+		cout << "session::negogiate_session" << endl;
+		if (!error || error == asio::error::message_size) {
+			/// \todo actually negogiate
+			ready_ = true;
+
+			// send "start" messages for any channels that were added
+			// before the negotiation finished.
+			// skip over the tuning channel (channel 0)
+			for_each(channels_.begin() + 1, channels_.end(),
+					 bind(&basic_session::standup_channel, this, _1));
+
+			/// for now, just read more data for channel 0
+			this->on_channel_management(error, bytes_transferred);
 		}
 	}
-	
+
+	void
+	setup_new_channel(const int chNum, const string &profileURI)
+	{
+		cout << "set up a new channel!!!" << endl;
+		channel_type myChannel;
+		myChannel.set_number(chNum);
+		profile_pointer pp(this->uri2profile(profileURI));
+		myChannel.set_profile(pp);
+		this->track_channel(myChannel);
+
+		message msg;
+		if (pp->initialize(msg)) {
+			connection_.async_send(this->channels_[chNum], msg,
+								   bind(&basic_session::sent_channel_init,
+										this,
+										asio::placeholders::error,
+										asio::placeholders::bytes_transferred));
+		}
+	}
+
+	void
+	sent_channel_init(const boost::system::error_code &error,
+					  size_t bytes_transferred)
+	{
+		cout << "session::sent_channel_init" << endl;
+	}
+
+	void
+	on_sent_channel_start(const boost::system::error_code &error,
+						  size_t bytes_transferred,
+						  const int channel_number)
+	{
+		if (!error) {
+			cout << "new channel is up!" << endl;
+		}
+	}
+
 	void
 	setup_tuning_channel()
 	{
-		profile_pointer tpp(new channel_management_profile);
-		profiles_.push_back(tpp);
-
 		channel_type tuning;
-		tuning.set_profile(tpp);
+		tuning.set_profile(tuneprof_);
 
-		message msg;
-		if (tpp->initialize(msg)) {
-			tuning.encode(msg, connection_);
-		}
 		// tuning channel number is always zero
 		channels_.insert(channels_.begin(), tuning);
 	}
 
 	channel_type &tuning_channel() { return channels_[0]; } // by definition
+
+	void
+	standup_channel(const channel_type &channel)
+	{
+		ostringstream encstrm;
+		if (tuneprof_->add_channel(channel, encstrm)) {
+			const string myBuffer(encstrm.str());
+			message msg;
+			tuneprof_->init_add_message(myBuffer, msg);
+
+			connection_.async_send(tuning_channel(), msg,
+								   bind(&basic_session::on_sent_channel_start,
+										this,
+										asio::placeholders::error,
+										asio::placeholders::bytes_transferred,
+										channel.number()));
+		}
+	}
+
+	void
+	track_channel(const channel_type &channel)
+	{
+		if (channels_.size() <= channel.number()) {
+			channels_.resize(channel.number() * 2);
+		}
+		channels_[channel.number()] = channel;
+		nextchan_ += 2;
+	}
+
+	profile_pointer
+	uri2profile(const string &uri) const
+	{
+		/// \todo search for the URI in the profiles container
+		profile_pointer pp(profiles_.front());
+		return pp;
+	}
 };     // class basic_session
 
 }      // namespace beep

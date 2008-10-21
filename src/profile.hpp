@@ -35,47 +35,12 @@ public:
 	bool initialize(message &msg)
 	{ return do_initialize(msg); }
 
-	// Ideally, I want a signature with ASIO details
-	void on_init_transmitted(const boost::system::error_code &error,
-							 size_t bytes_transferred)
-	{
-		if (!error) {
-			cout << "Transmitted " << bytes_transferred << " bytes." << endl;
-			this->handle_init_transmission();
-		} else {
-			cerr << "Could not send greeting: " << error.message() << endl;
-		}
-	}
-
-	bool encode(const int code, void *raw, const size_t rawlen,
-				char* dest, size_t *destlen)
-	{
-		return do_encode(code, raw, rawlen, dest, destlen);
-	}
-
-	void setup_message(const int code,
-					   char* const enc, const size_t encLen,
-					   message &msg)
-	{
-		do_setup_message(code, enc, encLen, msg);
-	}
-
-	bool handle(const message &in, message &reply)
-	{
-		return do_handle(in, reply);
-	}
 private:
 	string                    uri_;
 	string                    encoding_;
 	string                    content_;
 
 	virtual bool do_initialize(message &msg) = 0;
-	virtual void handle_init_transmission() = 0;
-	virtual bool do_encode(const int code, void *raw, const size_t rawlen,
-						   char* dest, size_t *destlen) = 0;
-	virtual void do_setup_message(const int code, char * const enc,
-								  const size_t encLen, message &msg) = 0;
-	virtual bool do_handle(const message &msg, message &reply) = 0;
 };     // class profile
 
 }      // namespace beep
