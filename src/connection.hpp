@@ -163,8 +163,15 @@ private:
 	{
 		if (!error || error == boost::asio::error::message_size) {
 			const frame::header frameHeader(frame_.get_header());
-			rsb_.sgetn(buffer_cast<char*>(bufs_[frameHeader.channel]),
-					   frameHeader.size);
+			buffers_container::iterator i = bufs_.find(frameHeader.channel);
+			if (i != bufs_.end()) {
+				rsb_.sgetn(buffer_cast<char*>(bufs_[frameHeader.channel]),
+						   frameHeader.size);
+			} else {
+				cout << "There is no buffer ready for channel "
+					 << frameHeader.channel << endl;
+				rsb_.consume(frameHeader.size);
+			}
 
 			async_read_until(stream_, rsb_,
 							 frame::terminator(),
