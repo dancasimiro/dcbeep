@@ -100,8 +100,7 @@ public:
 				out.type = frame::rpy;
 			}
 
-			assert(frameParser);
-			if (frameParser) {
+			if (frameParser || (!frameParser && frameParser.eof())) {
 				isValid = true;
 			}
 		}
@@ -122,7 +121,7 @@ public:
 		bool isValid = false;
 		istream is(sb);
 		string frameTrailer;
-		if (getline(is, frameTrailer)) {
+		if (getline(is, frameTrailer) || (!is && is.eof())) {
 			isValid = true;
 		}
 		return isValid;
