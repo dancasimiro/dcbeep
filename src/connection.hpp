@@ -58,6 +58,7 @@ public:
 		, rcbs_()
 		, scbs_()
 		, started_(false)
+		, busyread_(false)
 	{
 	}
 
@@ -74,11 +75,14 @@ public:
 		bufs_.insert(make_pair(chNum, buffer));
 		rcbs_.insert(make_pair(chNum, handler));
 
-		async_read_until(stream_, rsb_,
-						 frame::terminator(),
-						 bind(&basic_connection::handle_frame_header, this,
-							  placeholders::error,
-							  placeholders::bytes_transferred));
+		if (!busyread_) {
+			async_read_until(stream_, rsb_,
+							 frame::terminator(),
+							 bind(&basic_connection::handle_frame_header, this,
+								  placeholders::error,
+								  placeholders::bytes_transferred));
+			busyread_ = true;
+		}
 	}
 
 	template <class Channel, class ConstBuffer, class Handler>
@@ -133,6 +137,7 @@ private:
 	callback_container        rcbs_;     // read callbacks
 	callback_container        scbs_;     // send callbacks
 	bool                      started_;
+	bool                      busyread_;
 
 	void
 	handle_frame_header(const boost::system::error_code &error,
@@ -199,8 +204,15 @@ private:
 				boost::system::error_code noError;
 				myCallback(noError, frame_.get_header().size);
 
-				cout << frame_.get_trailer() << "\n*********" << endl;
-				cout << "RECV END." << endl;
+				if (bufs_.empty()) {
+					busyread_ = false;
+				} else {
+					async_read_until(stream_, rsb_,
+									 frame::terminator(),
+									 bind(&basic_connection::handle_frame_header, this,
+										  placeholders::error,
+										  placeholders::bytes_transferred));
+				}
 			}
 		} else {
 			cerr << "Bad Frame Trailer: " << error.message() << endl;
