@@ -121,7 +121,7 @@ public:
 	}
 private:
 	typedef map<int, data_callback>     callback_container;
-	typedef map<int, mutable_buffer>    buffers_containers;
+	typedef map<int, mutable_buffer>    buffers_container;
 
 	next_layer_type           stream_;   // socket
 	asio::streambuf           rsb_;      // streambuf for receiving data
@@ -129,7 +129,7 @@ private:
 	asio::streambuf           ssb_[2];   // double buffered sends
 	asio::streambuf           *fssb_;    // streambuf that actively sends
 	asio::streambuf           *bssb_;    // background sending streambuf
-	buffers_containers        bufs_;     // read buffers for each channel
+	buffers_container         bufs_;     // read buffers for each channel
 	callback_container        rcbs_;     // read callbacks
 	callback_container        scbs_;     // send callbacks
 	bool                      started_;
