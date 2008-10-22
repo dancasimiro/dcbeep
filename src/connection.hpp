@@ -94,10 +94,8 @@ public:
 
 		size_t totalOctets = 0;
 		typedef detail::msg2frame::container::const_iterator const_iterator;
-		cout << "START SEND:\n";
 		for (const_iterator i = gen.frames.begin(); i != gen.frames.end(); ++i){
 			bg << i->get_header();
-			cout << i->get_header();
 			for (frame::const_iterator j = i->begin(); j != i->end(); ++j) {
 				if (bg.write(buffer_cast<const char*>(*j), buffer_size(*j))) {
 					totalOctets += buffer_size(*j);
@@ -105,12 +103,9 @@ public:
 					// failure!!!
 					assert(false);
 				}
-				cout << "PL: " << buffer_cast<const char*>(*j);
 			}
 			bg << i->get_trailer();
-			cout << i->get_trailer();
 		}
-		cout << "END SEND." << endl;
 		chan.increment_message_number();
 		chan.increase_sequence_number(totalOctets);
 
@@ -189,9 +184,6 @@ private:
 			if (!parse_frame_trailer(bytes_transferred, frame_.get_trailer())) {
 				terminate_connection();
 			} else {
-				cout << "RECV:\n";
-				cout << frame_.get_header();
-
 				const int chNum = frame_.get_header().channel;
 				data_callback myCallback(rcbs_[chNum]);
 				bufs_.erase(chNum);
