@@ -48,14 +48,21 @@ on_got_data(const boost::system::error_code &error,
 	}
 }
 
+void
+on_channel_was_added(initiator &client, channel &myChannel)
+{
+	client.next_layer().connection().async_read(myChannel,
+												buffer(a_global_buffer),
+												on_got_data);
+}
+
 
 void
 on_connect(initiator &client, channel &myChannel)
 {
-	client.next_layer().add(myChannel);
-	client.next_layer().connection().async_read(myChannel,
-												buffer(a_global_buffer),
-												on_got_data);
+	client.next_layer()
+		.async_add(myChannel,
+				   bind(on_channel_was_added, ref(client), ref(myChannel)));
 }
 
 int

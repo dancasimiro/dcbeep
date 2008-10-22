@@ -27,6 +27,7 @@ public:
 	typedef connection_type&                      connection_reference;
 	typedef basic_channel<base_type>              channel_type;
 	typedef shared_ptr<profile>                   profile_pointer;
+	typedef function<void ()>                     channel_accepted_callback;
 
 	basic_session(transport_layer_reference transport)
 		: transport_(transport)
@@ -39,6 +40,7 @@ public:
 		, tuneprof_(new channel_management_profile)
 		, ready_(false)
 		, delegate_(NULL)
+		, chcb_()
 	{
 		tunebuf_.resize(4096);
 		setup_tuning_channel();
@@ -55,6 +57,7 @@ public:
 		, tuneprof_(new channel_management_profile)
 		, ready_(false)
 		, delegate_(NULL)
+		, chcb_()
 	{
 		tunebuf_.resize(4096);
 		setup_tuning_channel();
@@ -87,9 +90,11 @@ public:
 
 	unsigned int next_channel_number() const { return nextchan_; }
 
-	void add(channel_type &channel)
+	template <typename Handler>
+	void async_add(channel_type &channel, Handler handler)
 	{
 		this->track_channel(channel);
+		chcb_.insert(make_pair(channel.number(), handler));
 
 		// sending a new channel start message must be delayed until the
 		// supported profiles are negogiated. The registration process must
@@ -110,6 +115,7 @@ private:
 	typedef vector<channel_type>                            channels_container;
 	typedef list<profile_pointer>                           profiles_container;
 	typedef shared_ptr<channel_management_profile>          tuning_profile;
+	typedef map<int, channel_accepted_callback>             cb_container;
 
 	transport_layer_reference transport_;
 	connection_type           connection_;
@@ -121,6 +127,7 @@ private:
 	tuning_profile            tuneprof_;
 	bool                      ready_;     // registration is complete.
 	delegate                  *delegate_;
+	cb_container              chcb_;
 
 	void
 	on_channel_management(const boost::system::error_code &error,
@@ -130,8 +137,7 @@ private:
 		cout << "on_channel_management recveived " << bytes_transferred
 			 << " bytes:\n";
 		string myString(tunebuf_.begin(), tunebuf_.begin() + bytes_transferred);
-		cout << myString << endl;
-		
+
 		// if start message
 		if(myString.find("start") != string::npos) {
 			// need a profile...
@@ -139,12 +145,12 @@ private:
 			string profile_uri;
 			this->setup_new_channel(channel, profile_uri);
 		}
-		connection_.async_read(tuning_channel(),
+		connection_.async_read(this->tuning_channel(),
 							   buffer(tunebuf_),
 							   bind(&basic_session::on_channel_management,
 									this,
 									asio::placeholders::error,
-									asio::placeholders::bytes_transferred));	
+									asio::placeholders::bytes_transferred));
 	}
 
 	void
@@ -154,7 +160,7 @@ private:
 		cout << "session::sent_channel_greeting" << endl;
 		/// \todo negogiate the connection
 		/// for example, authorize user or set up encryption
-		connection_.async_read(tuning_channel(), buffer(tunebuf_),
+		connection_.async_read(this->tuning_channel(), buffer(tunebuf_),
 							   bind(&basic_session::negogiate_session,
 									this,
 									asio::placeholders::error,
@@ -220,7 +226,15 @@ private:
 						  const int channel_number)
 	{
 		if (!error) {
-			cout << "new channel is up!" << endl;
+			cout << "new channel " << channel_number << " is up!" << endl;
+			cb_container::iterator i = chcb_.find(channel_number);
+			if (i != chcb_.end()) {
+				cout << "Invoke channel ready callback now!" << endl;
+				i->second();
+				chcb_.erase(i);
+			} else {
+				cout << "Could not find the channel ready callback." << endl;
+			}
 		}
 	}
 
