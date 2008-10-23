@@ -111,6 +111,11 @@ public:
 	{
 		profiles_.push_back(pp);
 	}
+
+	void close()
+	{
+		connection().lowest_layer().close();
+	}
 private:
 	typedef vector<channel_type>                            channels_container;
 	typedef list<profile_pointer>                           profiles_container;
