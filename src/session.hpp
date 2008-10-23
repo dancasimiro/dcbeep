@@ -145,8 +145,12 @@ private:
 
 		// if start message
 		if(myString.find("start") != string::npos) {
+			string garbage;
+			istringstream strm(myString);
+			getline(strm, garbage, '\'');
 			// need a profile...
-			int channel = 1;
+			int channel = -1;
+			strm >> channel;
 			string profile_uri;
 			this->setup_new_channel(channel, profile_uri);
 		}
@@ -259,7 +263,7 @@ private:
 	standup_channel(const channel_type &channel)
 	{
 		ostringstream encstrm;
-		if (tuneprof_->add_channel(channel, encstrm)) {
+		if (channel.get_profile() && tuneprof_->add_channel(channel, encstrm)) {
 			const string myBuffer(encstrm.str());
 			message msg;
 			tuneprof_->init_add_message(myBuffer, msg);
