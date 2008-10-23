@@ -45,7 +45,7 @@ public:
 	typedef stream_type                                     next_layer_type;
 	typedef typename next_layer_type::lowest_layer_type     lowest_layer_type;
 	typedef boost::system::error_code                       error_code;
-	typedef function<void (error_code, size_t)>             data_callback;
+	typedef function<void (error_code, size_t, int)>        data_callback;
 
 	basic_connection(io_service &service)
 		: stream_(service)
@@ -200,9 +200,8 @@ private:
 				data_callback myCallback(rcbs_[chNum]);
 				bufs_.erase(chNum);
 				rcbs_.erase(chNum);
-				
 				boost::system::error_code noError;
-				myCallback(noError, frame_.get_header().size);
+				myCallback(noError, frame_.get_header().size, chNum);
 
 				if (bufs_.empty()) {
 					busyread_ = false;

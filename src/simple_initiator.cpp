@@ -36,11 +36,12 @@ char a_global_buffer[4096];
 
 void
 on_got_data(const boost::system::error_code &error,
-			std::size_t bytes_transferred)
+			std::size_t bytes_transferred, int channelNumber)
 {
 	if (!error || error == boost::asio::error::message_size) {
 		cout << "The initiator got " << bytes_transferred
-			 << " bytes of application data!" << endl;
+			 << " bytes of application data on channel " << channelNumber
+			 << "!" << endl;
 		a_global_buffer[bytes_transferred] = '\0';
 		cout << "Contents:\n" << a_global_buffer << endl;
 	} else {
