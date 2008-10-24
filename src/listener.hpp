@@ -26,6 +26,7 @@ public:
 		, next_(new session_type(transport_, listening_role))
 		, sessions_()
 	{
+		next_->set_error_handler(::bind(&basic_listener::on_session_error, this, _1));
 	}
 
 	basic_listener(transport_layer &transport, const endpoint_type &endpoint)
@@ -38,6 +39,8 @@ public:
 		acceptor_.set_option(socket_base::reuse_address(true));
 		acceptor_.bind(endpoint);
 		acceptor_.listen();
+
+		next_->set_error_handler(::bind(&basic_listener::on_session_error, this, _1));
 
 		this->start();
 	}
@@ -94,8 +97,8 @@ public:
 	void stop()
 	{
 		acceptor_.close();
-		// for each session
-		// *i->stop()
+		for_each(sessions_.begin(), sessions_.end(),
+				 mem_fn(&session_type::close));
 		sessions_.clear();
 	}
 private:
@@ -117,6 +120,7 @@ private:
 			next_->start();
 			session_pointer
 				nextSession(new session_type(transport_, listening_role));
+			nextSession->set_error_handler(::bind(&basic_listener::on_session_error, this, _1));
 			next_ = nextSession;
 			for (const_iterator i=profiles_.begin(); i!=profiles_.end();++i) {
 				next_->install(*i);
@@ -125,6 +129,14 @@ private:
 		} else {
 			cerr << "Problem: " << error.message() << endl;
 		}
+	}
+
+	void on_session_error(const boost::system::error_code &error)
+	{
+		cout << "closing all of the sessions and the acceptor." << endl;
+		// this will close __all__ of the sessions if one disconnects
+		// this is OK short term because there is only one remote site.
+		this->stop();
 	}
 };
 

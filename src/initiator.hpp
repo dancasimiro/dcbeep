@@ -18,6 +18,7 @@ public:
 	basic_initiator(transport_layer &transport)
 		: session_(transport, initiating_role)
 	{
+		session_.set_error_handler(::bind(&basic_initiator::on_session_error, this, _1));
 	}
 
 	session_reference next_layer() { return session_; }
@@ -54,6 +55,11 @@ private:
 			cerr << "Problem: " << error.message() << endl;
 		}
 		handle_(error);
+	}
+
+	void on_session_error(boost::system::error_code &error)
+	{
+		session_.close();
 	}
 };     // class basic_initiator
 
