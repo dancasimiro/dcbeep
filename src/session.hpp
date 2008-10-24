@@ -28,6 +28,8 @@ public:
 	typedef basic_channel<base_type>              channel_type;
 	typedef shared_ptr<profile>                   profile_pointer;
 	typedef function<void ()>                     channel_accepted_callback;
+	typedef boost::system::error_code             error_type;
+	typedef function<void (error_type)>           error_callback;
 
 	basic_session(transport_layer_reference transport)
 		: transport_(transport)
@@ -41,6 +43,7 @@ public:
 		, ready_(false)
 		, delegate_(NULL)
 		, chcb_()
+		, error_handler_()
 	{
 		tunebuf_.resize(4096);
 		setup_tuning_channel();
@@ -58,6 +61,7 @@ public:
 		, ready_(false)
 		, delegate_(NULL)
 		, chcb_()
+		, error_handler_()
 	{
 		tunebuf_.resize(4096);
 		setup_tuning_channel();
@@ -140,6 +144,7 @@ private:
 	{
 		if (error) {
 			cout << "the session had a read error!" << endl;
+			error_handler_(error);
 			return;
 		}
 		/// \todo install an XML parser here...
@@ -298,6 +303,10 @@ private:
 		profile_pointer pp(profiles_.front());
 		return pp;
 	}
+private:
+	error_callback            error_handler_;
+public:
+	void set_error_handler(error_callback cb) { error_handler_ = cb; }
 };     // class basic_session
 
 }      // namespace beep
