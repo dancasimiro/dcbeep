@@ -159,6 +159,7 @@ private:
 			}
 		} else {
 			cerr << "Bad Frame Header: " << error.message() << endl;
+			this->handle_read_error(error);
 		}
 	}
 
@@ -185,6 +186,7 @@ private:
 								  placeholders::bytes_transferred));
 		} else {
 			cerr << "Bad Frame Payload: " << error.message() << endl;
+			this->handle_read_error(error);
 		}
 	}
 
@@ -215,6 +217,7 @@ private:
 			}
 		} else {
 			cerr << "Bad Frame Trailer: " << error.message() << endl;
+			this->handle_read_error(error);
 		}
 	}
 
@@ -271,6 +274,20 @@ private:
 			cerr << "Incomplete send: " << error.message()
 				 << " code is " << error.value();
 		}
+	}
+
+	void
+	handle_read_error(const boost::system::error_code &error)
+	{
+		// tell all queued reader of the read problem.
+		typedef callback_container::iterator iterator;
+		for (iterator i = rcbs_.begin(); i != rcbs_.end(); ++i) {
+			const int chNum = i->first;
+			data_callback myCallback(i->second);
+			myCallback(error, 0, chNum);
+		}
+		rcbs_.clear();
+		bufs_.clear();
 	}
 };     // class basic_connection
 
