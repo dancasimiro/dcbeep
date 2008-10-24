@@ -138,6 +138,10 @@ private:
 	on_channel_management(const boost::system::error_code &error,
 						  size_t bytes_transferred)
 	{
+		if (error) {
+			cout << "the session had a read error!" << endl;
+			return;
+		}
 		/// \todo install an XML parser here...
 		cout << "on_channel_management recveived " << bytes_transferred
 			 << " bytes:\n";
