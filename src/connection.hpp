@@ -119,6 +119,8 @@ public:
 		this->enqueue_write();
 	}
 
+	/// \todo incorporate teh started_ member into the async_send function
+	/// \note Then, i can remove the "start" method.
 	void start()
 	{
 		started_ = true;
