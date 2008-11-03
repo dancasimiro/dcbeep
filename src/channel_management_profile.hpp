@@ -6,10 +6,13 @@
 #define BEEP_CHANNEL_MANAGEMENT_PROFILE_HEAD 1
 namespace beep {
 
+/// \brief Initial tuning profile
+///
+/// \note No profile identification is defined for this profile
 class channel_management_profile : public profile {
 public:
 	channel_management_profile()
-		: profile("http://dan/raw/tuning")
+		: profile()
 		, header_("Content-Type: application/beep+xml\r\n")
 		, greeting_("<greeting />\r\n")
 	{
