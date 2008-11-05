@@ -68,7 +68,8 @@ public:
 	}
 
 	struct delegate {
-		virtual void channel_is_ready(const channel_type &channel) = 0;
+		virtual void channel_is_ready(basic_session &session,
+									  const channel_type &channel) = 0;
 	};
 
 	io_service &lowest_layer() { return transport_.lowest_layer(); }
@@ -223,7 +224,7 @@ private:
 										asio::placeholders::bytes_transferred,
 										chNum));
 		} else if (delegate_) {
-			delegate_->channel_is_ready(this->channels_[chNum]);
+			delegate_->channel_is_ready(*this, this->channels_[chNum]);
 		}
 	}
 
@@ -233,7 +234,7 @@ private:
 	{
 		cout << "session::sent_channel_init" << endl;
 		if (delegate_) {
-			delegate_->channel_is_ready(this->channels_[chNum]);
+			delegate_->channel_is_ready(*this, this->channels_[chNum]);
 		}
 	}
 
