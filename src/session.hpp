@@ -67,8 +67,7 @@ public:
 		setup_tuning_channel();
 	}
 
-	class delegate {
-	public:
+	struct delegate {
 		virtual void channel_is_ready(const channel_type &channel) = 0;
 	};
 
