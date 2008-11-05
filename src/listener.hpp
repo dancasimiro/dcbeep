@@ -20,12 +20,18 @@ public:
 	typedef typename acceptor_type::native_type             native_acceptor;   
 	typedef shared_ptr<profile>                             profile_pointer;
 
+	struct delegate {
+		virtual void session_is_ready(basic_listener &listener,
+									  session_reference session) = 0;
+	};
+
 	basic_listener(transport_layer &transport)
 		: transport_(transport)
 		, acceptor_(transport_.lowest_layer())
 		, next_(new session_type(transport_, listening_role))
 		, sessions_()
 		, profiles_()
+		, delegate_(NULL)
 	{
 		next_->set_error_handler(::bind(&basic_listener::on_session_error, this, _1));
 	}
@@ -36,6 +42,7 @@ public:
 		, next_(new session_type(transport_, listening_role))
 		, sessions_()
 		, profiles_()
+		, delegate_(NULL)
 	{
 		next_->set_error_handler(::bind(&basic_listener::on_session_error, this, _1));
 
@@ -98,6 +105,8 @@ public:
 				 mem_fn(&session_type::close));
 		sessions_.clear();
 	}
+
+	void set_delegate(delegate *aDelegate) { delegate_ = aDelegate; }
 private:
 	typedef list<session_pointer>                           sessions_container;
 	typedef list<profile_pointer>                           profiles_container;
@@ -107,6 +116,7 @@ private:
 	session_pointer           next_; // next session
 	sessions_container        sessions_;
 	profiles_container        profiles_;
+	delegate                  *delegate_;
 
 	void on_accept(const boost::system::error_code &error)
 	{
@@ -114,6 +124,9 @@ private:
 		if (!error) {
 			cout << "Accepted a connection!" << endl;
 			sessions_.push_back(next_);
+			if (delegate_) {
+				delegate_->session_is_ready(*this, *next_);
+			}
 			next_->start();
 			session_pointer
 				nextSession(new session_type(transport_, listening_role));
