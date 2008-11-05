@@ -25,6 +25,7 @@ public:
 		, acceptor_(transport_.lowest_layer())
 		, next_(new session_type(transport_, listening_role))
 		, sessions_()
+		, profiles_()
 	{
 		next_->set_error_handler(::bind(&basic_listener::on_session_error, this, _1));
 	}
@@ -34,6 +35,7 @@ public:
 		, acceptor_(transport_.lowest_layer())
 		, next_(new session_type(transport_, listening_role))
 		, sessions_()
+		, profiles_()
 	{
 		acceptor_.open(endpoint.protocol());
 		acceptor_.set_option(socket_base::reuse_address(true));
