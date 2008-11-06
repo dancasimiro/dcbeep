@@ -143,10 +143,10 @@ private:
 
 	void on_session_error(const boost::system::error_code &error)
 	{
-		cout << "closing all of the sessions and the acceptor." << endl;
+		//cout << "closing all of the sessions and the acceptor." << endl;
 		// this will close __all__ of the sessions if one disconnects
 		// this is OK short term because there is only one remote site.
-		this->stop();
+		//this->stop();
 	}
 };
 
