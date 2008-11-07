@@ -205,7 +205,12 @@ private:
 				bufs_.erase(chNum);
 				rcbs_.erase(chNum);
 				boost::system::error_code noError;
-				myCallback(noError, frame_.get_header().size, chNum);
+				if (!myCallback.empty()) {
+					myCallback(noError, frame_.get_header().size, chNum);
+				} else {
+					cerr << "The connection message data handler is empty."
+						 << endl;
+				}
 
 				if (bufs_.empty()) {
 					busyread_ = false;
@@ -286,7 +291,11 @@ private:
 		for (iterator i = rcbs_.begin(); i != rcbs_.end(); ++i) {
 			const int chNum = i->first;
 			data_callback myCallback(i->second);
-			myCallback(error, 0, chNum);
+			if (!myCallback.empty()) {
+				myCallback(error, 0, chNum);
+			} else {
+				cerr << "The connection message data handler is empty at the read error stage." << endl;
+			}
 		}
 		rcbs_.clear();
 		bufs_.clear();
