@@ -16,6 +16,7 @@ public:
 	typedef AcceptorType                          acceptor_type;
 	typedef typename acceptor_type::endpoint_type endpoint_type;
 	typedef basic_connection<stream_type>         connection_type;
+	typedef asio::ip::tcp::resolver               resolver_type;
 
 	basic_tcptl(io_service &service)
 		: service_(service)
