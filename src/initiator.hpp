@@ -64,7 +64,8 @@ private:
 
 	void on_session_error(boost::system::error_code &error)
 	{
-		session_.close();
+		//session_.close();
+		cout << "Beep Initiator Session Error: " << error.message() << endl;
 	}
 };     // class basic_initiator
 
