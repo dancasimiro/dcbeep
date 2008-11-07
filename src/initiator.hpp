@@ -54,7 +54,12 @@ private:
 		} else {
 			cerr << "Problem: " << error.message() << endl;
 		}
-		handle_(error);
+		if (!handle_.empty()) {
+			handle_(error);
+		} else {
+			cerr << "WARNING: The initiator connect handler is empty."
+				 << endl;
+		}
 	}
 
 	void on_session_error(boost::system::error_code &error)
