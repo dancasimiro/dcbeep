@@ -147,7 +147,11 @@ private:
 	{
 		if (error) {
 			cout << "the session had a read error!" << endl;
-			error_handler_(error);
+			if (!error_handler_.empty()) {
+				error_handler_(error);
+			} else {
+				cerr << "WARNING the session error_handler is empty." << endl;
+			}
 			return;
 		}
 		/// \todo install an XML parser here...
@@ -250,8 +254,12 @@ private:
 			cout << "new channel " << channel_number << " is up!" << endl;
 			cb_container::iterator i = chcb_.find(channel_number);
 			if (i != chcb_.end()) {
-				cout << "Invoke channel ready callback now!" << endl;
-				i->second();
+				if (!i->second.empty()) {
+					cout << "Invoke channel ready callback now!" << endl;
+					i->second();
+				} else {
+					cerr << "WARNING channel callback is empty!" << endl;
+				}
 				chcb_.erase(i);
 			} else {
 				cout << "Could not find the channel ready callback." << endl;
