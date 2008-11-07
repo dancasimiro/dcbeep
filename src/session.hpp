@@ -120,6 +120,9 @@ public:
 	{
 		connection().lowest_layer().close();
 	}
+
+	/// experimental
+	channel_type &channel(size_t idx) { return channels_[idx]; }
 private:
 	typedef vector<channel_type>                            channels_container;
 	typedef list<profile_pointer>                           profiles_container;
