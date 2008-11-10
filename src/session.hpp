@@ -11,6 +11,20 @@ enum role {
 	listening_role,
 };
 
+namespace detail {
+
+template <typename T>
+struct profile_uri_comparator {
+	string uri;
+	profile_uri_comparator(const string &someURI) : uri(someURI) { }
+	bool operator()(T profile_pointer) const
+	{
+		return profile_pointer->get_uri() == uri;
+	}
+};
+
+}      // namespace detail
+
 /// \brief BEEP session management
 ///
 /// \note Each session has an implicit tuning channel that performs
@@ -339,9 +353,14 @@ private:
 	profile_pointer
 	uri2profile(const string &uri) const
 	{
-		/// \todo search for the URI in the profiles container
-		cout << "searching for a URI: " << uri << endl;
-		profile_pointer pp(profiles_.front());
+		typedef profiles_container::const_iterator const_iterator;
+		const_iterator i =
+			find_if(profiles_.begin(), profiles_.end(),
+					detail::profile_uri_comparator<profile_pointer>(uri));
+		profile_pointer pp;
+		if (i != profiles_.end()) {
+			pp = *i;
+		}
 		return pp;
 	}
 private:
