@@ -32,7 +32,9 @@ typedef beep::basic_session<transport_layer>            session;
 typedef beep::basic_initiator<session>                  initiator;
 typedef beep::basic_channel<session>                    channel;
 
-char a_global_buffer[4096];
+static initiator *a_global_client;
+static channel *a_global_channel;
+static char a_global_buffer[4096];
 
 void
 on_got_data(const boost::system::error_code &error,
@@ -43,7 +45,16 @@ on_got_data(const boost::system::error_code &error,
 			 << " bytes of application data on channel " << channelNumber
 			 << "!" << endl;
 		a_global_buffer[bytes_transferred] = '\0';
-		cout << "Contents:\n" << a_global_buffer << endl;
+		cout << "Contents:\n";// << a_global_buffer << endl;
+		std::string line;
+		std::string contents(a_global_buffer, bytes_transferred);
+		std::istringstream strm(contents);
+		while (std::getline(strm, line)) {
+			cout << line << endl;
+		}
+		a_global_client->next_layer().connection().async_read(*a_global_channel,
+															 buffer(a_global_buffer),
+															 on_got_data);
 	} else {
 		cerr << "Error receiving application data.\n";
 	}
@@ -52,6 +63,8 @@ on_got_data(const boost::system::error_code &error,
 void
 on_channel_was_added(initiator &client, channel &myChannel)
 {
+	a_global_client = &client;
+	a_global_channel = &myChannel;
 	client.next_layer().connection().async_read(myChannel,
 												buffer(a_global_buffer),
 												on_got_data);
