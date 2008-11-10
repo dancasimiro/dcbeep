@@ -173,7 +173,6 @@ private:
 		if (strm) {
 			string xml;
 			if (getline(strm, xml)) {
-				cout << "working with xml: " << xml.substr(0, xml.length() - 1) << endl;
 				const string::size_type startIdx = xml.find('\'');
 				const string::size_type endIdx = xml.rfind('\'');
 				if (startIdx != string::npos && endIdx != string::npos) {
@@ -258,7 +257,6 @@ private:
 	void
 	setup_new_channel(const int chNum, const string &profileURI)
 	{
-		cout << "set up a new channel!!!" << endl;
 		channel_type myChannel;
 		myChannel.set_number(chNum);
 		profile_pointer pp(this->uri2profile(profileURI));
