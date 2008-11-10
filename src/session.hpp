@@ -141,6 +141,38 @@ private:
 	delegate                  *delegate_;
 	cb_container              chcb_;
 
+	std::istream&
+	decode_start_channel(istream &strm, int &channel)
+	{
+		if (strm) {
+			string line;
+			getline(strm, line, '\'');
+			strm >> channel;
+			getline(strm, line); // eat the rest of this line
+		}
+		return strm;
+	}
+
+	std::istream&
+	decode_start_profile(std::istream &strm, string &uri)
+	{
+		if (strm) {
+			string xml;
+			if (getline(strm, xml)) {
+				cout << "working with xml: " << xml.substr(0, xml.length() - 1) << endl;
+				const string::size_type startIdx = xml.find('\'');
+				const string::size_type endIdx = xml.rfind('\'');
+				if (startIdx != string::npos && endIdx != string::npos) {
+					const size_t len = endIdx - startIdx - 1;
+					uri = xml.substr(startIdx + 1, len);
+				} else {
+					strm.setstate(std::ios::badbit);
+				}
+			}
+		}
+		return strm;
+	}
+
 	void
 	on_channel_management(const boost::system::error_code &error,
 						  size_t bytes_transferred)
@@ -155,20 +187,17 @@ private:
 			return;
 		}
 		/// \todo install an XML parser here...
-		cout << "on_channel_management recveived " << bytes_transferred
-			 << " bytes:\n";
 		string myString(tunebuf_.begin(), tunebuf_.begin() + bytes_transferred);
 
 		// if start message
 		if(myString.find("start") != string::npos) {
-			string garbage;
 			istringstream strm(myString);
-			getline(strm, garbage, '\'');
-			// need a profile...
 			int channel = -1;
-			strm >> channel;
 			string profile_uri;
-			this->setup_new_channel(channel, profile_uri);
+			if (this->decode_start_channel(strm, channel) &&
+				this->decode_start_profile(strm, profile_uri)) {
+				this->setup_new_channel(channel, profile_uri);
+			}
 		}
 		connection_.async_read(this->tuning_channel(),
 							   buffer(tunebuf_),
@@ -311,6 +340,7 @@ private:
 	uri2profile(const string &uri) const
 	{
 		/// \todo search for the URI in the profiles container
+		cout << "searching for a URI: " << uri << endl;
 		profile_pointer pp(profiles_.front());
 		return pp;
 	}
