@@ -49,23 +49,15 @@ private:
 	void on_connect(const boost::system::error_code &error)
 	{
 		if (!error) {
-			cout << "Made a connection to the listener!" << endl;
 			session_.start();
-		} else {
-			cerr << "Problem: " << error.message() << endl;
 		}
 		if (!handle_.empty()) {
 			handle_(error);
-		} else {
-			cerr << "WARNING: The initiator connect handler is empty."
-				 << endl;
 		}
 	}
 
-	void on_session_error(boost::system::error_code &error)
+	void on_session_error(const boost::system::error_code &error)
 	{
-		//session_.close();
-		cout << "Beep Initiator Session Error: " << error.message() << endl;
 	}
 };     // class basic_initiator
 
