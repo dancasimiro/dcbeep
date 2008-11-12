@@ -224,14 +224,16 @@ private:
 	sent_channel_greeting(const boost::system::error_code &error,
 						  size_t bytes_transferred)
 	{
-		cout << "session::sent_channel_greeting" << endl;
-		/// \todo negogiate the connection
-		/// for example, authorize user or set up encryption
-		connection_.async_read(this->tuning_channel(), buffer(tunebuf_),
-							   bind(&basic_session::negogiate_session,
-									this,
-									asio::placeholders::error,
-									asio::placeholders::bytes_transferred));
+		if (!error || error == asio::error::message_size) {
+			cout << "session::sent_channel_greeting" << endl;
+			/// \todo negogiate the connection
+			/// for example, authorize user or set up encryption
+			connection_.async_read(this->tuning_channel(), buffer(tunebuf_),
+								   bind(&basic_session::negogiate_session,
+										this,
+										asio::placeholders::error,
+										asio::placeholders::bytes_transferred));
+		}
 	}
 
 	void
@@ -280,9 +282,10 @@ private:
 	sent_channel_init(const boost::system::error_code &error,
 					  size_t bytes_transferred, const int chNum)
 	{
-		cout << "session::sent_channel_init" << endl;
-		if (delegate_) {
-			delegate_->channel_is_ready(*this, this->channels_[chNum]);
+		if (!error || error == asio::error::message_size) {
+			if (delegate_) {
+				delegate_->channel_is_ready(*this, this->channels_[chNum]);
+			}
 		}
 	}
 
@@ -291,7 +294,7 @@ private:
 						  size_t bytes_transferred,
 						  const int channel_number)
 	{
-		if (!error) {
+		if (!error || error == asio::error::message_size) {
 			cout << "new channel " << channel_number << " is up!" << endl;
 			cb_container::iterator i = chcb_.find(channel_number);
 			if (i != chcb_.end()) {
