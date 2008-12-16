@@ -43,8 +43,6 @@ public:
 	typedef StreamType                                      stream_type;
 	typedef stream_type                                     next_layer_type;
 	typedef typename next_layer_type::lowest_layer_type     lowest_layer_type;
-	typedef boost::system::error_code                       error_code;
-	typedef function<void (error_code, size_t, int)>        data_callback;
 
 	basic_connection(io_service &service)
 		: stream_(service)
@@ -53,9 +51,7 @@ public:
 		, ssb_()
 		, fssb_(&ssb_[0])
 		, bssb_(&ssb_[1])
-		, bufs_()
-		, rcbs_()
-		, scbs_()
+		, sched_()
 		, started_(false)
 		, busyread_(false)
 		, drain_(false)
@@ -69,19 +65,17 @@ public:
 	void read(const channel &chan, MutableBuffer buffer, Handler handler)
 	{
 		const int chNum = chan.number();
-		assert(bufs_.find(chNum) == bufs_.end());
-		assert(rcbs_.find(chNum) == rcbs_.end());
+		assert(sched_.find(chNum) == sched_.end());
 
-		bufs_.insert(make_pair(chNum, buffer));
-		rcbs_.insert(make_pair(chNum, handler));
-
+		sched_.insert(make_pair(chNum, make_pair(buffer, handler)));
 		if (!busyread_) {
+			busyread_ = true;
 			async_read_until(stream_, rsb_,
 							 frame::terminator(),
-							 bind(&basic_connection::handle_frame_header, this,
-								  placeholders::error,
-								  placeholders::bytes_transferred));
-			busyread_ = true;
+							 bind(&basic_connection::handle_frame_header,
+								  this,
+								  asio::placeholders::error,
+								  asio::placeholders::bytes_transferred));
 		}
 	}
 
@@ -89,8 +83,6 @@ public:
 	void send(channel &chan, ConstBuffer buffer, Handler handler)
 	{
 		const int chNum = chan.number();
-		assert(scbs_.find(chNum) == scbs_.end());
-
 		ostream bg(bssb_); // background stream
 
 		detail::msg2frame gen;
@@ -131,8 +123,10 @@ public:
 		this->enqueue_write(); // enqueue in case there are no writes in progress
 	}
 private:
-	typedef map<int, data_callback>     callback_container;
-	typedef map<int, mutable_buffer>    buffers_container;
+	typedef boost::system::error_code                       error_code;
+	typedef function<void (const error_code&, size_t, frame::frame_type)> read_handler;
+	typedef pair<mutable_buffer, read_handler>              scheduled_read;
+	typedef map<int, scheduled_read>                        read_container;
 
 	next_layer_type           stream_;   // socket
 	asio::streambuf           rsb_;      // streambuf for receiving data
@@ -140,9 +134,7 @@ private:
 	asio::streambuf           ssb_[2];   // double buffered sends
 	asio::streambuf           *fssb_;    // streambuf that actively sends
 	asio::streambuf           *bssb_;    // background sending streambuf
-	buffers_container         bufs_;     // read buffers for each channel
-	callback_container        rcbs_;     // read callbacks
-	callback_container        scbs_;     // send callbacks
+	read_container            sched_;    // scheduled read buffers
 	bool                      started_;
 	bool                      busyread_;
 	bool                      drain_;
@@ -174,13 +166,14 @@ private:
 	handle_frame_payload(const boost::system::error_code &error,
 						 size_t bytes_transferred)
 	{
+		const frame::header frameHeader(frame_.get_header());
+		read_container::iterator i = sched_.find(frameHeader.channel);
 		if (!error || error == boost::asio::error::message_size) {
-			const frame::header frameHeader(frame_.get_header());
-			buffers_container::iterator i = bufs_.find(frameHeader.channel);
-			if (i != bufs_.end()) {
-				rsb_.sgetn(buffer_cast<char*>(bufs_[frameHeader.channel]),
-						   frameHeader.size);
+			if (i != sched_.end()) {
+				// i->second.first points to a boost ASIO mutable buffer
+				rsb_.sgetn(buffer_cast<char*>(i->second.first), frameHeader.size);
 			} else {
+				// this is a problem!
 				cout << "There is no buffer ready for channel "
 					 << frameHeader.channel << endl;
 				rsb_.consume(frameHeader.size);
@@ -199,23 +192,22 @@ private:
 	handle_frame_trailer(const boost::system::error_code &error,
 						 size_t bytes_transferred)
 	{
+		const frame::header frameHeader(frame_.get_header());
+		read_container::iterator i = sched_.find(frameHeader.channel);
 		if (!error || error == boost::asio::error::message_size) {
 			if (!parse_frame_trailer(bytes_transferred, frame_.get_trailer())) {
 				terminate_connection();
 			} else {
 				const int chNum = frame_.get_header().channel;
-				data_callback myCallback(rcbs_[chNum]);
-				bufs_.erase(chNum);
-				rcbs_.erase(chNum);
-				boost::system::error_code noError;
-				if (!myCallback.empty()) {
-					myCallback(noError, frame_.get_header().size, chNum);
-				} else {
-					cerr << "The connection message data handler is empty."
-						 << endl;
+
+				if (i != sched_.end()) {
+					// i->second.second points to a read handler (callback function pointer)
+					read_handler myHandler(i->second.second);
+					sched_.erase(i);
+					myHandler(error, frameHeader.size, frame::frame_type(frameHeader.type));
 				}
 
-				if (bufs_.empty()) {
+				if (sched_.empty()) {
 					busyread_ = false;
 				} else {
 					async_read_until(stream_, rsb_,
@@ -290,19 +282,13 @@ private:
 	void
 	handle_read_error(const boost::system::error_code &error)
 	{
-		// tell all queued reader of the read problem.
-		typedef callback_container::iterator iterator;
-		for (iterator i = rcbs_.begin(); i != rcbs_.end(); ++i) {
-			const int chNum = i->first;
-			data_callback myCallback(i->second);
-			if (!myCallback.empty()) {
-				myCallback(error, 0, chNum);
-			} else {
-				cerr << "The connection message data handler is empty at the read error stage." << endl;
-			}
+		// tell all queued readers of the read problem.
+		typedef read_container::iterator iterator;
+		for (iterator i = sched_.begin(); i != sched_.end(); ++i) {
+			read_handler myHandler(i->second.second);
+			myHandler(error, -1, frame::err);
 		}
-		rcbs_.clear();
-		bufs_.clear();
+		sched_.clear();
 	}
 };     // class basic_connection
 
