@@ -65,8 +65,8 @@ public:
 	next_layer_type &next_layer() { return stream_; }
 	lowest_layer_type &lowest_layer() { return stream_.lowest_layer(); }
 
-	template <class Channel, class MutableBuffer, class Handler>
-	void async_read(Channel &chan, MutableBuffer buffer, Handler handler)
+	template <class MutableBuffer, class Handler>
+	void read(const channel &chan, MutableBuffer buffer, Handler handler)
 	{
 		const int chNum = chan.number();
 		assert(bufs_.find(chNum) == bufs_.end());
@@ -85,8 +85,8 @@ public:
 		}
 	}
 
-	template <class Channel, class ConstBuffer, class Handler>
-	void async_send(Channel &chan, ConstBuffer buffer, Handler handler)
+	template <class ConstBuffer, class Handler>
+	void send(channel &chan, ConstBuffer buffer, Handler handler)
 	{
 		const int chNum = chan.number();
 		assert(scbs_.find(chNum) == scbs_.end());
