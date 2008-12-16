@@ -16,18 +16,17 @@ struct msg2frame {
 	{
 	}
 
-	template <class T>
-	void operator()(const T &channel, const message &msg)
+	void operator()(const channel &chan, const message &msg)
 	{
 		frames.clear();
 		
 		//frame nextFrame(const_buffer(msg.content(), msg.content_size()));
 		frame nextFrame(msg);
 		nextFrame.get_header().type = msg.type();
-		nextFrame.get_header().channel = channel.number();
-		nextFrame.get_header().msgno = channel.next_message_number();
-		nextFrame.get_header().seqno = channel.next_sequence_number();
-		//nextFrame.get_header().ansno = channel.next_answer_number();
+		nextFrame.get_header().channel = chan.number();
+		nextFrame.get_header().msgno = chan.next_message_number();
+		nextFrame.get_header().seqno = chan.next_sequence_number();
+		//nextFrame.get_header().ansno = chan.next_answer_number();
 		nextFrame.get_header().ansno = 0;
 
 		frames.push_back(nextFrame);
