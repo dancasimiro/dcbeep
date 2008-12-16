@@ -104,8 +104,7 @@ public:
 				if (bg.write(buffer_cast<const char*>(*j), buffer_size(*j))) {
 					totalOctets += buffer_size(*j);
 				} else {
-					// failure!!!
-					assert(false);
+					stream_.get_io_service().dispatch(bind(handler, boost::asio::error::no_memory, -1));
 				}
 			}
 			bg << i->get_trailer();
