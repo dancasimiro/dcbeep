@@ -166,7 +166,6 @@ private:
 				handle_frame_payload(error, rsb_.size());
 			}
 		} else {
-			cerr << "Bad Frame Header: " << error.message() << endl;
 			this->handle_read_error(error);
 		}
 	}
@@ -186,14 +185,12 @@ private:
 					 << frameHeader.channel << endl;
 				rsb_.consume(frameHeader.size);
 			}
-
 			async_read_until(stream_, rsb_,
 							 frame::terminator(),
 							 bind(&basic_connection::handle_frame_trailer, this,
 								  placeholders::error,
 								  placeholders::bytes_transferred));
 		} else {
-			cerr << "Bad Frame Payload: " << error.message() << endl;
 			this->handle_read_error(error);
 		}
 	}
@@ -229,7 +226,6 @@ private:
 				}
 			}
 		} else {
-			cerr << "Bad Frame Trailer: " << error.message() << endl;
 			this->handle_read_error(error);
 		}
 	}
