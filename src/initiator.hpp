@@ -18,47 +18,39 @@ public:
 	basic_initiator(transport_layer &transport)
 		: session_(transport, initiating_role)
 	{
-		session_.set_error_handler(::bind(&basic_initiator::on_session_error, this, _1));
 	}
 
 	session_reference next_layer() { return session_; }
 	io_service &lowest_layer() { return session_.lowest_layer(); }
 
-	void connect(const endpoint_type &endpoint)
-	{
-		session_.connection().lowest_layer().connect(endpoint);
-		session_.start();
-	}
-
 	template <class Handler>
 	void async_connect(const endpoint_type &endpoint, Handler handler)
 	{
-		handle_ = handler;
-		session_.connection().lowest_layer()
+		session_.connection_.lowest_layer()
 			.async_connect(endpoint,
-						   bind(&basic_initiator::on_connect,
-								this,
-								placeholders::error));
+						   on_connect_handler_helper<Handler>(*this, handler));
 	}
 private:
-	typedef function<void (boost::system::error_code)> handler_type;
-
 	session_type              session_;
-	handler_type              handle_;
 
-	void on_connect(const boost::system::error_code &error)
-	{
-		if (!error) {
-			session_.start();
-		}
-		if (!handle_.empty()) {
-			handle_(error);
-		}
-	}
+	template <class Handler>
+	struct on_connect_handler_helper {
+		basic_initiator       &theInitiator;
+		Handler               theHandler;
 
-	void on_session_error(const boost::system::error_code &error)
-	{
-	}
+		on_connect_handler_helper(basic_initiator &init, Handler h)
+			: theInitiator(init)
+			, theHandler(h)
+		{ }
+
+		void operator()(const boost::system::error_code &error) const
+		{
+			if (!error) {
+				theInitiator.session_.start();
+			}
+			theHandler(error, theInitiator.session_);
+		}
+	};
 };     // class basic_initiator
 
 }      // namespace beep
