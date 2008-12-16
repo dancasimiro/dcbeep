@@ -37,11 +37,39 @@ public:
 		return strm;
 	}
 
-	void init_add_message(const string &myStr, message &msg)
+	ostream& remove_channel(const channel &chan, ostream &strm) const
 	{
-		msg.set_type(frame::msg);
+		strm << "<close number='" << chan.number() << "' code='200' />\r\n";
+		return strm;
+	}
+
+	void make_message(frame::frame_type t, const string &myStr, message &msg) const
+	{
+		msg.set_type(t);
 		msg.add_header(buffer(header_));
 		msg.add_content(buffer(myStr));
+	}
+
+
+	ostream& accept_profile(const string &uri, ostream &strm) const
+	{
+		strm << "<profile uri='" << uri << "' />\r\n";
+		return strm;
+	}
+
+	ostream& acknowledge(ostream &strm) const
+	{
+		strm << "<ok />\r\n";
+		return strm;
+	}
+
+	ostream& encode_error(const int rc, ostream &strm) const
+	{
+		/// \todo the error code must be 3 digits...
+		strm << "<error code='" << rc << "'>"
+			 << "details are coming soon..."
+			 << "</error>\r\n";
+		return strm;
 	}
 
 private:
