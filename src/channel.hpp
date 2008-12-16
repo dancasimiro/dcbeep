@@ -6,21 +6,10 @@
 #define BEEP_CHANNEL_HEAD 1
 namespace beep {
 
-namespace detail {
-
-}      // namespace detail
-
 /// \brief Establish a new channel in the BEEP session
-template <class SessionType>
-class basic_channel {
+class channel {
 public:
-	typedef SessionType                                   session_type;
-	typedef session_type&                                 session_reference;
-	typedef shared_ptr<profile>                           profile_pointer;
-	typedef typename session_type::connection_type        connection_type;
-	typedef typename session_type::connection_reference   connection_reference;
-
-	basic_channel()
+	channel()
 		: num_(0)
 		, msgno_(0)
 		, seqno_(0)
@@ -28,15 +17,7 @@ public:
 	{
 	}
 
-	basic_channel(session_reference mySession)
-		: num_(mySession.next_channel_number())
-		, msgno_(0)
-		, seqno_(0)
-		, profile_()
-	{
-	}
-
-	basic_channel(const basic_channel& src)
+	channel(const channel& src)
 		: num_(src.num_)
 		, msgno_(src.msgno_)
 		, seqno_(src.seqno_)
@@ -44,7 +25,7 @@ public:
 	{
 	}
 
-	basic_channel &operator=(const basic_channel &src)
+	channel &operator=(const channel &src)
 	{
 		if (&src != this) {
 			this->num_ = src.num_;
@@ -55,11 +36,8 @@ public:
 		return *this;
 	}
 
-	void set_profile(profile_pointer pp)
-	{
-		profile_ = pp;
-	}
-	profile_pointer get_profile() const { return profile_; }
+	void set_profile(const string &p) { profile_ = p; }
+	const string &profile() const { return profile_; }
 
 	uint32_t number() const { return num_; }
 	void set_number(uint32_t num) { num_ = num; }
@@ -70,8 +48,8 @@ public:
 
 private:
 	uint32_t                  num_, msgno_, seqno_;
-	profile_pointer           profile_;  // active profile
-};     // class basic_channel  
+	string                    profile_; // URI identifier
+};     // class channel  
 
 }      // namespace beep
 #endif // BEEP_CHANNEL_HEAD
