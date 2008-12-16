@@ -30,19 +30,43 @@ using namespace boost;
 typedef beep::tcptl                                     transport_layer;
 typedef beep::basic_session<transport_layer>            session;
 typedef beep::basic_initiator<session>                  initiator;
-typedef beep::basic_channel<session>                    channel;
 
-static initiator *a_global_client;
-static channel *a_global_channel;
 static char a_global_buffer[4096];
+static test_profile testProfile;
 
-void
-on_got_data(const boost::system::error_code &error,
-			std::size_t bytes_transferred, int channelNumber)
+
+static beep::reply_code
+handle_new_channel(session &theSession, beep::channel &info, string &init)
 {
-	if (!error || error == boost::asio::error::message_size) {
+	cout << "a new channel (#" << info.number()
+		 << ") has been created with profile '" << info.profile() << "'."
+		 << endl;
+	return beep::success;
+}
+
+static void
+on_session_stopped(const beep::reply_code status,
+				   session &theSession, const beep::channel &info)
+{
+	cout << "The session was stopped." << endl;
+}
+
+static void
+on_channel_closed(const beep::reply_code status,
+				  session &theSession, const beep::channel &info)
+{
+	cout << "The test channel was closed." << endl;
+	theSession.stop(on_session_stopped);
+}
+
+static void
+on_got_data(const beep::reply_code status, 
+			session &theSession, const beep::channel &theChannel,
+			size_t bytes_transferred)
+{
+	if (status == beep::success) {
 		cout << "The initiator got " << bytes_transferred
-			 << " bytes of application data on channel " << channelNumber
+			 << " bytes of application data on channel " << theChannel.number()
 			 << "!" << endl;
 		a_global_buffer[bytes_transferred] = '\0';
 		cout << "Contents:\n";// << a_global_buffer << endl;
@@ -52,31 +76,38 @@ on_got_data(const boost::system::error_code &error,
 		while (std::getline(strm, line)) {
 			cout << line << endl;
 		}
-		a_global_client->next_layer().connection().async_read(*a_global_channel,
-															 buffer(a_global_buffer),
-															 on_got_data);
 	} else {
-		cerr << "Error receiving application data.\n";
+		cerr << "Error receiving application data: " << status << "\n";
+	}
+	if (!theSession.remove_channel(theChannel, on_channel_closed)) {
+		cerr << "Failed to remove the channel." << endl;
 	}
 }
 
-void
-on_channel_was_added(initiator &client, channel &myChannel)
+static void
+on_channel_created(const beep::reply_code error,
+				   session &mySession, const beep::channel &info)
 {
-	a_global_client = &client;
-	a_global_channel = &myChannel;
-	client.next_layer().connection().async_read(myChannel,
-												buffer(a_global_buffer),
-												on_got_data);
+	if (error == beep::success) {
+		cout << "The test channel is ready; read some data..." << endl;
+		mySession.async_read(info, buffer(a_global_buffer), on_got_data);
+	} else { 
+		cerr << "Failed to create the channel: " << error << endl;
+	}
 }
 
 
-void
-on_connect(initiator &client, channel &myChannel)
+static void
+on_connect(const boost::system::error_code &error, session &theSession)
 {
-	client.next_layer()
-		.async_add(myChannel,
-				   bind(on_channel_was_added, ref(client), ref(myChannel)));
+	if (!error) {
+		const int chNum =
+			theSession.add_channel(testProfile.get_uri(), on_channel_created);
+		cout << "Requested a new channel (#" << chNum << ") with profile '"
+			 << testProfile.get_uri() << "'." << endl;
+	} else {
+		cerr << "The connection failed: " << error.message() << endl;
+	}
 }
 
 int
@@ -86,13 +117,10 @@ main(int argc, char **argv)
 		io_service service;
 		transport_layer tl(service);
 		initiator client(tl);
-		channel myChannel(client.next_layer());
-		shared_ptr<beep::profile> pp(new test_profile);
-		myChannel.set_profile(pp);
 
+		client.next_layer().install(testProfile.get_uri(), handle_new_channel);
 		client.async_connect(ip::tcp::endpoint(ip::address::from_string("127.0.0.1"),
-											   12345),
-							 bind(on_connect, ref(client), ref(myChannel)));
+											   12345), on_connect);
 		service.run();
 	} catch (const std::exception &ex) {
 		cerr << "Fatal Error: " << ex.what() << endl;
