@@ -58,6 +58,7 @@ public:
 		, scbs_()
 		, started_(false)
 		, busyread_(false)
+		, drain_(false)
 	{
 	}
 
@@ -139,6 +140,7 @@ private:
 	callback_container        scbs_;     // send callbacks
 	bool                      started_;
 	bool                      busyread_;
+	bool                      drain_;
 
 	void
 	handle_frame_header(const boost::system::error_code &error,
@@ -265,6 +267,8 @@ private:
 							 this,
 							 placeholders::error,
 							 placeholders::bytes_transferred));
+		} else if (drain_) {
+			stream_.shutdown(next_layer_type::shutdown_send);
 		}
 	}
 
