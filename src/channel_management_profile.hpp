@@ -29,11 +29,10 @@ public:
 		profiles_.push_back(prof);
 	}
 
-	template <class ChannelType>
-	bool add_channel(const ChannelType &channel, ostream &strm)
+	ostream& add_channel(const channel &chan, ostream &strm) const
 	{
-		strm << "<start number='" << channel.number() << "'>\r\n"
-			 << "\t<profile uri='" << channel.get_profile()->get_uri()
+		strm << "<start number='" << chan.number() << "'>\r\n"
+			 << "\t<profile uri='" << chan.profile()
 			 << "' />\r\n</start>\r\n";
 		return strm;
 	}
