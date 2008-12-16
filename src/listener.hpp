@@ -20,20 +20,13 @@ public:
 	typedef typename acceptor_type::native_type             native_acceptor;   
 	typedef shared_ptr<profile>                             profile_pointer;
 
-	struct delegate {
-		virtual void session_is_ready(basic_listener &listener,
-									  session_reference session) = 0;
-	};
-
 	basic_listener(transport_layer &transport)
 		: transport_(transport)
 		, acceptor_(transport_.lowest_layer())
 		, next_(new session_type(transport_, listening_role))
 		, sessions_()
 		, profiles_()
-		, delegate_(NULL)
 	{
-		next_->set_error_handler(::bind(&basic_listener::on_session_error, this, _1));
 	}
 
 	basic_listener(transport_layer &transport, const endpoint_type &endpoint)
@@ -42,20 +35,18 @@ public:
 		, next_(new session_type(transport_, listening_role))
 		, sessions_()
 		, profiles_()
-		, delegate_(NULL)
 	{
-		next_->set_error_handler(::bind(&basic_listener::on_session_error, this, _1));
-
 		this->start();
 	}
 
-	void install(profile_pointer pp)
+	template <class Profile, class Handler>
+	void install(Profile prof, Handler handler)
 	{
-		profiles_.push_back(pp);
-		next_->install(pp);
+		profiles_.insert(make_pair(prof, handler));
+		next_->install(prof, handler);
 		typedef typename sessions_container::iterator iterator;
 		for (iterator i = sessions_.begin(); i != sessions_.end(); ++i) {
-			(*i)->install(pp);
+			(*i)->install(prof, handler);
 		}
 	}
 
@@ -93,60 +84,60 @@ public:
 
 	void start()
 	{
-		acceptor_.async_accept(next_->connection().lowest_layer(),
+		acceptor_.async_accept(next_->connection_layer(),
 							   ::bind(&basic_listener::on_accept, this,
 									  asio::placeholders::error));
 	}
 
 	void stop()
 	{
+		typedef typename sessions_container::iterator iterator;
 		acceptor_.close();
-		for_each(sessions_.begin(), sessions_.end(),
-				 mem_fn(&session_type::close));
-		sessions_.clear();
+		for (iterator i = sessions_.begin(); i != sessions_.end(); ++i) {
+			(*i)->stop(::bind(&basic_listener::handle_stop,
+							  this,
+							  _1, _2, _3));
+		}
 	}
-
-	void set_delegate(delegate *aDelegate) { delegate_ = aDelegate; }
 private:
 	typedef list<session_pointer>                           sessions_container;
-	typedef list<profile_pointer>                           profiles_container;
+	typedef typename session_type::profile_container        profile_container;
 
 	transport_layer&          transport_;
 	acceptor_type             acceptor_;
 	session_pointer           next_; // next session
 	sessions_container        sessions_;
-	profiles_container        profiles_;
-	delegate                  *delegate_;
+	profile_container         profiles_;
 
 	void on_accept(const boost::system::error_code &error)
 	{
-		typedef profiles_container::const_iterator const_iterator;
+		typedef typename profile_container::const_iterator const_iterator;
 		if (!error) {
 			cout << "Accepted a connection!" << endl;
 			sessions_.push_back(next_);
-			if (delegate_) {
-				delegate_->session_is_ready(*this, *next_);
-			}
 			next_->start();
 			session_pointer
 				nextSession(new session_type(transport_, listening_role));
-			nextSession->set_error_handler(::bind(&basic_listener::on_session_error, this, _1));
 			next_ = nextSession;
-			for (const_iterator i=profiles_.begin(); i!=profiles_.end();++i) {
-				next_->install(*i);
-			}
+			next_->install(profiles_.begin(), profiles_.end());
 			this->start();
 		} else {
 			cerr << "Problem: " << error.message() << endl;
 		}
 	}
 
-	void on_session_error(const boost::system::error_code &error)
+	void handle_stop(const beep::reply_code status,
+					 const session_type &theSession, const beep::channel &theChannel)
 	{
-		//cout << "closing all of the sessions and the acceptor." << endl;
-		// this will close __all__ of the sessions if one disconnects
-		// this is OK short term because there is only one remote site.
-		//this->stop();
+		if (status == beep::success) {
+			typedef typename sessions_container::iterator iterator;
+			for (iterator i = sessions_.begin(); i != sessions_.end(); ++i) {
+				if (i->get() == &theSession) {
+					sessions_.erase(i);
+					break;
+				}
+			}
+		}
 	}
 };
 
