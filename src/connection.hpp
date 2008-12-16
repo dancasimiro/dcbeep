@@ -124,6 +124,12 @@ public:
 	{
 		started_ = true;
 	}
+
+	void stop()
+	{
+		drain_ = true;
+		this->enqueue_write(); // enqueue in case there are no writes in progress
+	}
 private:
 	typedef map<int, data_callback>     callback_container;
 	typedef map<int, mutable_buffer>    buffers_container;
