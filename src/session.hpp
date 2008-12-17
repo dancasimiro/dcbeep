@@ -366,11 +366,9 @@ private:
 								  _3));
 		} else {
 			/// \todo the error should be passed to the class holder...
-			if (error == asio::error::eof) {
-				connection_.lowest_layer().close();
-			} else {
-				cerr << "error receiving data on the tuning channel: " << error.message() << endl;
-			}
+			cerr << "error receiving data on the tuning channel for "
+				 << name_ << ": " << error.message() << endl;
+			ready_ = false;
 		}
 	}
 
