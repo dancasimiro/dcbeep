@@ -168,7 +168,20 @@ public:
 	template <class Handler>
 	void stop(Handler handler)
 	{
-		close_channel(tuner_, handler);
+		ready_ = false;
+		profiles_.clear();
+		channels_.clear();
+		nextchan_ %= 2; // reset next chan to 0 or 1
+		if (nextchan_ == 0) {
+			nextchan_ = 2;
+		}
+
+		channel oldTuner = tuner_;
+		channel newTuner;
+		newTuner.set_number(0);
+		tuner_ = newTuner;
+
+		close_channel(oldTuner, handler);
 	}
 
 	template <typename MutableBuffer, class Handler>
