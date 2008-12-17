@@ -58,6 +58,7 @@ public:
 		, tuner_()
 		, tuneprof_()
 		, tunebuf_()
+		, name_("unnamed session")
 	{
 		tuner_.set_number(0);
 		tunebuf_.resize(4096);
@@ -73,6 +74,7 @@ public:
 		, tuner_()
 		, tuneprof_()
 		, tunebuf_()
+		, name_("unnamed session")
 	{
 		tuner_.set_number(0);
 		tunebuf_.resize(4096);
@@ -80,6 +82,9 @@ public:
 
 	io_service &lowest_layer() { return transport_.lowest_layer(); }
 	connection_layer_type &connection_layer() { return connection_.lowest_layer(); }
+
+	const string &name() const { return name_; }
+	void set_name(const string &n) { name_ = n; }
 
 	/// \brief Associate a new profile with the session
 	///
@@ -200,6 +205,7 @@ private:
 	channel                   tuner_;
 	tuner_profile             tuneprof_;
 	vector<char>              tunebuf_;
+	string                    name_;    // only here for debugging
 
 	template <class Handler>
 	struct on_read_helper {
