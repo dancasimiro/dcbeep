@@ -267,6 +267,7 @@ private:
 							 placeholders::bytes_transferred));
 		} else if (drain_) {
 			stream_.shutdown(next_layer_type::shutdown_send);
+			started_ = false;
 		}
 	}
 
