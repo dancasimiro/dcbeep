@@ -122,6 +122,11 @@ public:
 		drain_ = true;
 		this->enqueue_write(); // enqueue in case there are no writes in progress
 	}
+
+	void terminate()
+	{
+		stream_.close();
+	}
 private:
 	typedef boost::system::error_code                       error_code;
 	typedef function<void (const error_code&, size_t, frame::frame_type)> read_handler;
@@ -145,7 +150,7 @@ private:
 	{
 		if (!error || error == boost::asio::error::message_size) {
 			if (!parse_frame_header(bytes_transferred, frame_.get_header())) {
-				terminate_connection();
+				terminate();
 			} else if (frame_.get_header().size > rsb_.size()) {
 				const size_t remainingBytes =
 					frame_.get_header().size - rsb_.size();
@@ -196,7 +201,7 @@ private:
 		read_container::iterator i = sched_.find(frameHeader.channel);
 		if (!error || error == boost::asio::error::message_size) {
 			if (!parse_frame_trailer(bytes_transferred, frame_.get_trailer())) {
-				terminate_connection();
+				terminate();
 			} else {
 				const int chNum = frame_.get_header().channel;
 
@@ -233,12 +238,6 @@ private:
 	parse_frame_trailer(size_t bytes, frame::trailer &trailer)
 	{
 		return frame::parse(&rsb_, trailer);
-	}
-
-	void
-	terminate_connection()
-	{
-		stream_.close();
 	}
 
 	// schedule to flush the current send buffer over the socket
