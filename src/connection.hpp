@@ -58,6 +58,11 @@ public:
 	{
 	}
 
+	virtual ~basic_connection()
+	{
+		this->clear_pending_reads(boost::asio::error::operation_aborted);
+	}
+
 	next_layer_type &next_layer() { return stream_; }
 	lowest_layer_type &lowest_layer() { return stream_.lowest_layer(); }
 
@@ -120,6 +125,7 @@ public:
 	void stop()
 	{
 		drain_ = true;
+		this->clear_pending_reads(boost::asio::error::operation_aborted);
 		this->enqueue_write(); // enqueue in case there are no writes in progress
 	}
 
@@ -281,11 +287,16 @@ private:
 	void
 	handle_read_error(const boost::system::error_code &error)
 	{
+		this->clear_pending_reads(error);
+	}
+
+	void
+	clear_pending_reads(const boost::system::error_code &error)
+	{
 		// tell all queued readers of the read problem.
-		typedef read_container::iterator iterator;
+		typedef typename read_container::iterator iterator;
 		for (iterator i = sched_.begin(); i != sched_.end(); ++i) {
-			read_handler myHandler(i->second.second);
-			myHandler(error, -1, frame::err);
+			i->second.second(error, 0, frame::err);
 		}
 		sched_.clear();
 	}
