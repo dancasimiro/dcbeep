@@ -291,6 +291,8 @@ private:
 			reply_code status = success;
 			if (error && error != boost::asio::error::message_size) {
 				status = requested_action_aborted;
+			} else if (theChannel.number() == 0) {
+				theSession.connection_.stop();
 			}
 			theHandler(status, theSession, theChannel);
 		}
