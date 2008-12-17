@@ -550,8 +550,9 @@ private:
 	{
 		ostringstream encstrm;
 		if (tuneprof_.add_channel(chan.second.first, encstrm)) {
+			const string content(encstrm.str());
 			message msg;
-			tuneprof_.make_message(frame::msg, encstrm.str(), msg);
+			tuneprof_.make_message(frame::msg, content, msg);
 			connection_.send(tuner_, msg,
 							 bind(&basic_session::on_sent_channel_start,
 								  this,
