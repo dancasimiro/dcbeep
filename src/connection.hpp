@@ -129,10 +129,6 @@ public:
 		this->enqueue_write(); // enqueue in case there are no writes in progress
 	}
 
-	void terminate()
-	{
-		stream_.close();
-	}
 private:
 	typedef boost::system::error_code                       error_code;
 	typedef function<void (const error_code&, size_t, frame::frame_type)> read_handler;
@@ -149,6 +145,8 @@ private:
 	bool                      started_;
 	bool                      busyread_;
 	bool                      drain_;
+
+	void terminate() { stream_.close(); }
 
 	void
 	handle_frame_header(const boost::system::error_code &error,
