@@ -11,9 +11,17 @@ public:
 	typedef deque<const_buffer>                   buffers_container;
 	typedef buffers_container::const_iterator     const_iterator;
 
+	enum frame_type {
+		msg = 0,
+		rpy = 1,
+		ans = 2,
+		err = 3,
+		nul = 4,
+	};
+
 	message()
 		: content_()
-		, type_(frame::msg)
+		, type_(msg)
 		, chnno_(0)
 		, msgno_(0)
 		, seqno_(0)
