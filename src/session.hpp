@@ -148,25 +148,107 @@ private:
 			/// \todo actually negogiate
 			ready_ = true;
 
-			// send "start" messages for any channels that were added
-			// before the negotiation finished.
-#if 0
-			for_each(channels_.begin(), channels_.end(),
-					 bind(&basic_session::standup_channel, this, _1));
-#endif
 			/// for now, just read more data for channel 0
-#if 0
 			connection_.read(tuner_, buffer(tunebuf_),
-							 bind(&basic_session::on_tuning_message,
-								  this,
+							 bind(&session_impl::on_tuning_message,
+								  this->shared_from_this(),
 								  asio::placeholders::error,
 								  asio::placeholders::bytes_transferred,
 								  _3));
+
+			// send "start" messages for any channels that were added
+			// before the negotiation finished.
+#if 0
+			if (psession_) {
+				typedef list<message> initmsg_list;
+				initmsg_list msgs;
+				transform(psession_->begin(), psession_->end(),
+						  back_insert_iterator<initmsg_list>(msgs),
+						  add_message_from_channel);
+#if 0
+				for_each(channels_.begin(), channels_.end(),
+						 bind(&basic_session::standup_channel, this, _1));
+#endif
+			}
 #endif
 		} else {
 			cerr << "Failed to negogiate the session info: " << error.message() << endl;
 		}
 	}
+
+	void
+	on_tuning_message(const boost::system::error_code &error,
+					  size_t bytes_transferred,
+					  const frame::frame_type ft)
+	{
+		if (!error || error == asio::error::message_size) {
+			/// \todo install an XML parser here...
+			typedef buffer_type::const_iterator const_iterator;
+			const_iterator first(tunebuf_.begin()), last(first);
+			advance(last, bytes_transferred);
+			string myString(first, last);
+
+			// if start message
+			reply_code status = general_syntax_error;
+			if(myString.find("start") != string::npos) {
+				istringstream strm(myString);
+				int channel = -1;
+				string profile_uri;
+				if (decode_start_channel(strm, channel) &&
+					decode_start_profile(strm, profile_uri)) {
+#if 0
+					status = this->setup_new_channel(channel, profile_uri);
+#endif
+				}
+			} else if (myString.find("close") != string::npos) {
+				istringstream strm(myString);
+				int channel = -1;
+				if (decode_start_channel(strm, channel)) {
+#if 0
+					if (channel > 0) {
+						status = this->shut_down_channel(channel);
+					} else {
+						status = this->shut_down_session();
+					}
+#endif
+				}
+			}
+			connection_.read(tuner_,
+							 buffer(tunebuf_),
+							 bind(&session_impl::on_tuning_message,
+								  this->shared_from_this(),
+								  asio::placeholders::error,
+								  asio::placeholders::bytes_transferred,
+								  _3));
+		} else {
+			/// \todo the error should be passed to the class holder...
+			cerr << "error receiving data on the tuning channel: "
+				 << error.message() << endl;
+			ready_ = false;
+		}
+	}
+
+#if 0
+	void
+	standup_channel(const typename channel_container::value_type &chan)
+	{
+		ostringstream encstrm;
+		if (tuneprof_.add_channel(chan.second.first, encstrm)) {
+			const string content(encstrm.str());
+			message msg;
+			tuneprof_.make_message(frame::msg, content, msg);
+			connection_.send(tuner_, msg,
+							 bind(&basic_session::on_sent_channel_start,
+								  this,
+								  asio::placeholders::error,
+								  asio::placeholders::bytes_transferred,
+								  chan));
+		} else {
+			chan.second.second(beep::service_not_available,
+							   *this, chan.second.first);
+		}
+	}
+#endif
 };     // class session_impl
 
 }      // namespace detail
@@ -286,7 +368,9 @@ public:
 				// sending a new channel start message must be delayed until the
 				// supported profiles are negogiated. The registration process must
 				// be completed.
+#if 0
 				standup_channel(*result.first);
+#endif
 			}
 		} else {
 			chNum = -1;
@@ -458,51 +542,6 @@ private:
 	};
 
 	void
-	on_tuning_message(const boost::system::error_code &error,
-					  size_t bytes_transferred,
-					  const frame::frame_type ft)
-	{
-		if (!error || error == asio::error::message_size) {
-			/// \todo install an XML parser here...
-			string myString(tunebuf_.begin(), tunebuf_.begin() + bytes_transferred);
-
-			// if start message
-			reply_code status = general_syntax_error;
-			if(myString.find("start") != string::npos) {
-				istringstream strm(myString);
-				int channel = -1;
-				string profile_uri;
-				if (detail::decode_start_channel(strm, channel) &&
-					detail::decode_start_profile(strm, profile_uri)) {
-					status = this->setup_new_channel(channel, profile_uri);
-				}
-			} else if (myString.find("close") != string::npos) {
-				istringstream strm(myString);
-				int channel = -1;
-				if (detail::decode_start_channel(strm, channel)) {
-					if (channel > 0) {
-						status = this->shut_down_channel(channel);
-					} else {
-						status = this->shut_down_session();
-					}
-				}
-			}
-			connection_.read(tuner_,
-							 buffer(tunebuf_),
-							 bind(&basic_session::on_tuning_message,
-								  this,
-								  asio::placeholders::error,
-								  asio::placeholders::bytes_transferred,
-								  _3));
-		} else {
-			/// \todo the error should be passed to the class holder...
-			cerr << "error receiving data on the tuning channel for "
-				 << name_ << ": " << error.message() << endl;
-			ready_ = false;
-		}
-	}
-
-	void
 	send_tuning_reply(const reply_code rc, const string &uri)
 	{
 		// storage is buffered inside the connection object.
@@ -616,26 +655,6 @@ private:
 	{
 		if (error && error != boost::asio::error::message_size) {
 			cerr << "Failed to send the tuning reply: " << error.message() << endl;
-		}
-	}
-
-	void
-	standup_channel(const typename channel_container::value_type &chan)
-	{
-		ostringstream encstrm;
-		if (tuneprof_.add_channel(chan.second.first, encstrm)) {
-			const string content(encstrm.str());
-			message msg;
-			tuneprof_.make_message(frame::msg, content, msg);
-			connection_.send(tuner_, msg,
-							 bind(&basic_session::on_sent_channel_start,
-								  this,
-								  asio::placeholders::error,
-								  asio::placeholders::bytes_transferred,
-								  chan));
-		} else {
-			chan.second.second(beep::service_not_available,
-							   *this, chan.second.first);
 		}
 	}
 
