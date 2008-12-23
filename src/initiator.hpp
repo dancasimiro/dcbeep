@@ -47,7 +47,7 @@ private:
 			, theHandler(h)
 		{ }
 
-		void operator()(const boost::system::error_code &error) const
+		void operator()(const boost::system::error_code &error)
 		{
 			if (!error) {
 				theInitiator.session_.start();
