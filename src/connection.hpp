@@ -35,6 +35,14 @@ struct msg2frame {
 	container                 frames;
 };     // struct frame_generator
 
+template <typename T>
+bool
+scheduled_write_is_sentinel(const T &value)
+{
+	return value.first == numeric_limits<typename T::first_type>::max() &&
+		value.second.empty();
+}
+
 }      // namespace detail
 
 template <class StreamType>
@@ -52,6 +60,7 @@ public:
 		, fssb_(&ssb_[0])
 		, bssb_(&ssb_[1])
 		, sched_()
+		, writes_()
 		, started_(false)
 		, busyread_(false)
 		, drain_(false)
@@ -109,13 +118,12 @@ public:
 		chan.increment_message_number();
 		chan.increase_sequence_number(totalOctets);
 
+		writes_.push_back(make_pair(totalOctets, handler));
 		// the write has been buffered, but not sent.
-		boost::system::error_code error;
-		stream_.get_io_service().dispatch(bind(handler, error, totalOctets));
 		this->enqueue_write();
 	}
 
-	/// \todo incorporate teh started_ member into the async_send function
+	/// \todo incorporate the started_ member into the async_send function
 	/// \note Then, i can remove the "start" method.
 	void start()
 	{
@@ -132,8 +140,11 @@ public:
 private:
 	typedef boost::system::error_code                       error_code;
 	typedef function<void (const error_code&, size_t, frame::frame_type)> read_handler;
+	typedef function<void (const error_code&, size_t)>      write_handler;
 	typedef pair<mutable_buffer, read_handler>              scheduled_read;
 	typedef map<int, scheduled_read>                        read_container;
+	typedef pair<size_t, write_handler>                     scheduled_write;
+	typedef deque<scheduled_write>                          write_container;
 
 	next_layer_type           stream_;   // socket
 	asio::streambuf           rsb_;      // streambuf for receiving data
@@ -142,6 +153,7 @@ private:
 	asio::streambuf           *fssb_;    // streambuf that actively sends
 	asio::streambuf           *bssb_;    // background sending streambuf
 	read_container            sched_;    // scheduled read buffers
+	write_container           writes_;   // pending write handlers
 	bool                      started_;
 	bool                      busyread_;
 	bool                      drain_;
@@ -258,6 +270,8 @@ private:
 		if (!started_ || fssb_->size() == 0) {
 			// no active write operation, so enque a new one.
 			swap(bssb_, fssb_);
+			// insert a sentinel
+			writes_.push_back(make_pair(numeric_limits<scheduled_write::first_type>::max(), write_handler()));
 			async_write(stream_, *fssb_,
 						bind(&basic_connection::handle_send,
 							 this,
@@ -274,12 +288,31 @@ private:
 				size_t bytes_transferred)
 	{
 		if (!error || error == boost::asio::error::message_size) {
+			// invoke the pending write handlers now.
+			bool done = false;
+			while (!writes_.empty() && !done) {
+				scheduled_write &next_handler = writes_.front();
+				done = detail::scheduled_write_is_sentinel(next_handler);
+				if (!done) {
+					const size_t bytes_in_send = next_handler.first;
+					assert(!next_handler.second.empty());
+					next_handler.second(error, bytes_in_send);
+				}
+				writes_.pop_front();
+			}
+
 			if (bssb_->size()) {
 				do_enqueue_write();
 			}
 		} else {
-			cerr << "Incomplete send: " << error.message()
-				 << " code is " << error.value();
+			// invoke all of the pending write handlers.
+			while (!writes_.empty()) {
+				scheduled_write &next_handler = writes_.front();
+				if (!detail::scheduled_write_is_sentinel(next_handler)) {
+					next_handler.second(error, bytes_transferred);
+				}
+				writes_.pop_front();
+			}
 		}
 	}
 
