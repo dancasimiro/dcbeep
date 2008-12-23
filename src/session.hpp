@@ -77,21 +77,96 @@ public:
 	typedef session_impl<transport_layer>                   full_type;
 	typedef enable_shared_from_this<full_type>              base_type;
 	typedef typename transport_layer::connection_type       stream_type;
+	typedef vector<char>                                    buffer_type;
 	typedef shared_ptr<full_type>                           pointer;
 
 	session_impl(transport_layer &transport)
 		: base_type()
 		, psession_(NULL)
+		, ready_(false)
+		, tuner_()
+		, tunebuf_()
 		, connection_(transport.lowest_layer())
+	{
+		tuner_.set_number(0);
+		tunebuf_.resize(4096);
+	}
+
+	virtual ~session_impl()
 	{
 	}
 
 	void set_session(session_pointer p) { psession_ = p; }
 	stream_type &connection() { return connection_; }
 	const stream_type &connection() const { return connection_; }
+
+	template <class T>
+	void start(T &aProfile)
+	{
+		message msg;
+		if (aProfile.initialize(msg)) {
+			connection_.start();
+			connection_.send(tuner_, msg,
+							 bind(&session_impl::sent_greeting,
+								  this->shared_from_this(), _1, _2));
+		}
+	}
 private:
 	session_pointer           psession_;
+	bool                      ready_;
+	channel                   tuner_;
+	buffer_type               tunebuf_;
 	stream_type               connection_;
+
+	void
+	sent_greeting(const boost::system::error_code &error,
+				  size_t bytes_transferred)
+	{
+		if (!error || error == asio::error::message_size) {
+			// read the greeting message from my peer
+			connection_.read(tuner_, buffer(tunebuf_),
+							 bind(&session_impl::negogiate_session,
+								  this->shared_from_this(),
+								  asio::placeholders::error,
+								  asio::placeholders::bytes_transferred,
+								  _3));
+		} else {
+			/// \todo send the error up the chain, or try again...
+			ostringstream strm;
+			strm << "there was an error sending the beep greeting ("
+				 << error.message() << ").";
+			throw runtime_error(strm.str());
+		}
+	}
+
+	void
+	negogiate_session(const boost::system::error_code &error,
+					  size_t bytes_transferred, const frame::frame_type ft)
+	{
+		if (!error || error == asio::error::message_size) {
+			/// the tunebuf_ should be filled with a greeting message
+			/// \todo actually negogiate
+			ready_ = true;
+
+			// send "start" messages for any channels that were added
+			// before the negotiation finished.
+#if 0
+			for_each(channels_.begin(), channels_.end(),
+					 bind(&basic_session::standup_channel, this, _1));
+#endif
+			/// for now, just read more data for channel 0
+#if 0
+			connection_.read(tuner_, buffer(tunebuf_),
+							 bind(&basic_session::on_tuning_message,
+								  this,
+								  asio::placeholders::error,
+								  asio::placeholders::bytes_transferred,
+								  _3));
+#endif
+		} else {
+			cerr << "Failed to negogiate the session info: " << error.message() << endl;
+		}
+	}
 };     // class session_impl
 
 }      // namespace detail
@@ -236,8 +311,7 @@ public:
 
 	void start()
 	{
-		connection_.start();
-		this->setup_tuning_channel();
+		pimpl_->start(tuneprof_);
 	}
 
 	template <class Handler>
@@ -476,50 +550,6 @@ private:
 							  asio::placeholders::bytes_transferred));
 	}
 
-	void
-	sent_greeting(const boost::system::error_code &error, size_t bytes_transferred)
-	{
-		if (!error || error == asio::error::message_size) {
-			// read the greeting message from my peer
-			connection_.read(tuner_, buffer(tunebuf_),
-							 bind(&basic_session::negogiate_session,
-								  this,
-								  asio::placeholders::error,
-								  asio::placeholders::bytes_transferred,
-								  _3));
-		} else {
-			/// \todo send the error up the chain, or try again...
-			cerr << "there was an error sending the greet message: " << error.message() << endl;
-		}
-	}
-
-	void
-	negogiate_session(const boost::system::error_code &error,
-					  size_t bytes_transferred, const frame::frame_type ft)
-	{
-		if (!error || error == asio::error::message_size) {
-			/// the tunebuf_ should be filled with a greeting message
-			/// \todo actually negogiate
-			ready_ = true;
-
-			// send "start" messages for any channels that were added
-			// before the negotiation finished.
-			// skip over the tuning channel (channel 0)
-			for_each(channels_.begin(), channels_.end(),
-					 bind(&basic_session::standup_channel, this, _1));
-
-			/// for now, just read more data for channel 0
-			connection_.read(tuner_, buffer(tunebuf_),
-							 bind(&basic_session::on_tuning_message,
-								  this,
-								  asio::placeholders::error,
-								  asio::placeholders::bytes_transferred,
-								  _3));
-		} else {
-			cerr << "Failed to negogiate the session info: " << error.message() << endl;
-		}
-	}
-
 	reply_code
 	setup_new_channel(const int chNum, const string &profileURI)
 	{
@@ -586,16 +616,6 @@ private:
 	{
 		if (error && error != boost::asio::error::message_size) {
 			cerr << "Failed to send the tuning reply: " << error.message() << endl;
-		}
-	}
-
-
-	void setup_tuning_channel()
-	{
-		message msg;
-		if (tuneprof_.initialize(msg)) {
-			connection_.send(tuner_, msg,
-							 bind(&basic_session::sent_greeting, this, _1, _2));
 		}
 	}
 
