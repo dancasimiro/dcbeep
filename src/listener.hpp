@@ -113,7 +113,6 @@ private:
 	{
 		typedef typename profile_container::const_iterator const_iterator;
 		if (!error) {
-			cout << "Accepted a connection!" << endl;
 			sessions_.push_back(next_);
 			next_->start();
 			session_pointer
