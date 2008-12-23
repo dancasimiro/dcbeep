@@ -7,7 +7,7 @@
 namespace beep {
 
 template <class SessionType>
-class basic_initiator {
+class basic_initiator : private noncopyable {
 public:
 	typedef SessionType                                     session_type;
 	typedef session_type&                                   session_reference;
