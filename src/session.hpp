@@ -70,10 +70,14 @@ template <class T>
 reply_code
 start_channel(T psession, channel &aChannel, const string &init)
 {
-	reply_code result = service_not_available;
-	if (psession) {
-		result = psession->initialize(aChannel, init);
-	}
+	return psession ? psession->initialize(aChannel, init) : service_not_available;
+}
+
+template <class T>
+reply_code
+stop_channel(T psession, const int chNum)
+{
+	return psession ? psession->remove_channel(chNum) : service_not_available;
 }
 
 template <class TransportLayer>
@@ -288,17 +292,7 @@ private:
 	reply_code
 	shut_down_channel(const int chNum)
 	{
-		//typedef typename channel_container::size_type size_type;
-
-		reply_code status;
-#if 0
-		size_type n = channels_.erase(chNum);
-		if (chNum > 0) {
-			status = success;
-		} else {
-			status = requested_action_aborted;
-		}
-#endif
+		const reply_code status = stop_channel(psession_, chNum);
 		this->send_channel_close_reply(status);
 		return status;
 	}
@@ -387,6 +381,11 @@ public:
 		iterator i = profiles_.find(aChannel.profile());
 		return (i != profiles_.end() ? 
 				i->second(*this, aChannel, init) : requested_action_aborted);
+	}
+
+	reply_code remove_channel(const int chNum)
+	{
+		return channels_.erase(chNum) > 0 ? success : requested_action_aborted;
 	}
 
 	basic_session(transport_layer_reference transport)
