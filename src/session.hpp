@@ -571,6 +571,9 @@ private:
 								  asio::placeholders::error,
 								  asio::placeholders::bytes_transferred,
 								  chan));
+		} else {
+			chan.second.second(beep::service_not_available,
+							   *this, chan.second.first);
 		}
 	}
 
