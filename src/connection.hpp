@@ -303,22 +303,8 @@ private:
 				do_enqueue_write();
 			}
 		} else {
-			// invoke all of the pending write handlers.
-			while (!writes_.empty()) {
-				scheduled_write &next_handler = writes_.front();
-				if (!detail::scheduled_write_is_sentinel(next_handler)) {
-					next_handler.second(error, bytes_transferred);
-				}
-				writes_.pop_front();
-			}
 			started_ = false;
-			// clear out the send buffers
-			while (const size_t theSize = fssb_->size()) {
-			  fssb_->consume(theSize);
-			}
-			while (const size_t theSize = bssb_->size()) {
-			  bssb_->consume(theSize);
-			}
+			this->clear_pending_writes(error);
 		}
 	}
 
@@ -337,6 +323,27 @@ private:
 			i->second.second(error, 0, frame::err);
 		}
 		sched_.clear();
+	}
+
+	void
+	clear_pending_writes(const boost::system::error_code &error)
+	{
+		// invoke all of the pending write handlers.
+		while (!writes_.empty()) {
+			scheduled_write &next_handler = writes_.front();
+			if (!detail::scheduled_write_is_sentinel(next_handler)) {
+				next_handler.second(error, 0);
+			}
+			writes_.pop_front();
+		}
+
+		// clear out the send buffers
+		while (const size_t theSize = fssb_->size()) {
+			fssb_->consume(theSize);
+		}
+		while (const size_t theSize = bssb_->size()) {
+			bssb_->consume(theSize);
+		}
 	}
 };     // class basic_connection
 
