@@ -16,6 +16,7 @@ using namespace std;
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/asio.hpp>
+#include <boost/enable_shared_from_this.hpp>
 using boost::bind;
 using boost::shared_ptr;
 using namespace boost::asio;
