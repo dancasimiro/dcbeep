@@ -159,6 +159,16 @@ public:
 	}
 
 	tuner_profile &profile() { return tuneprof_; }
+
+	void standup(const channel &channel)
+	{
+		if (ready_) {
+			// sending a new channel start message must be delayed until the
+			// supported profiles are negogiated. The registration process must
+			// be completed.
+			this->do_standup(channel);
+		}
+	}
 private:
 	session_pointer           psession_;
 	bool                      ready_;
@@ -212,7 +222,7 @@ private:
 				container channels;
 				psession_->copy_channels(back_insert_iterator<container>(channels));
 				for_each(channels.begin(), channels.end(),
-						 bind(&session_impl::standup_channel,
+						 bind(&session_impl::do_standup,
 							  this->shared_from_this(),
 							  _1));
 			}
@@ -360,7 +370,7 @@ private:
 	}
 
 	void
-	standup_channel(const channel &chan)
+	do_standup(const channel &chan)
 	{
 		ostringstream encstrm;
 		if (tuneprof_.add_channel(chan, encstrm)) {
@@ -633,16 +643,7 @@ public:
 
 		const result_type result = channels_.insert(make_pair(chNum, myPair));
 		if (result.second) {
-#if 0
-			if (ready_) {
-				// sending a new channel start message must be delayed until the
-				// supported profiles are negogiated. The registration process must
-				// be completed.
-#if 0
-				standup_channel(*result.first);
-#endif
-			}
-#endif
+			pimpl_->standup(info);
 		} else {
 			chNum = -1;
 		}
