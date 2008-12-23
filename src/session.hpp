@@ -554,36 +554,22 @@ public:
 
 	basic_session(transport_layer_reference transport)
 		: nextchan_(1)
-		, ready_(false)
-		, connection_(transport.lowest_layer())
 		, profiles_()
 		, channels_()
-		, tuner_()
-		, tuneprof_()
-		, tunebuf_()
 		, name_("unnamed session")
 		, pimpl_(new impl_type(transport))
 	{
 		pimpl_->set_session(this);
-		tuner_.set_number(0);
-		tunebuf_.resize(4096);
 	}
 
 	basic_session(transport_layer_reference transport, role r)
 		: nextchan_(r == initiating_role ? 1 : 2)
-		, ready_(false)
-		, connection_(transport.lowest_layer())
 		, profiles_()
 		, channels_()
-		, tuner_()
-		, tuneprof_()
-		, tunebuf_()
 		, name_("unnamed session")
 		, pimpl_(new impl_type(transport))
 	{
 		pimpl_->set_session(this);
-		tuner_.set_number(0);
-		tunebuf_.resize(4096);
 	}
 
 	virtual ~basic_session()
@@ -612,7 +598,9 @@ public:
 	void install(const string &profile, Handler handler)
 	{
 		profiles_.insert(make_pair(profile, handler));
+#if 0
 		tuneprof_.add_profile(profile);
+#endif
 	}
 
 	template <class FwdIterator>
@@ -620,7 +608,9 @@ public:
 	{
 		profiles_.insert(first, last);
 		for (; first != last; ++first) {
+#if 0
 			tuneprof_.add_profile(first->first);
+#endif
 		}
 	}
 
@@ -645,6 +635,7 @@ public:
 
 		const result_type result = channels_.insert(make_pair(chNum, myPair));
 		if (result.second) {
+#if 0
 			if (ready_) {
 				// sending a new channel start message must be delayed until the
 				// supported profiles are negogiated. The registration process must
@@ -653,6 +644,7 @@ public:
 				standup_channel(*result.first);
 #endif
 			}
+#endif
 		} else {
 			chNum = -1;
 		}
@@ -665,6 +657,7 @@ public:
 		typedef typename channel_container::size_type size_type;
 		size_type n = channels_.erase(chan.number());
 		if (n > 0) {
+#if 0
 			if (ready_) {
 #if 0
 				close_channel(chan, handler);
@@ -672,6 +665,7 @@ public:
 			} else {
 				handler(requested_action_not_accepted, *this, chan);
 			}
+#endif
 		}
 		return (n > 0);
 	}
@@ -719,13 +713,8 @@ private:
 	typedef typename impl_type::pointer                     pimpl_type;
 
 	unsigned int              nextchan_;
-	bool                      ready_;     // registration is complete.
-	connection_type           connection_;
 	profile_container         profiles_;
 	channel_container         channels_;
-	channel                   tuner_;
-	tuner_profile             tuneprof_;
-	vector<char>              tunebuf_;
 	string                    name_;    // only here for debugging
 	pimpl_type                pimpl_;
 };     // class basic_session
