@@ -143,6 +143,20 @@ public:
 		tuner_ = newTuner;
 		this->close_channel(oldTuner, handler);
 	}
+
+	template <typename MutableBuffer, class Handler>
+	void async_read(const channel &channel, MutableBuffer aBuffer, Handler aHandler)
+	{
+		read_helper<Handler> help(this->shared_from_this(), channel, aHandler);
+		connection_.read(channel, aBuffer, help);
+	}
+
+	template <typename ConstBuffer, class Handler>
+	void async_send(channel &channel, ConstBuffer aBuffer, Handler aHandler)
+	{
+		write_helper<Handler> help(this->shared_from_this(), channel, aHandler);
+		connection_.send(channel, aBuffer, help);
+	}
 private:
 	session_pointer           psession_;
 	bool                      ready_;
@@ -423,6 +437,68 @@ private:
 			}
 		}
 	};
+
+	template <class Handler>
+	struct read_helper {
+		pointer               theSession;
+		channel               theChannel;
+		Handler               theHandler;
+
+		read_helper(pointer aSession, const channel &c, Handler h)
+			: theSession(aSession)
+			, theChannel(c)
+			, theHandler(h)
+		{
+		}
+
+		read_helper(const read_helper &src)
+			: theSession(src.theSession)
+			, theChannel(src.theChannel)
+			, theHandler(src.theHandler)
+		{
+		}
+
+		void operator()(const boost::system::error_code &error,
+						const std::size_t bytes_transferred,
+						const frame::frame_type ft) const
+		{
+			reply_code status = success;
+			if (error && error != boost::asio::error::message_size) {
+				status = requested_action_aborted;
+			}
+			if (session_pointer p = theSession->psession_) {
+				theHandler(status, *p, theChannel, bytes_transferred);
+			}
+		}
+	};
+
+	template <class Handler>
+	struct write_helper {
+		typedef void                    result_type;
+
+		pointer              theSession;
+		channel              theChannel;
+		Handler              theHandler;
+
+		write_helper(pointer aSession, const channel &c, Handler h)
+			: theSession(aSession)
+			, theChannel(c)
+			, theHandler(h)
+		{
+		}
+
+		void operator()(const boost::system::error_code &error,
+						const std::size_t bytes_transferred)
+		{
+			reply_code status = success;
+			if (error && error != boost::asio::error::message_size) {
+				status = requested_action_aborted;
+			}
+			if (session_pointer p = theSession->psession_) {
+				theHandler(status, *p, theChannel, bytes_transferred);
+			}
+		}
+	};
 };     // class session_impl
 
 }      // namespace detail
@@ -620,15 +696,13 @@ public:
 	template <typename MutableBuffer, class Handler>
 	void async_read(const channel &channel, MutableBuffer aBuffer, Handler aHandler)
 	{
-		connection_.read(channel, aBuffer,
-						 on_read_helper<Handler>(*this, channel, aHandler));
+		pimpl_->async_read(channel, aBuffer, aHandler);
 	}
 
 	template <typename ConstBuffer, class Handler>
 	void async_send(channel &channel, ConstBuffer aBuffer, Handler aHandler)
 	{
-		connection_.send(channel, aBuffer,
-						 on_write_helper<Handler>(*this, channel, aHandler));
+		pimpl_->async_send(channel, aBuffer, aHandler);
 	}
 	// for now, I am hardcoding the handlers with boost::function typedefs.
 	// I can extend this to be more generic later
@@ -654,64 +728,6 @@ private:
 	vector<char>              tunebuf_;
 	string                    name_;    // only here for debugging
 	pimpl_type                pimpl_;
-
-	template <class Handler>
-	struct on_read_helper {
-		basic_session         &theSession;
-		channel               theChannel;
-		Handler               theHandler;
-
-		on_read_helper(basic_session &aSession, const channel &c, Handler h)
-			: theSession(aSession)
-			, theChannel(c)
-			, theHandler(h)
-		{
-		}
-
-		on_read_helper(const on_read_helper &src)
-			: theSession(src.theSession)
-			, theChannel(src.theChannel)
-			, theHandler(src.theHandler)
-		{
-		}
-
-		void operator()(const boost::system::error_code &error,
-						const std::size_t bytes_transferred,
-						const frame::frame_type ft) const
-		{
-			reply_code status = success;
-			if (error && error != boost::asio::error::message_size) {
-				status = requested_action_aborted;
-			}
-			theHandler(status, theSession, theChannel, bytes_transferred);
-		}
-	};
-
-	template <class Handler>
-	struct on_write_helper {
-		typedef void                    result_type;
-
-		basic_session        &theSession;
-		channel              theChannel;
-		Handler              theHandler;
-
-		on_write_helper(basic_session &aSession, const channel &c, Handler h)
-			: theSession(aSession)
-			, theChannel(c)
-			, theHandler(h)
-		{
-		}
-
-		void operator()(const boost::system::error_code &error,
-						const std::size_t bytes_transferred)
-		{
-			reply_code status = success;
-			if (error && error != boost::asio::error::message_size) {
-				status = requested_action_aborted;
-			}
-			theHandler(status, theSession, theChannel, bytes_transferred);
-		}
-	};
 };     // class basic_session
 
 }      // namespace beep
