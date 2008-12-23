@@ -66,6 +66,16 @@ decode_start_profile(std::istream &strm, string &uri)
 	return strm;
 }
 
+template <class T>
+reply_code
+start_channel(T psession, channel &aChannel, const string &init)
+{
+	reply_code result = service_not_available;
+	if (psession) {
+		result = psession->initialize(aChannel, init);
+	}
+}
+
 template <class TransportLayer>
 class session_impl
 	: public enable_shared_from_this<session_impl<TransportLayer> >
@@ -78,6 +88,7 @@ public:
 	typedef enable_shared_from_this<full_type>              base_type;
 	typedef typename transport_layer::connection_type       stream_type;
 	typedef vector<char>                                    buffer_type;
+	typedef channel_management_profile                      tuner_profile;
 	typedef shared_ptr<full_type>                           pointer;
 
 	session_impl(transport_layer &transport)
@@ -86,6 +97,7 @@ public:
 		, ready_(false)
 		, tuner_()
 		, tunebuf_()
+		, tuneprof_()
 		, connection_(transport.lowest_layer())
 	{
 		tuner_.set_number(0);
@@ -100,11 +112,10 @@ public:
 	stream_type &connection() { return connection_; }
 	const stream_type &connection() const { return connection_; }
 
-	template <class T>
-	void start(T &aProfile)
+	void start()
 	{
 		message msg;
-		if (aProfile.initialize(msg)) {
+		if (tuneprof_.initialize(msg)) {
 			connection_.start();
 			connection_.send(tuner_, msg,
 							 bind(&session_impl::sent_greeting,
@@ -116,6 +127,7 @@ private:
 	bool                      ready_;
 	channel                   tuner_;
 	buffer_type               tunebuf_;
+	tuner_profile             tuneprof_;
 	stream_type               connection_;
 
 	void
@@ -196,9 +208,7 @@ private:
 				string profile_uri;
 				if (decode_start_channel(strm, channel) &&
 					decode_start_profile(strm, profile_uri)) {
-#if 0
 					status = this->setup_new_channel(channel, profile_uri);
-#endif
 				}
 			} else if (myString.find("close") != string::npos) {
 				istringstream strm(myString);
@@ -226,6 +236,55 @@ private:
 				 << error.message() << endl;
 			ready_ = false;
 		}
+	}
+
+	void
+	send_tuning_reply(const reply_code rc, const string &uri)
+	{
+		// storage is buffered inside the connection object.
+		// It does not need to live past the connection send call.
+		ostringstream strm;
+		string storage;
+		message msg;
+		if (rc != success) {
+			tuneprof_.encode_error(rc, strm);
+			storage = strm.str();
+			tuneprof_.make_message(frame::err, storage, msg);
+		} else {
+			tuneprof_.accept_profile(uri, strm);
+			storage = strm.str();
+			tuneprof_.make_message(frame::rpy, storage, msg);
+		}
+		connection_.send(tuner_, msg,
+						 bind(&session_impl::on_sent_tuning_reply,
+							  this->shared_from_this(),
+							  asio::placeholders::error,
+							  asio::placeholders::bytes_transferred));
+	}
+
+	void
+	on_sent_tuning_reply(const boost::system::error_code &error,
+						 size_t bytes_transferred)
+	{
+		if (error && error != boost::asio::error::message_size) {
+			ostringstream strm;
+			strm << "Failed to send the tuning reply: " << error.message();
+			throw runtime_error(strm.str());
+		}
+	}
+
+	reply_code
+	setup_new_channel(const int chNum, const string &profileURI)
+	{
+		channel myChannel;
+		myChannel.set_number(chNum);
+		myChannel.set_profile(profileURI);
+
+		/// \todo read the initialization message from the start message
+		string init;
+		const reply_code status = start_channel(psession_, myChannel, init);
+		this->send_tuning_reply(status, profileURI);
+		return status;
 	}
 
 #if 0
@@ -270,6 +329,16 @@ public:
 
 	template<class SessionType> friend class basic_listener;
 	template<class SessionType> friend class basic_initiator;
+	//template<class T> friend reply_code start_channel(T, channel&, const string&);
+
+	/// this is a leaked implementation detail. do not use it.
+	reply_code initialize(channel &aChannel, const string &init)
+	{
+		typedef typename profile_container::iterator iterator;
+		iterator i = profiles_.find(aChannel.profile());
+		return (i != profiles_.end() ? 
+				i->second(*this, aChannel, init) : requested_action_aborted);
+	}
 
 	basic_session(transport_layer_reference transport)
 		: nextchan_(1)
@@ -395,7 +464,7 @@ public:
 
 	void start()
 	{
-		pimpl_->start(tuneprof_);
+		pimpl_->start();
 	}
 
 	template <class Handler>
@@ -542,30 +611,6 @@ private:
 	};
 
 	void
-	send_tuning_reply(const reply_code rc, const string &uri)
-	{
-		// storage is buffered inside the connection object.
-		// It does not need to live past the connection send call.
-		ostringstream strm;
-		string storage;
-		message msg;
-		if (rc != success) {
-			tuneprof_.encode_error(rc, strm);
-			storage = strm.str();
-			tuneprof_.make_message(frame::err, storage, msg);
-		} else {
-			tuneprof_.accept_profile(uri, strm);
-			storage = strm.str();
-			tuneprof_.make_message(frame::rpy, storage, msg);
-		}
-		connection_.send(tuner_, msg,
-						 bind(&basic_session::on_sent_tuning_reply,
-							  this,
-							  asio::placeholders::error,
-							  asio::placeholders::bytes_transferred));
-	}
-
-	void
 	send_channel_close_reply(const reply_code rc)
 	{
 		// storage is buffered inside the connection object.
@@ -587,26 +632,6 @@ private:
 							  this,
 							  asio::placeholders::error,
 							  asio::placeholders::bytes_transferred));
-	}
-
-	reply_code
-	setup_new_channel(const int chNum, const string &profileURI)
-	{
-		typename profile_container::iterator i = profiles_.find(profileURI);
-
-		channel myChannel;
-		myChannel.set_number(chNum);
-		myChannel.set_profile(profileURI);
-
-		reply_code status = success;
-		if (i != profiles_.end()) {
-			const string init;
-			status = i->second(*this, myChannel, init);
-		} else {
-			status = requested_action_aborted;
-		}
-		this->send_tuning_reply(status, profileURI);
-		return status;
 	}
 
 	reply_code
@@ -646,15 +671,6 @@ private:
 		} else {
 			/// \todo try again later...
 			cerr << "Failed to send the channel start message: " << error.message() << endl;
-		}
-	}
-
-	void
-	on_sent_tuning_reply(const boost::system::error_code &error,
-						 size_t bytes_transferred)
-	{
-		if (error && error != boost::asio::error::message_size) {
-			cerr << "Failed to send the tuning reply: " << error.message() << endl;
 		}
 	}
 
