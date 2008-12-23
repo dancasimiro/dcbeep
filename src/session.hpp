@@ -82,12 +82,14 @@ public:
 	session_impl(transport_layer &transport)
 		: base_type()
 		, psession_(NULL)
+		, connection_(transport.lowest_layer())
 	{
 	}
 
 	void set_session(session_pointer p) { psession_ = p; }
 private:
 	session_pointer           psession_;
+	stream_type               connection_;
 };     // class session_impl
 
 }      // namespace detail
