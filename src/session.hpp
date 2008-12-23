@@ -234,7 +234,15 @@ private:
 			: theSession(aSession)
 			, theChannel(c)
 			, theHandler(h)
-		{ }
+		{
+		}
+
+		on_read_helper(const on_read_helper &src)
+			: theSession(src.theSession)
+			, theChannel(src.theChannel)
+			, theHandler(src.theHandler)
+		{
+		}
 
 		void operator()(const boost::system::error_code &error,
 						const std::size_t bytes_transferred,
