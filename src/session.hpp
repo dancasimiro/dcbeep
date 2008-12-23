@@ -80,6 +80,12 @@ stop_channel(T psession, const int chNum)
 	return psession ? psession->remove_channel(chNum) : service_not_available;
 }
 
+template <class T>
+channel extract_channel_from_pair(T value)
+{
+	return value.second.first;
+}
+
 template <class TransportLayer>
 class session_impl
 	: public enable_shared_from_this<session_impl<TransportLayer> >
@@ -174,19 +180,15 @@ private:
 
 			// send "start" messages for any channels that were added
 			// before the negotiation finished.
-#if 0
 			if (psession_) {
-				typedef list<message> initmsg_list;
-				initmsg_list msgs;
-				transform(psession_->begin(), psession_->end(),
-						  back_insert_iterator<initmsg_list>(msgs),
-						  add_message_from_channel);
-#if 0
-				for_each(channels_.begin(), channels_.end(),
-						 bind(&basic_session::standup_channel, this, _1));
-#endif
+				typedef list<channel> container;
+				container channels;
+				psession_->copy_channels(back_insert_iterator<container>(channels));
+				for_each(channels.begin(), channels.end(),
+						 bind(&session_impl::standup_channel,
+							  this->shared_from_this(),
+							  _1));
 			}
-#endif
 		} else {
 			cerr << "Failed to negogiate the session info: " << error.message() << endl;
 		}
@@ -330,27 +332,38 @@ private:
 							  asio::placeholders::bytes_transferred));
 	}
 
-#if 0
 	void
-	standup_channel(const typename channel_container::value_type &chan)
+	standup_channel(const channel &chan)
 	{
 		ostringstream encstrm;
-		if (tuneprof_.add_channel(chan.second.first, encstrm)) {
+		if (tuneprof_.add_channel(chan, encstrm)) {
 			const string content(encstrm.str());
 			message msg;
 			tuneprof_.make_message(frame::msg, content, msg);
 			connection_.send(tuner_, msg,
-							 bind(&basic_session::on_sent_channel_start,
-								  this,
+							 bind(&session_impl::on_sent_channel_start,
+								  this->shared_from_this(),
 								  asio::placeholders::error,
 								  asio::placeholders::bytes_transferred,
 								  chan));
 		} else {
-			chan.second.second(beep::service_not_available,
-							   *this, chan.second.first);
+			psession_->invoke_handler(chan, service_not_available);
 		}
 	}
-#endif
+
+	void
+	on_sent_channel_start(const boost::system::error_code &error,
+						  size_t bytes_transferred,
+						  const channel &chan)
+	{
+		reply_code status = success;
+		if (error && error != asio::error::message_size) {
+			status = requested_action_aborted;
+		}
+		if (psession_) {
+			psession_->invoke_handler(chan, success);
+		}
+	}
 };     // class session_impl
 
 }      // namespace detail
@@ -386,6 +399,22 @@ public:
 	reply_code remove_channel(const int chNum)
 	{
 		return channels_.erase(chNum) > 0 ? success : requested_action_aborted;
+	}
+
+	template <typename InputIterator>
+	void copy_channels(InputIterator first)
+	{
+		transform(channels_.begin(), channels_.end(), first,
+				  detail::extract_channel_from_pair<typename channel_container::value_type>);
+	}
+
+	void invoke_handler(const channel &aChannel, const reply_code status)
+	{
+		typedef typename channel_container::const_iterator const_iterator;
+		const const_iterator i = channels_.find(aChannel.number());
+		if (i != channels_.end()) {
+			i->second.second(status, *this, i->second.first);
+		}
 	}
 
 	basic_session(transport_layer_reference transport)
@@ -657,21 +686,6 @@ private:
 			theHandler(status, theSession, theChannel);
 		}
 	};
-
-	void
-	on_sent_channel_start(const boost::system::error_code &error,
-						  size_t bytes_transferred,
-						  const typename channel_container::value_type &chan)
-	{
-		if (!error || error == asio::error::message_size) {
-			// chan.second.second is a handler callback (function pointer)
-			// chan.second.first is a channel object
-			chan.second.second(beep::success, *this, chan.second.first);
-		} else {
-			/// \todo try again later...
-			cerr << "Failed to send the channel start message: " << error.message() << endl;
-		}
-	}
 
 	template <class Handler>
 	void
