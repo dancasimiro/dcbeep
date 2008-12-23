@@ -123,11 +123,8 @@ public:
 		this->enqueue_write();
 	}
 
-	/// \todo incorporate the started_ member into the async_send function
-	/// \note Then, i can remove the "start" method.
 	void start()
 	{
-		started_ = true;
 	}
 
 	void stop()
@@ -268,6 +265,7 @@ private:
 	do_enqueue_write()
 	{
 		if (!started_ || fssb_->size() == 0) {
+		  started_ = true;
 			// no active write operation, so enque a new one.
 			swap(bssb_, fssb_);
 			// insert a sentinel
@@ -312,6 +310,14 @@ private:
 					next_handler.second(error, bytes_transferred);
 				}
 				writes_.pop_front();
+			}
+			started_ = false;
+			// clear out the send buffers
+			while (const size_t theSize = fssb_->size()) {
+			  fssb_->consume(theSize);
+			}
+			while (const size_t theSize = bssb_->size()) {
+			  bssb_->consume(theSize);
 			}
 		}
 	}
