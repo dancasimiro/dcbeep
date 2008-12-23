@@ -30,6 +30,41 @@ enum reply_code {
 	transaction_failed                           = 554, ///< \note e.g., policy violation
 };
 
+namespace detail {
+
+inline std::istream&
+decode_start_channel(istream &strm, int &channel)
+{
+	if (strm) {
+		string line;
+		getline(strm, line, '\'');
+		strm >> channel;
+		getline(strm, line); // eat the rest of this line
+	}
+	return strm;
+}
+
+inline std::istream&
+decode_start_profile(std::istream &strm, string &uri)
+{
+	if (strm) {
+		string xml;
+		if (getline(strm, xml)) {
+			const string::size_type startIdx = xml.find('\'');
+			const string::size_type endIdx = xml.rfind('\'');
+			if (startIdx != string::npos && endIdx != string::npos) {
+				const size_t len = endIdx - startIdx - 1;
+				uri = xml.substr(startIdx + 1, len);
+			} else {
+				strm.setstate(std::ios::badbit);
+			}
+		}
+	}
+	return strm;
+}
+
+}      // namespace detail
+
 /// \brief BEEP session management
 ///
 /// \note Each session has an implicit tuning channel that performs
@@ -306,37 +341,6 @@ private:
 		}
 	};
 
-	std::istream&
-	decode_start_channel(istream &strm, int &channel)
-	{
-		if (strm) {
-			string line;
-			getline(strm, line, '\'');
-			strm >> channel;
-			getline(strm, line); // eat the rest of this line
-		}
-		return strm;
-	}
-
-	std::istream&
-	decode_start_profile(std::istream &strm, string &uri)
-	{
-		if (strm) {
-			string xml;
-			if (getline(strm, xml)) {
-				const string::size_type startIdx = xml.find('\'');
-				const string::size_type endIdx = xml.rfind('\'');
-				if (startIdx != string::npos && endIdx != string::npos) {
-					const size_t len = endIdx - startIdx - 1;
-					uri = xml.substr(startIdx + 1, len);
-				} else {
-					strm.setstate(std::ios::badbit);
-				}
-			}
-		}
-		return strm;
-	}
-
 	void
 	on_tuning_message(const boost::system::error_code &error,
 					  size_t bytes_transferred,
@@ -352,14 +356,14 @@ private:
 				istringstream strm(myString);
 				int channel = -1;
 				string profile_uri;
-				if (this->decode_start_channel(strm, channel) &&
-					this->decode_start_profile(strm, profile_uri)) {
+				if (detail::decode_start_channel(strm, channel) &&
+					detail::decode_start_profile(strm, profile_uri)) {
 					status = this->setup_new_channel(channel, profile_uri);
 				}
 			} else if (myString.find("close") != string::npos) {
 				istringstream strm(myString);
 				int channel = -1;
-				if (this->decode_start_channel(strm, channel)) {
+				if (detail::decode_start_channel(strm, channel)) {
 					if (channel > 0) {
 						status = this->shut_down_channel(channel);
 					} else {
