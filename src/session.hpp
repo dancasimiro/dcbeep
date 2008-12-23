@@ -84,7 +84,6 @@ public:
 	{
 	}
 
-	io_service &lowest_layer() { return transport_.lowest_layer(); }
 	connection_layer_type &connection_layer() { return connection_.lowest_layer(); }
 
 	const string &name() const { return name_; }
