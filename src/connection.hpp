@@ -61,7 +61,7 @@ public:
 		, bssb_(&ssb_[1])
 		, sched_()
 		, writes_()
-		, started_(false)
+		, busywrite_(false)
 		, busyread_(false)
 		, drain_(false)
 	{
@@ -152,7 +152,7 @@ private:
 	asio::streambuf           *bssb_;    // background sending streambuf
 	read_container            sched_;    // scheduled read buffers
 	write_container           writes_;   // pending write handlers
-	bool                      started_;
+	bool                      busywrite_;
 	bool                      busyread_;
 	bool                      drain_;
 
@@ -265,8 +265,8 @@ private:
 	void
 	do_enqueue_write()
 	{
-		if (!started_ || fssb_->size() == 0) {
-		  started_ = true;
+		if (!busywrite_) {
+			busywrite_ = true;
 			// no active write operation, so enque a new one.
 			swap(bssb_, fssb_);
 			// insert a sentinel
@@ -278,7 +278,7 @@ private:
 							 placeholders::bytes_transferred));
 		} else if (drain_) {
 			stream_.shutdown(next_layer_type::shutdown_send);
-			started_ = false;
+			busywrite_ = false;
 		}
 	}
 
@@ -300,6 +300,7 @@ private:
 				writes_.pop_front();
 			}
 
+			busywrite_ = false;
 			if (bssb_->size()) {
 				do_enqueue_write();
 			}
@@ -345,7 +346,7 @@ private:
 		while (const size_t theSize = bssb_->size()) {
 			bssb_->consume(theSize);
 		}
-		started_ = false;
+		busywrite_ = false;
 	}
 };     // class basic_connection
 
