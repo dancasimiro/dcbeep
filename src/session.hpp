@@ -214,13 +214,11 @@ private:
 				istringstream strm(myString);
 				int channel = -1;
 				if (decode_start_channel(strm, channel)) {
-#if 0
 					if (channel > 0) {
 						status = this->shut_down_channel(channel);
 					} else {
 						status = this->shut_down_session();
 					}
-#endif
 				}
 			}
 			connection_.read(tuner_,
@@ -285,6 +283,57 @@ private:
 		const reply_code status = start_channel(psession_, myChannel, init);
 		this->send_tuning_reply(status, profileURI);
 		return status;
+	}
+
+	reply_code
+	shut_down_channel(const int chNum)
+	{
+		//typedef typename channel_container::size_type size_type;
+
+		reply_code status;
+#if 0
+		size_type n = channels_.erase(chNum);
+		if (chNum > 0) {
+			status = success;
+		} else {
+			status = requested_action_aborted;
+		}
+#endif
+		this->send_channel_close_reply(status);
+		return status;
+	}
+
+	reply_code
+	shut_down_session()
+	{
+		reply_code status = success;
+		this->send_channel_close_reply(status);
+		connection_.stop();
+		return status;
+	}
+
+	void
+	send_channel_close_reply(const reply_code rc)
+	{
+		// storage is buffered inside the connection object.
+		// It does not need to live past the connection send call.
+		ostringstream strm;
+		string storage;
+		message msg;
+		if (rc != success) {
+			tuneprof_.encode_error(rc, strm);
+			storage = strm.str();
+			tuneprof_.make_message(frame::err, storage, msg);
+		} else {
+			tuneprof_.acknowledge(strm);
+			storage = strm.str();
+			tuneprof_.make_message(frame::rpy, storage, msg);
+		}
+		connection_.send(tuner_, msg,
+						 bind(&session_impl::on_sent_tuning_reply,
+							  this->shared_from_this(),
+							  asio::placeholders::error,
+							  asio::placeholders::bytes_transferred));
 	}
 
 #if 0
@@ -609,55 +658,6 @@ private:
 			theHandler(status, theSession, theChannel);
 		}
 	};
-
-	void
-	send_channel_close_reply(const reply_code rc)
-	{
-		// storage is buffered inside the connection object.
-		// It does not need to live past the connection send call.
-		ostringstream strm;
-		string storage;
-		message msg;
-		if (rc != success) {
-			tuneprof_.encode_error(rc, strm);
-			storage = strm.str();
-			tuneprof_.make_message(frame::err, storage, msg);
-		} else {
-			tuneprof_.acknowledge(strm);
-			storage = strm.str();
-			tuneprof_.make_message(frame::rpy, storage, msg);
-		}
-		connection_.send(tuner_, msg,
-						 bind(&basic_session::on_sent_tuning_reply,
-							  this,
-							  asio::placeholders::error,
-							  asio::placeholders::bytes_transferred));
-	}
-
-	reply_code
-	shut_down_channel(const int chNum)
-	{
-		typedef typename channel_container::size_type size_type;
-
-		reply_code status;
-		size_type n = channels_.erase(chNum);
-		if (chNum > 0) {
-			status = success;
-		} else {
-			status = requested_action_aborted;
-		}
-		this->send_channel_close_reply(status);
-		return status;
-	}
-
-	reply_code
-	shut_down_session()
-	{
-		reply_code status = success;
-		this->send_channel_close_reply(status);
-		connection_.stop();
-		return status;
-	}
 
 	void
 	on_sent_channel_start(const boost::system::error_code &error,
