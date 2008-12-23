@@ -157,6 +157,8 @@ public:
 		write_helper<Handler> help(this->shared_from_this(), channel, aHandler);
 		connection_.send(channel, aBuffer, help);
 	}
+
+	tuner_profile &profile() { return tuneprof_; }
 private:
 	session_pointer           psession_;
 	bool                      ready_;
@@ -598,9 +600,7 @@ public:
 	void install(const string &profile, Handler handler)
 	{
 		profiles_.insert(make_pair(profile, handler));
-#if 0
-		tuneprof_.add_profile(profile);
-#endif
+		pimpl_->profile().add_profile(profile);
 	}
 
 	template <class FwdIterator>
@@ -608,9 +608,7 @@ public:
 	{
 		profiles_.insert(first, last);
 		for (; first != last; ++first) {
-#if 0
-			tuneprof_.add_profile(first->first);
-#endif
+			pimpl_->profile().add_profile(first->first);
 		}
 	}
 
