@@ -30,6 +30,9 @@ enum reply_code {
 	transaction_failed                           = 554, ///< \note e.g., policy violation
 };
 
+
+template <class U> class basic_session;
+
 namespace detail {
 
 inline std::istream&
@@ -63,6 +66,30 @@ decode_start_profile(std::istream &strm, string &uri)
 	return strm;
 }
 
+template <class TransportLayer>
+class session_impl
+	: public enable_shared_from_this<session_impl<TransportLayer> >
+{
+public:
+	typedef TransportLayer                                  transport_layer;
+	typedef basic_session<transport_layer>                  session_type;
+	typedef session_type*                                   session_pointer;
+	typedef session_impl<transport_layer>                   full_type;
+	typedef enable_shared_from_this<full_type>              base_type;
+	typedef typename transport_layer::connection_type       stream_type;
+	typedef shared_ptr<full_type>                           pointer;
+
+	session_impl(transport_layer &transport)
+		: base_type()
+		, psession_(NULL)
+	{
+	}
+
+	void set_session(session_pointer p) { psession_ = p; }
+private:
+	session_pointer           psession_;
+};     // class session_impl
+
 }      // namespace detail
 
 /// \brief BEEP session management
@@ -70,8 +97,8 @@ decode_start_profile(std::istream &strm, string &uri)
 /// \note Each session has an implicit tuning channel that performs
 ///       initialization.
 template <class TransportLayer>
-class basic_session :
-		private noncopyable
+class basic_session
+	: private noncopyable
 {
 public:
 	typedef TransportLayer                        transport_layer;
@@ -93,7 +120,9 @@ public:
 		, tuneprof_()
 		, tunebuf_()
 		, name_("unnamed session")
+		, pimpl_(new impl_type(transport))
 	{
+		pimpl_->set_session(this);
 		tuner_.set_number(0);
 		tunebuf_.resize(4096);
 	}
@@ -108,13 +137,16 @@ public:
 		, tuneprof_()
 		, tunebuf_()
 		, name_("unnamed session")
+		, pimpl_(new impl_type(transport))
 	{
+		pimpl_->set_session(this);
 		tuner_.set_number(0);
 		tunebuf_.resize(4096);
 	}
 
 	virtual ~basic_session()
 	{
+		pimpl_->set_session(NULL);
 	}
 
 	connection_layer_type &connection_layer() { return connection_.lowest_layer(); }
@@ -244,6 +276,8 @@ public:
 	typedef map<int, channel_pair>                          channel_container;
 private:
 	typedef channel_management_profile                      tuner_profile;
+	typedef detail::session_impl<transport_layer>           impl_type;
+	typedef typename impl_type::pointer                     pimpl_type;
 
 	unsigned int              nextchan_;
 	bool                      ready_;     // registration is complete.
@@ -254,6 +288,7 @@ private:
 	tuner_profile             tuneprof_;
 	vector<char>              tunebuf_;
 	string                    name_;    // only here for debugging
+	pimpl_type                pimpl_;
 
 	template <class Handler>
 	struct on_read_helper {
