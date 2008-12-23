@@ -51,8 +51,7 @@ public:
 	basic_session(transport_layer_reference transport)
 		: nextchan_(1)
 		, ready_(false)
-		, transport_(transport)
-		, connection_(transport_.lowest_layer())
+		, connection_(transport.lowest_layer())
 		, profiles_()
 		, channels_()
 		, tuner_()
@@ -67,8 +66,7 @@ public:
 	basic_session(transport_layer_reference transport, role r)
 		: nextchan_(r == initiating_role ? 1 : 2)
 		, ready_(false)
-		, transport_(transport)
-		, connection_(transport_.lowest_layer())
+		, connection_(transport.lowest_layer())
 		, profiles_()
 		, channels_()
 		, tuner_()
@@ -214,7 +212,6 @@ private:
 
 	unsigned int              nextchan_;
 	bool                      ready_;     // registration is complete.
-	transport_layer_reference transport_;
 	connection_type           connection_;
 	profile_container         profiles_;
 	channel_container         channels_;
