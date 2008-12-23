@@ -70,6 +70,7 @@ public:
 	virtual ~basic_connection()
 	{
 		this->clear_pending_reads(boost::asio::error::operation_aborted);
+		this->clear_pending_writes(boost::asio::error::operation_aborted);
 	}
 
 	next_layer_type &next_layer() { return stream_; }
@@ -176,7 +177,7 @@ private:
 				handle_frame_payload(error, rsb_.size());
 			}
 		} else {
-			this->handle_read_error(error);
+			this->handle_stream_error(error);
 		}
 	}
 
@@ -202,7 +203,7 @@ private:
 								  placeholders::error,
 								  placeholders::bytes_transferred));
 		} else {
-			this->handle_read_error(error);
+			this->handle_stream_error(error);
 		}
 	}
 
@@ -236,7 +237,7 @@ private:
 				}
 			}
 		} else {
-			this->handle_read_error(error);
+			this->handle_stream_error(error);
 		}
 	}
 
@@ -303,15 +304,15 @@ private:
 				do_enqueue_write();
 			}
 		} else {
-			started_ = false;
-			this->clear_pending_writes(error);
+			this->handle_stream_error(error);
 		}
 	}
 
 	void
-	handle_read_error(const boost::system::error_code &error)
+	handle_stream_error(const boost::system::error_code &error)
 	{
 		this->clear_pending_reads(error);
+		this->clear_pending_writes(error);
 	}
 
 	void
@@ -344,6 +345,7 @@ private:
 		while (const size_t theSize = bssb_->size()) {
 			bssb_->consume(theSize);
 		}
+		started_ = false;
 	}
 };     // class basic_connection
 
