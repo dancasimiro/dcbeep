@@ -132,6 +132,17 @@ public:
 								  this->shared_from_this(), _1, _2));
 		}
 	}
+
+	template <class Handler>
+	void stop(Handler handler)
+	{
+		ready_ = false;
+		channel oldTuner = tuner_;
+		channel newTuner;
+		newTuner.set_number(0);
+		tuner_ = newTuner;
+		this->close_channel(oldTuner, handler);
+	}
 private:
 	session_pointer           psession_;
 	bool                      ready_;
@@ -364,6 +375,54 @@ private:
 			psession_->invoke_handler(chan, success);
 		}
 	}
+
+	template <class Handler>
+	void
+	close_channel(const channel &aChannel, Handler handler)
+	{
+		ostringstream encstrm;
+		if (tuneprof_.remove_channel(aChannel, encstrm)) {
+			message msg;
+			const string content(encstrm.str());
+			tuneprof_.make_message(frame::msg, content, msg);
+			channel_closer<Handler> helper(this->shared_from_this(),
+										   aChannel, handler);
+										   
+			connection_.send(tuner_, msg, helper);
+		} else if (psession_) {
+			handler(requested_action_aborted, *psession_, aChannel);
+		}
+	}
+
+	template <class Handler>
+	struct channel_closer {
+		typedef void                    result_type;
+
+		pointer               theSession;
+		channel               theChannel;
+		Handler               theHandler;
+
+		channel_closer(pointer aSession, const channel &c, Handler h)
+			: theSession(aSession)
+			, theChannel(c)
+			, theHandler(h)
+		{
+		}
+
+		void operator()(const boost::system::error_code &error,
+						size_t bytes_transferred)
+		{
+			reply_code status = success;
+			if (error && error != boost::asio::error::message_size) {
+				status = requested_action_aborted;
+			} else if (theChannel.number() == 0) {
+				theSession->connection_.stop();
+			}
+			if (session_pointer p = theSession->psession_) {
+				theHandler(status, *p, theChannel);
+			}
+		}
+	};
 };     // class session_impl
 
 }      // namespace detail
@@ -531,7 +590,9 @@ public:
 		size_type n = channels_.erase(chan.number());
 		if (n > 0) {
 			if (ready_) {
+#if 0
 				close_channel(chan, handler);
+#endif
 			} else {
 				handler(requested_action_not_accepted, *this, chan);
 			}
@@ -547,20 +608,13 @@ public:
 	template <class Handler>
 	void stop(Handler handler)
 	{
-		ready_ = false;
 		profiles_.clear();
 		channels_.clear();
 		nextchan_ %= 2; // reset next chan to 0 or 1
 		if (nextchan_ == 0) {
 			nextchan_ = 2;
 		}
-
-		channel oldTuner = tuner_;
-		channel newTuner;
-		newTuner.set_number(0);
-		tuner_ = newTuner;
-
-		close_channel(oldTuner, handler);
+		pimpl_->stop(handler);
 	}
 
 	template <typename MutableBuffer, class Handler>
@@ -658,51 +712,6 @@ private:
 			theHandler(status, theSession, theChannel, bytes_transferred);
 		}
 	};
-
-	template <class Handler>
-	struct on_channel_close_helper {
-		typedef void                    result_type;
-
-		basic_session         &theSession;
-		channel               theChannel;
-		Handler               theHandler;
-
-		on_channel_close_helper(basic_session &aSession, const channel &c, Handler h)
-			: theSession(aSession)
-			, theChannel(c)
-			, theHandler(h)
-		{
-		}
-
-		void operator()(const boost::system::error_code &error,
-						size_t bytes_transferred)
-		{
-			reply_code status = success;
-			if (error && error != boost::asio::error::message_size) {
-				status = requested_action_aborted;
-			} else if (theChannel.number() == 0) {
-				theSession.connection_.stop();
-			}
-			theHandler(status, theSession, theChannel);
-		}
-	};
-
-	template <class Handler>
-	void
-	close_channel(const channel &aChannel, Handler handler)
-	{
-		ostringstream encstrm;
-		if (tuneprof_.remove_channel(aChannel, encstrm)) {
-			message msg;
-			const string content(encstrm.str());
-			tuneprof_.make_message(frame::msg, content, msg);
-			connection_.send(tuner_, msg,
-							 on_channel_close_helper<Handler>(*this, aChannel,
-															  handler));
-		} else {
-			handler(requested_action_aborted, *this, aChannel);
-		}
-	}
 };     // class basic_session
 
 }      // namespace beep
