@@ -80,6 +80,10 @@ public:
 		tunebuf_.resize(4096);
 	}
 
+	virtual ~basic_session()
+	{
+	}
+
 	io_service &lowest_layer() { return transport_.lowest_layer(); }
 	connection_layer_type &connection_layer() { return connection_.lowest_layer(); }
 
