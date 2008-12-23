@@ -169,6 +169,16 @@ public:
 			this->do_standup(channel);
 		}
 	}
+
+	template <class Handler>
+	void standdown(const channel &chan, Handler handler)
+	{
+		if (ready_) {
+			this->close_channel(chan, handler);
+		} else if (psession_) {
+			handler(requested_action_not_accepted, *psession_, chan);
+		}
+	}
 private:
 	session_pointer           psession_;
 	bool                      ready_;
@@ -656,15 +666,7 @@ public:
 		typedef typename channel_container::size_type size_type;
 		size_type n = channels_.erase(chan.number());
 		if (n > 0) {
-#if 0
-			if (ready_) {
-#if 0
-				close_channel(chan, handler);
-#endif
-			} else {
-				handler(requested_action_not_accepted, *this, chan);
-			}
-#endif
+			pimpl_->standdown(chan, handler);
 		}
 		return (n > 0);
 	}
