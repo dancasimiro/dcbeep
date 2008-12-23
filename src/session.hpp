@@ -87,6 +87,8 @@ public:
 	}
 
 	void set_session(session_pointer p) { psession_ = p; }
+	stream_type &connection() { return connection_; }
+	const stream_type &connection() const { return connection_; }
 private:
 	session_pointer           psession_;
 	stream_type               connection_;
@@ -151,7 +153,10 @@ public:
 		pimpl_->set_session(NULL);
 	}
 
-	connection_layer_type &connection_layer() { return connection_.lowest_layer(); }
+	connection_layer_type &connection_layer()
+	{
+		return pimpl_->connection().lowest_layer();
+	}
 
 	const string &name() const { return name_; }
 	void set_name(const string &n) { name_ = n; }
