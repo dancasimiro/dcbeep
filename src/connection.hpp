@@ -291,7 +291,6 @@ private:
 		try {
 			this->do_unsafe_enqueue_write();
 		} catch (const boost::system::system_error &ex) {
-			cerr << "failed to enqueue a write: " << ex.what() << endl;
 			this->handle_stream_error(ex.code());
 		}
 	}
@@ -303,7 +302,6 @@ private:
 		try {
 			async_read_until(stream_, rsb_, frame::terminator(), handler);
 		} catch (const boost::system::system_error &ex) {
-			cerr << "failed to enqueue a read until" << endl;
 			this->handle_stream_error(ex.code());
 		}
 	}
@@ -315,7 +313,6 @@ private:
 		try {
 			async_read(stream_, rsb_, CompletionCondition, handler);
 		} catch (const boost::system::system_error &ex) {
-			cerr << "failed to enqueue a read" << endl;
 			this->handle_stream_error(ex.code());
 		}
 	}
