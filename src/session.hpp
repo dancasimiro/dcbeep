@@ -204,7 +204,7 @@ private:
 			ostringstream strm;
 			strm << "there was an error sending the beep greeting ("
 				 << error.message() << ").";
-			throw runtime_error(strm.str());
+			//throw runtime_error(strm.str());
 		}
 	}
 
@@ -320,7 +320,7 @@ private:
 		if (error && error != boost::asio::error::message_size) {
 			ostringstream strm;
 			strm << "Failed to send the tuning reply: " << error.message();
-			throw runtime_error(strm.str());
+			//throw runtime_error(strm.str());
 		}
 	}
 
