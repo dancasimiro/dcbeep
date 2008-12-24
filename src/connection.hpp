@@ -43,63 +43,69 @@ scheduled_write_is_sentinel(const T &value)
 		value.second.empty();
 }
 
-}      // namespace detail
-
 template <class StreamType>
-class basic_connection : private noncopyable {
+class basic_connection_impl
+	: public enable_shared_from_this<basic_connection_impl<StreamType> >
+{
 public:
 	typedef StreamType                                      stream_type;
-	typedef stream_type                                     next_layer_type;
-	typedef typename next_layer_type::lowest_layer_type     lowest_layer_type;
+	typedef shared_ptr<basic_connection_impl>               pointer;
+	typedef enable_shared_from_this<basic_connection_impl>  base_type;
+	typedef boost::system::error_code                       error_code;
 
-	basic_connection(io_service &service)
-		: stream_(service)
-		, rsb_()
+	typedef void read_signature(const error_code&, size_t, frame::frame_type);
+	typedef void write_signature(const error_code&, size_t);
+
+	typedef function<read_signature>                        read_handler;
+	typedef function<write_signature>                       write_handler;
+	typedef pair<mutable_buffer, read_handler>              scheduled_read;
+	typedef pair<message, write_handler>                    scheduled_write;
+
+	basic_connection_impl(io_service &service)
+		: base_type()
+		, busywrite_(false)
+		, busyread_(false)
+		, drain_(false)
 		, frame_()
+		, stream_(service)
+		, rsb_()
 		, ssb_()
 		, fssb_(&ssb_[0])
 		, bssb_(&ssb_[1])
 		, sched_()
 		, writes_()
-		, busywrite_(false)
-		, busyread_(false)
-		, drain_(false)
 	{
 	}
 
-	virtual ~basic_connection()
+	virtual ~basic_connection_impl()
 	{
 		this->clear_pending_reads(boost::asio::error::operation_aborted);
 		this->clear_pending_writes(boost::asio::error::operation_aborted);
 	}
 
-	next_layer_type &next_layer() { return stream_; }
-	lowest_layer_type &lowest_layer() { return stream_.lowest_layer(); }
+	stream_type &stream() { return stream_; }
+	const stream_type &stream() const { return stream_; }
 
-	template <class MutableBuffer, class Handler>
-	void read(const channel &chan, MutableBuffer buffer, Handler handler)
+	void enqueue_read(const int channel, scheduled_read theRead)
 	{
-		const int chNum = chan.number();
-		assert(sched_.find(chNum) == sched_.end());
+		assert(sched_.find(channel) == sched_.end());
 
-		sched_.insert(make_pair(chNum, make_pair(buffer, handler)));
+		sched_.insert(make_pair(channel, theRead));
 		if (!busyread_) {
 			busyread_ = true;
-			this->enqueue_read(bind(&basic_connection::handle_frame_header,
-									this,
-									asio::placeholders::error,
-									asio::placeholders::bytes_transferred));
+			this->do_enqueue_read(bind(&basic_connection_impl::handle_frame_header,
+									   this->shared_from_this(),
+									   asio::placeholders::error,
+									   asio::placeholders::bytes_transferred));
 		}
 	}
 
-	template <class ConstBuffer, class Handler>
-	void send(channel &chan, ConstBuffer buffer, Handler handler)
+	void enqueue_write(const channel &chan, scheduled_write theWrite)
 	{
-		const int chNum = chan.number();
 		ostream bg(bssb_); // background stream
 
 		detail::msg2frame gen;
-		gen(chan, buffer);
+		gen(chan, theWrite.first);
 
 		size_t totalOctets = 0;
 		typedef detail::msg2frame::container::const_iterator const_iterator;
@@ -109,15 +115,17 @@ public:
 				if (bg.write(buffer_cast<const char*>(*j), buffer_size(*j))) {
 					totalOctets += buffer_size(*j);
 				} else {
-					stream_.get_io_service().dispatch(bind(handler, boost::asio::error::no_memory, -1));
+					stream_.get_io_service()
+						.dispatch(bind(theWrite.second,
+									   boost::asio::error::no_memory, -1));
 				}
 			}
 			bg << i->get_trailer();
 		}
-		chan.increment_message_number();
-		chan.increase_sequence_number(totalOctets);
+		//chan.increment_message_number();
+		//chan.increase_sequence_number(totalOctets);
 
-		writes_.push_back(make_pair(totalOctets, handler));
+		writes_.push_back(make_pair(totalOctets, theWrite.second));
 		// the write has been buffered, but not sent.
 		this->enqueue_write();
 	}
@@ -134,25 +142,22 @@ public:
 	}
 
 private:
-	typedef boost::system::error_code                       error_code;
-	typedef function<void (const error_code&, size_t, frame::frame_type)> read_handler;
-	typedef function<void (const error_code&, size_t)>      write_handler;
-	typedef pair<mutable_buffer, read_handler>              scheduled_read;
+	typedef pair<size_t, write_handler>                     scheduled_write_proxy;
 	typedef map<int, scheduled_read>                        read_container;
-	typedef pair<size_t, write_handler>                     scheduled_write;
-	typedef deque<scheduled_write>                          write_container;
+	typedef deque<scheduled_write_proxy>                    write_container;
+	typedef asio::streambuf                                 streambuf_type;
 
-	next_layer_type           stream_;   // socket
-	asio::streambuf           rsb_;      // streambuf for receiving data
-	frame                     frame_;    // current frame
-	asio::streambuf           ssb_[2];   // double buffered sends
-	asio::streambuf           *fssb_;    // streambuf that actively sends
-	asio::streambuf           *bssb_;    // background sending streambuf
-	read_container            sched_;    // scheduled read buffers
-	write_container           writes_;   // pending write handlers
 	bool                      busywrite_;
 	bool                      busyread_;
 	bool                      drain_;
+	frame                     frame_;    // current frame
+	stream_type               stream_;   // socket
+	streambuf_type            rsb_;      // streambuf for receiving data
+	streambuf_type            ssb_[2];   // double buffered sends
+	streambuf_type            *fssb_;    // streambuf that actively sends
+	streambuf_type            *bssb_;    // background sending streambuf
+	read_container            sched_;    // scheduled read buffers
+	write_container           writes_;   // pending write handlers
 
 	void terminate() { stream_.close(); }
 
@@ -166,10 +171,11 @@ private:
 			} else if (frame_.get_header().size > rsb_.size()) {
 				const size_t remainingBytes =
 					frame_.get_header().size - rsb_.size();
-				this->enqueue_read(transfer_at_least(remainingBytes),
-								   bind(&basic_connection::handle_frame_payload, this,
-										placeholders::error,
-										placeholders::bytes_transferred));
+				this->do_enqueue_read(transfer_at_least(remainingBytes),
+									  bind(&basic_connection_impl::handle_frame_payload,
+										   this->shared_from_this(),
+										   placeholders::error,
+										   placeholders::bytes_transferred));
 			} else {
 				handle_frame_payload(error, rsb_.size());
 			}
@@ -190,14 +196,14 @@ private:
 				rsb_.sgetn(buffer_cast<char*>(i->second.first), frameHeader.size);
 			} else {
 				// this is a problem!
-				cout << "There is no buffer ready for channel "
+				cerr << "There is no buffer ready for channel "
 					 << frameHeader.channel << endl;
 				rsb_.consume(frameHeader.size);
 			}
-			this->enqueue_read(bind(&basic_connection::handle_frame_trailer,
-									this,
-									placeholders::error,
-									placeholders::bytes_transferred));
+			this->do_enqueue_read(bind(&basic_connection_impl::handle_frame_trailer,
+									   this->shared_from_this(),
+									   placeholders::error,
+									   placeholders::bytes_transferred));
 		} else {
 			this->handle_stream_error(error);
 		}
@@ -225,10 +231,10 @@ private:
 				if (sched_.empty()) {
 					busyread_ = false;
 				} else {
-					this->enqueue_read(bind(&basic_connection::handle_frame_header,
-											this,
-											placeholders::error,
-											placeholders::bytes_transferred));
+					this->do_enqueue_read(bind(&basic_connection_impl::handle_frame_header,
+											   this->shared_from_this(),
+											   placeholders::error,
+											   placeholders::bytes_transferred));
 				}
 			}
 		} else {
@@ -254,7 +260,8 @@ private:
 	enqueue_write()
 	{
 		stream_.get_io_service()
-			.post(bind(&basic_connection::do_enqueue_write, this));
+			.post(bind(&basic_connection_impl::do_enqueue_write,
+					   this->shared_from_this()));
 	}
 
 	void
@@ -265,14 +272,15 @@ private:
 			// no active write operation, so enque a new one.
 			swap(bssb_, fssb_);
 			// insert a sentinel
-			writes_.push_back(make_pair(numeric_limits<scheduled_write::first_type>::max(), write_handler()));
+			writes_.push_back(make_pair(numeric_limits<scheduled_write_proxy::first_type>::max(),
+										write_handler()));
 			async_write(stream_, *fssb_,
-						bind(&basic_connection::handle_send,
-							 this,
+						bind(&basic_connection_impl::handle_send,
+							 this->shared_from_this(),
 							 placeholders::error,
 							 placeholders::bytes_transferred));
 		} else if (drain_) {
-			stream_.shutdown(next_layer_type::shutdown_send);
+			stream_.shutdown(stream_type::shutdown_send);
 			busywrite_ = false;
 		}
 	}
@@ -290,7 +298,7 @@ private:
 
 	template <class Handler>
 	void
-	enqueue_read(Handler handler)
+	do_enqueue_read(Handler handler)
 	{
 		try {
 			async_read_until(stream_, rsb_, frame::terminator(), handler);
@@ -302,7 +310,7 @@ private:
 
 	template <class T, class Handler>
 	void
-	enqueue_read(T CompletionCondition, Handler handler)
+	do_enqueue_read(T CompletionCondition, Handler handler)
 	{
 		try {
 			async_read(stream_, rsb_, CompletionCondition, handler);
@@ -320,7 +328,7 @@ private:
 			// invoke the pending write handlers now.
 			bool done = false;
 			while (!writes_.empty() && !done) {
-				scheduled_write &next_handler = writes_.front();
+				scheduled_write_proxy next_handler = writes_.front();
 				done = detail::scheduled_write_is_sentinel(next_handler);
 				if (!done) {
 					const size_t bytes_in_send = next_handler.first;
@@ -363,7 +371,7 @@ private:
 	{
 		// invoke all of the pending write handlers.
 		while (!writes_.empty()) {
-			scheduled_write &next_handler = writes_.front();
+			scheduled_write_proxy next_handler = writes_.front();
 			if (!detail::scheduled_write_is_sentinel(next_handler)) {
 				next_handler.second(error, 0);
 			}
@@ -379,6 +387,56 @@ private:
 		}
 		busywrite_ = false;
 	}
+};
+
+}      // namespace detail
+
+template <class StreamType>
+class basic_connection : private noncopyable {
+public:
+	typedef StreamType                                      stream_type;
+	typedef stream_type                                     next_layer_type;
+	typedef typename next_layer_type::lowest_layer_type     lowest_layer_type;
+
+	basic_connection(io_service &service)
+		: pimpl_(new impl_type(service))
+	{
+	}
+
+	virtual ~basic_connection()
+	{
+	}
+
+	next_layer_type &next_layer() { return pimpl_->stream(); }
+	lowest_layer_type &lowest_layer() { return pimpl_->stream().lowest_layer(); }
+
+	template <class MutableBuffer, class Handler>
+	void read(const channel &chan, MutableBuffer buffer, Handler handler)
+	{
+		pimpl_->enqueue_read(chan.number(), make_pair(buffer, handler));
+	}
+
+	template <class ConstBuffer, class Handler>
+	void send(channel &chan, ConstBuffer buffer, Handler handler)
+	{
+		pimpl_->enqueue_write(chan, make_pair(buffer, handler));
+	}
+
+	void start()
+	{
+		pimpl_->start();
+	}
+
+	void stop()
+	{
+		pimpl_->stop();
+	}
+
+private:
+	typedef detail::basic_connection_impl<next_layer_type>  impl_type;
+	typedef typename impl_type::pointer                              pimpl_type;
+
+	pimpl_type                pimpl_;
 };     // class basic_connection
 
 }      // namespace beep
