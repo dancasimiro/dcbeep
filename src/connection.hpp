@@ -85,12 +85,10 @@ public:
 		sched_.insert(make_pair(chNum, make_pair(buffer, handler)));
 		if (!busyread_) {
 			busyread_ = true;
-			async_read_until(stream_, rsb_,
-							 frame::terminator(),
-							 bind(&basic_connection::handle_frame_header,
-								  this,
-								  asio::placeholders::error,
-								  asio::placeholders::bytes_transferred));
+			this->enqueue_read(bind(&basic_connection::handle_frame_header,
+									this,
+									asio::placeholders::error,
+									asio::placeholders::bytes_transferred));
 		}
 	}
 
@@ -168,11 +166,10 @@ private:
 			} else if (frame_.get_header().size > rsb_.size()) {
 				const size_t remainingBytes =
 					frame_.get_header().size - rsb_.size();
-				::async_read(stream_, rsb_,
-							 transfer_at_least(remainingBytes),
-							 bind(&basic_connection::handle_frame_payload, this,
-								  placeholders::error,
-								  placeholders::bytes_transferred));
+				this->enqueue_read(transfer_at_least(remainingBytes),
+								   bind(&basic_connection::handle_frame_payload, this,
+										placeholders::error,
+										placeholders::bytes_transferred));
 			} else {
 				handle_frame_payload(error, rsb_.size());
 			}
@@ -197,11 +194,10 @@ private:
 					 << frameHeader.channel << endl;
 				rsb_.consume(frameHeader.size);
 			}
-			async_read_until(stream_, rsb_,
-							 frame::terminator(),
-							 bind(&basic_connection::handle_frame_trailer, this,
-								  placeholders::error,
-								  placeholders::bytes_transferred));
+			this->enqueue_read(bind(&basic_connection::handle_frame_trailer,
+									this,
+									placeholders::error,
+									placeholders::bytes_transferred));
 		} else {
 			this->handle_stream_error(error);
 		}
@@ -229,11 +225,10 @@ private:
 				if (sched_.empty()) {
 					busyread_ = false;
 				} else {
-					async_read_until(stream_, rsb_,
-									 frame::terminator(),
-									 bind(&basic_connection::handle_frame_header, this,
-										  placeholders::error,
-										  placeholders::bytes_transferred));
+					this->enqueue_read(bind(&basic_connection::handle_frame_header,
+											this,
+											placeholders::error,
+											placeholders::bytes_transferred));
 				}
 			}
 		} else {
@@ -263,7 +258,7 @@ private:
 	}
 
 	void
-	do_enqueue_write()
+	do_unsafe_enqueue_write()
 	{
 		if (!busywrite_) {
 			busywrite_ = true;
@@ -279,6 +274,41 @@ private:
 		} else if (drain_) {
 			stream_.shutdown(next_layer_type::shutdown_send);
 			busywrite_ = false;
+		}
+	}
+
+	void
+	do_enqueue_write()
+	{
+		try {
+			this->do_unsafe_enqueue_write();
+		} catch (const boost::system::system_error &ex) {
+			cerr << "failed to enqueue a write: " << ex.what() << endl;
+			this->handle_stream_error(ex.code());
+		}
+	}
+
+	template <class Handler>
+	void
+	enqueue_read(Handler handler)
+	{
+		try {
+			async_read_until(stream_, rsb_, frame::terminator(), handler);
+		} catch (const boost::system::system_error &ex) {
+			cerr << "failed to enqueue a read until" << endl;
+			this->handle_stream_error(ex.code());
+		}
+	}
+
+	template <class T, class Handler>
+	void
+	enqueue_read(T CompletionCondition, Handler handler)
+	{
+		try {
+			async_read(stream_, rsb_, CompletionCondition, handler);
+		} catch (const boost::system::system_error &ex) {
+			cerr << "failed to enqueue a read" << endl;
+			this->handle_stream_error(ex.code());
 		}
 	}
 
