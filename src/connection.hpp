@@ -355,6 +355,7 @@ private:
 			i->second.second(error, 0, frame::err);
 		}
 		sched_.clear();
+		busyread_ = false;
 	}
 
 	void
