@@ -99,6 +99,17 @@ public:
 							  _1, _2, _3));
 		}
 	}
+protected:
+	void remove(session_type &aSession)
+	{
+		typedef typename sessions_container::iterator iterator;
+		for (iterator i = sessions_.begin(); i != sessions_.end(); ++i) {
+			if (i->get() == &aSession) {
+				sessions_.erase(i);
+				break;
+			}
+		}
+	}
 private:
 	typedef list<session_pointer>                           sessions_container;
 	typedef typename session_type::profile_container        profile_container;
