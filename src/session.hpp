@@ -452,7 +452,8 @@ private:
 			reply_code status = success;
 			if (error && error != boost::asio::error::message_size) {
 				status = requested_action_aborted;
-			} else if (theChannel.number() == 0) {
+			}
+			if (theChannel.number() == 0) {
 				theSession->connection_.stop();
 			}
 			if (session_pointer p = theSession->psession_) {
