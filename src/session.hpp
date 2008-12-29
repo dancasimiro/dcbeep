@@ -417,13 +417,14 @@ private:
 	close_channel(const channel &aChannel, Handler handler)
 	{
 		ostringstream encstrm;
-		if (tuneprof_.remove_channel(aChannel, encstrm)) {
+		if (connection_.next_layer().is_open() &&
+			tuneprof_.remove_channel(aChannel, encstrm)) {
 			message msg;
 			const string content(encstrm.str());
 			tuneprof_.make_message(frame::msg, content, msg);
 			channel_closer<Handler> helper(this->shared_from_this(),
 										   aChannel, handler);
-										   
+
 			connection_.send(tuner_, msg, helper);
 		} else if (psession_) {
 			handler(requested_action_aborted, *psession_, aChannel);
