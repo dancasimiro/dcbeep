@@ -30,7 +30,7 @@ public:
 	template <class Handler>
 	void async_connect(const endpoint_type &endpoint, Handler handler)
 	{
-		session_.pimpl_->connection().lowest_layer()
+		session_.connection_layer()
 			.async_connect(endpoint,
 						   on_connect_handler_helper<Handler>(*this, handler));
 	}

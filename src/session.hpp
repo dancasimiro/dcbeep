@@ -542,8 +542,6 @@ public:
 	typedef typename transport_layer::connection_type  connection_type;
 	typedef typename connection_type::lowest_layer_type     connection_layer_type;
 
-	template<class SessionType> friend class basic_listener;
-	template<class SessionType> friend class basic_initiator;
 	//template<class T> friend reply_code start_channel(T, channel&, const string&);
 
 	/// this is a leaked implementation detail. do not use it.
