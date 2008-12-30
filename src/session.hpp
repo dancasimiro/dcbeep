@@ -417,7 +417,7 @@ private:
 	close_channel(const channel &aChannel, Handler handler)
 	{
 		ostringstream encstrm;
-		if (connection_.next_layer().is_open() &&
+		if (connection_.lowest_layer().is_open() &&
 			tuneprof_.remove_channel(aChannel, encstrm)) {
 			message msg;
 			const string content(encstrm.str());

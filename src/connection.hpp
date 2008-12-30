@@ -280,7 +280,7 @@ private:
 							 placeholders::error,
 							 placeholders::bytes_transferred));
 		} else if (drain_) {
-			stream_.shutdown(stream_type::shutdown_send);
+			stream_.lowest_layer().shutdown(stream_type::lowest_layer_type::shutdown_send);
 			busywrite_ = false;
 		}
 	}
