@@ -36,7 +36,6 @@ public:
 		, sessions_()
 		, profiles_()
 	{
-		this->start();
 	}
 
 	template <class Profile, class Handler>
