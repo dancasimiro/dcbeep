@@ -31,7 +31,8 @@ public:
 
 	basic_listener(transport_layer &transport, const endpoint_type &endpoint)
 		: transport_(transport)
-		, acceptor_(transport_.lowest_layer(), endpoint)
+		, acceptor_(transport_.lowest_layer())
+		, endpoint_(endpoint)
 		, next_(new session_type(transport_, listening_role))
 		, sessions_()
 		, profiles_()
@@ -65,6 +66,11 @@ public:
 		acceptor_.open(protocol);
 	}
 
+	bool is_open() const
+	{
+		return acceptor_.is_open();
+	}
+
 	template <typename SettableSocketOption>
 	void set_option(const SettableSocketOption &option)
 	{
@@ -83,9 +89,11 @@ public:
 
 	void start()
 	{
-		acceptor_.async_accept(next_->connection_layer(),
-							   ::bind(&basic_listener::on_accept, this,
-									  asio::placeholders::error));
+		acceptor_.open(endpoint_.protocol());
+		acceptor_.set_option(socket_base::reuse_address(true));
+		acceptor_.bind(endpoint_);
+		acceptor_.listen();
+		this->do_accept();
 	}
 
 	void stop()
@@ -115,9 +123,17 @@ private:
 
 	transport_layer&          transport_;
 	acceptor_type             acceptor_;
+	endpoint_type             endpoint_;
 	session_pointer           next_; // next session
 	sessions_container        sessions_;
 	profile_container         profiles_;
+
+	void do_accept()
+	{
+		acceptor_.async_accept(next_->connection_layer(),
+							   ::bind(&basic_listener::on_accept, this,
+									  asio::placeholders::error));
+	}
 
 	void on_accept(const boost::system::error_code &error)
 	{
@@ -129,7 +145,7 @@ private:
 				nextSession(new session_type(transport_, listening_role));
 			next_ = nextSession;
 			next_->install(profiles_.begin(), profiles_.end());
-			this->start();
+			this->do_accept();
 		} else {
 			cerr << "Problem: " << error.message() << endl;
 		}
