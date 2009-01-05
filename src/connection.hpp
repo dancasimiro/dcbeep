@@ -160,8 +160,6 @@ private:
 	read_container            sched_;    // scheduled read buffers
 	write_container           writes_;   // pending write handlers
 
-	void terminate() { stream_.close(); }
-
 	void
 	handle_frame_header(const boost::system::error_code &error,
 						size_t bytes_transferred)
