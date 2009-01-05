@@ -132,6 +132,7 @@ public:
 
 	void start()
 	{
+		drain_ = false;
 	}
 
 	void stop()
