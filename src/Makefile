@@ -6,7 +6,7 @@ all: listener initiator
 
 
 listener: simple_listener.cpp $(HEADERS) listener.hpp
-	g++ -g -O0 -o listener simple_listener.cpp -lboost_system-xgcc40-mt-1_36
+	g++ -g -O0 -o listener simple_listener.cpp -lboost_system-xgcc40-mt-1_39
 
 initiator: simple_initiator.cpp $(HEADERS) initiator.hpp
-	g++ -g -O0 -o initiator simple_initiator.cpp -lboost_system-xgcc40-mt-1_36
+	g++ -g -O0 -o initiator simple_initiator.cpp -lboost_system-xgcc40-mt-1_39
