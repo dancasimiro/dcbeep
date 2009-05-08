@@ -578,7 +578,6 @@ public:
 		: nextchan_(1)
 		, profiles_()
 		, channels_()
-		, name_("unnamed session")
 		, pimpl_(new impl_type(transport))
 	{
 		pimpl_->set_session(this);
@@ -588,7 +587,6 @@ public:
 		: nextchan_(r == initiating_role ? 1 : 2)
 		, profiles_()
 		, channels_()
-		, name_("unnamed session")
 		, pimpl_(new impl_type(transport))
 	{
 		pimpl_->set_session(this);
@@ -603,9 +601,6 @@ public:
 	{
 		return pimpl_->connection().lowest_layer();
 	}
-
-	const string &name() const { return name_; }
-	void set_name(const string &n) { name_ = n; }
 
 	/// \brief Associate a new profile with the session
 	///
@@ -716,7 +711,6 @@ private:
 	unsigned int              nextchan_;
 	profile_container         profiles_;
 	channel_container         channels_;
-	string                    name_;    // only here for debugging
 	pimpl_type                pimpl_;
 };     // class basic_session
 
