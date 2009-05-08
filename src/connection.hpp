@@ -218,8 +218,6 @@ private:
 			if (!parse_frame_trailer(bytes_transferred, frame_.get_trailer())) {
 				terminate();
 			} else {
-				const int chNum = frame_.get_header().channel;
-
 				if (i != sched_.end()) {
 					// i->second.second points to a read handler (callback function pointer)
 					read_handler myHandler(i->second.second);
