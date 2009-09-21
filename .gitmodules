@@ -1,0 +1,3 @@
+[submodule "m4"]
+	path = m4
+	url = http://192.1.2.10/~dan/git/autoconf-archive.git

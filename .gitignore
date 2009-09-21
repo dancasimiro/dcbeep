@@ -1,0 +1,17 @@
+*.o
+
+Makefile.in
+a.out.dSYM/
+aclocal.m4
+autom4te.cache/
+config.*
+configure
+depcomp
+*/.deps/
+*/.dirstamp
+example/initiator
+example/listener
+install-sh
+libtool
+ltmain.sh
+missing
