@@ -22,10 +22,10 @@ using boost::shared_ptr;
 using namespace boost::asio;
 using namespace boost;
 
-#include "beep.hpp"
-#include "connection.hpp"
-#include "tcp.hpp"
-#include "initiator.hpp"
+#include "beep/beep.hpp"
+#include "beep/connection.hpp"
+#include "beep/tcp.hpp"
+#include "beep/initiator.hpp"
 #include "test_profile.hpp"
 
 typedef beep::tcptl                                     transport_layer;

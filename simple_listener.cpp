@@ -24,10 +24,10 @@ using boost::array;
 using namespace boost::asio;
 using namespace boost;
 
-#include "beep.hpp"
-#include "connection.hpp" // tcp connection
-#include "tcp.hpp"
-#include "listener.hpp"
+#include "beep/beep.hpp"
+#include "beep/connection.hpp" // tcp connection
+#include "beep/tcp.hpp"
+#include "beep/listener.hpp"
 #include "test_profile.hpp"
 
 typedef beep::tcptl                                     transport_layer;
