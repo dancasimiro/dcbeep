@@ -10,5 +10,8 @@ AX_BOOST_BASE([1.38])
 AX_BOOST_ASIO
 AX_BOOST_SYSTEM
 
+GTEST_LIB_CHECK([1.2], [unittest=true], [unittest=false])
+AM_CONDITIONAL(UNITTEST, test x$unittest = xtrue)
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

@@ -1,5 +1,6 @@
 *.o
 
+Makefile
 Makefile.in
 a.out.dSYM/
 aclocal.m4
@@ -15,3 +16,4 @@ install-sh
 libtool
 ltmain.sh
 missing
+/test/ut*
