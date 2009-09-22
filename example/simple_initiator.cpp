@@ -2,7 +2,7 @@
 /// \brief Test the BEEP client
 ///
 /// UNCLASSIFIED
-
+#if 0
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -110,10 +110,11 @@ on_connect(const boost::system::error_code &error, session &theSession)
 		cerr << "The connection failed: " << error.message() << endl;
 	}
 }
-
+#endif
 int
 main(int argc, char **argv)
 {
+#if 0
 	try {
 		io_service service;
 		transport_layer tl(service);
@@ -126,5 +127,6 @@ main(int argc, char **argv)
 	} catch (const std::exception &ex) {
 		cerr << "Fatal Error: " << ex.what() << endl;
 	}
+#endif
 	return 0;
 }

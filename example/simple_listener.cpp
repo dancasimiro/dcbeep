@@ -2,7 +2,7 @@
 /// \brief Test the BEEP server
 ///
 /// UNCLASSIFIED
-
+#if 0
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -72,11 +72,12 @@ handle_new_channel(session &theSession, beep::channel &info, string &init)
 						  handle_channel_data);
 	return beep::success;
 }
-										   
+#endif										   
 
 int
 main(int argc, char **argv)
 {
+#if 0
 	try {
 		io_service service;
 		transport_layer tl(service);
@@ -87,5 +88,6 @@ main(int argc, char **argv)
 	} catch (const std::exception &ex) {
 		cerr << "Fatal Error: " << ex.what() << endl;
 	}
+#endif
 	return 0;
 }
