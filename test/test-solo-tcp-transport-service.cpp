@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "beep/message.hpp"
+#include "beep/transport-service/solo-tcp.hpp"
 
 TEST(NOOP, PlaceHolder)
 {

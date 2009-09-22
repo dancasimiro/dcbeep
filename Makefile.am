@@ -10,9 +10,13 @@ AM_LDFLAGS = @BOOST_LDFLAGS@
 noinst_PROGRAMS = example/listener example/initiator
 
 check_PROGRAMS = \
-	test/utframe
+	test/utframe \
+	test/utmessage \
+	test/utsolotcp
 TESTS = \
-	test/utframe
+	test/utframe \
+	test/utmessage \
+	test/utsolotcp
 
 ###############################################################################
 # Test Programs
@@ -24,6 +28,18 @@ test_utframe_SOURCES = test/test-frame.cpp
 test_utframe_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
 test_utframe_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
 test_utframe_LDADD = $(AM_LDFLAGS) @BOOST_SYSTEM_LIB@ @GTEST_LIBS@
+# Message Unit Test
+# -----------------------------------------------------------------------------
+test_utmessage_SOURCES = test/test-message.cpp
+test_utmessage_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
+test_utmessage_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
+test_utmessage_LDADD = $(AM_LDFLAGS) @BOOST_SYSTEM_LIB@ @GTEST_LIBS@
+# BEEP session over single TCP/IP connection Unit Test
+# -----------------------------------------------------------------------------
+test_utsolotcp_SOURCES = test/test-solo-tcp-transport-service.cpp
+test_utsolotcp_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
+test_utsolotcp_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
+test_utsolotcp_LDADD = $(AM_LDFLAGS) @BOOST_SYSTEM_LIB@ @GTEST_LIBS@
 
 ###############################################################################
 # Examples
