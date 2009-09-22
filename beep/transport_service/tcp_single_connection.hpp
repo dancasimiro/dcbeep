@@ -1,9 +1,10 @@
-/// \file  tcp.hpp
-/// \brief Map the TCP/IP transport service to BEEP
+/// \file  tcp_single_connection.hpp
+/// \brief Map the BEEP session onto a single the TCP/IP connection
 ///
 /// UNCLASSIFIED
-#ifndef BEEP_TCP_HEAD
-#define BEEP_TCP_HEAD 1
+#ifndef BEEP_TCP_SINGLE_CONNECTION_HEAD
+#define BEEP_TCP_SINGLE_CONNECTION_HEAD 1
+
 namespace beep {
 
 /// \brief TCP/IP BEEP transport layer using ASIO
@@ -32,4 +33,4 @@ private:
 typedef basic_tcptl<> tcptl;
 
 }      // namespace beep
-#endif // BEEP_TCP_MAPPING_HEAD
+#endif // BEEP_TCP_SINGLE_CONNECTION_HEAD
