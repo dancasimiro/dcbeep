@@ -8,6 +8,8 @@
 #include <cstddef>
 #include <string>
 #include <stdexcept>
+#include <boost/noncopyable.hpp>
+#include <boost/throw_exception.hpp>
 #include <boost/spirit/include/classic.hpp>
 #include <boost/spirit/include/classic_grammar_def.hpp>
 #include <boost/spirit/include/phoenix1.hpp>
@@ -16,7 +18,6 @@ namespace beep {
 
 class frame {
 public:
-	typedef char        byte_type;
 	typedef std::string string_type;
 
 	static const string_type &sentinel()
@@ -107,12 +108,44 @@ struct frame_closure : BOOST_SPIRIT_CLASSIC_NS::closure<frame_closure, frame> {
 	member1 val;
 };     // struct frame_closure
 
+enum frame_error {
+	size_mismatch,
+};
+
+class frame_parsing_error : public std::runtime_error {
+public:
+	frame_parsing_error(const char *msg) : std::runtime_error(msg) {}
+	frame_parsing_error(const std::string &msg) : std::runtime_error(msg) {}
+	virtual ~frame_parsing_error() throw () {}
+};
+
+struct error_report_parser { 
+    error_report_parser(const char *msg) : _msg(msg) {}
+
+    typedef BOOST_SPIRIT_CLASSIC_NS::nil_t result_t;
+
+    template <typename ScannerT>
+    int operator()(ScannerT const& /*scan*/, result_t& /*result*/) const
+    {
+		BOOST_THROW_EXCEPTION(frame_parsing_error(_msg));
+		return 0;
+    }
+private:
+	std::string _msg;
+};
+
 struct frame_syntax : public BOOST_SPIRIT_CLASSIC_NS::grammar<frame_syntax, frame_closure::context_t> {
+
+	typedef BOOST_SPIRIT_CLASSIC_NS::functor_parser<error_report_parser> error_report_p; 
+
+	static error_report_p error_invalid_header;
+	static error_report_p error_invalid_channel;
+	/// \todo Define more errors and insert them in the grammar
+
 	frame_syntax (std::size_t &s) : payload_size(s) {}
 	template <typename ScannerT>
 	struct definition {
 		typedef BOOST_SPIRIT_CLASSIC_NS::rule<ScannerT, frame_closure::context_t> rule_type;
-		typedef BOOST_SPIRIT_CLASSIC_NS::rule<ScannerT> top_level_rule_type;
 
 		// standard BEEP header grammar
 		rule_type channel;
@@ -188,7 +221,7 @@ struct frame_syntax : public BOOST_SPIRIT_CLASSIC_NS::grammar<frame_syntax, fram
 			ansno = limit_d(0u, 4294967295u)[uint_p[bind(&frame::set_answer)(ansno.val, arg1)]];
 
 			common =
-				channel(common.val)[common.val = arg1] >> ch_p(' ') >>
+				(channel(common.val)[common.val = arg1]|error_invalid_channel) >> ch_p(' ') >>
 				msgno(common.val)[common.val = arg1] >> ch_p(' ') >>
 				more(common.val)[common.val = arg1] >> ch_p(' ') >>
 				seqno(common.val)[common.val = arg1] >> ch_p(' ') >>
@@ -205,7 +238,8 @@ struct frame_syntax : public BOOST_SPIRIT_CLASSIC_NS::grammar<frame_syntax, fram
 				rpy[self.val = arg1] |
 				ans[self.val = arg1] |
 				err[self.val = arg1] |
-				nul[self.val = arg1];
+				nul[self.val = arg1] |
+				error_invalid_header;
 			payload = repeat_p(ref(self.payload_size))[anychar_p][bind(&frame::set_payload)(self.val, construct_<std::string>(arg1, arg2))];
 			trailer = str_p("END\r\n");
 
@@ -218,7 +252,10 @@ struct frame_syntax : public BOOST_SPIRIT_CLASSIC_NS::grammar<frame_syntax, fram
 	std::size_t &payload_size;
 };     // struct frame_syntax
 
-class frame_parser {
+frame_syntax::error_report_p frame_syntax::error_invalid_header("invalid header tag");
+frame_syntax::error_report_p frame_syntax::error_invalid_channel("invalid channel");
+
+class frame_parser : private boost::noncopyable {
 public:
 	frame_parser()
 		: size_(0)
@@ -231,8 +268,7 @@ public:
 		using namespace BOOST_SPIRIT_CLASSIC_NS;
 		using namespace phoenix;
 		if (!parse(myInput.begin(), myInput.end(), grammar_[var(f) = arg1]).full) {
-			// parsing failed
-			throw std::runtime_error("fail");
+			BOOST_THROW_EXCEPTION(frame_parsing_error("unexpected error"));
 		}
 	}
 private:

@@ -67,6 +67,154 @@ TEST_F(FrameMessageTest, ParsePayload)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Test invalid "message" frames (MSG)
+///////////////////////////////////////////////////////////////////////////////
+class BadFrameMessageTest : public testing::Test {
+public:
+	~BadFrameMessageTest() { }
+protected:
+	virtual void SetUp()
+	{
+		frm = beep::frame();
+	}
+
+	virtual void TearDown()
+	{
+	}
+	beep::frame frm;
+};
+
+TEST_F(BadFrameMessageTest, InvalidParseKeyword)
+{
+	static const std::string frame_content =
+		"DAN 9 1 . 52 120\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		"END\r\n";
+	beep::frame_parser frame_p;
+	ASSERT_THROW(frame_p(frame_content, frm), beep::frame_parsing_error);
+	try {
+		frame_p(frame_content, frm);
+	} catch (const beep::frame_parsing_error &ex) {
+		EXPECT_STREQ("invalid header tag", ex.what());
+	}
+}
+
+TEST_F(BadFrameMessageTest, ParseCharacterChannelNumber)
+{
+	static const std::string frame_content =
+		"MSG A 1 . 52 120\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		"END\r\n";
+	beep::frame_parser frame_p;
+	ASSERT_THROW(frame_p(frame_content, frm), beep::frame_parsing_error);
+	try {
+		frame_p(frame_content, frm);
+	} catch (const beep::frame_parsing_error &ex) {
+		EXPECT_STREQ("invalid channel", ex.what());
+	}
+}
+
+TEST_F(BadFrameMessageTest, ParseStringChannelNumber)
+{
+	static const std::string frame_content =
+		"MSG BLAH 1 . 52 120\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		"END\r\n";
+	beep::frame_parser frame_p;
+	ASSERT_THROW(frame_p(frame_content, frm), beep::frame_parsing_error);
+	try {
+		frame_p(frame_content, frm);
+	} catch (const beep::frame_parsing_error &ex) {
+		EXPECT_STREQ("invalid channel", ex.what());
+	}
+}
+
+TEST_F(BadFrameMessageTest, ParseNegativeChannelNumber)
+{
+	static const std::string frame_content =
+		"MSG -1 1 . 52 120\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		"END\r\n";
+	beep::frame_parser frame_p;
+	ASSERT_THROW(frame_p(frame_content, frm), beep::frame_parsing_error);
+	try {
+		frame_p(frame_content, frm);
+	} catch (const beep::frame_parsing_error &ex) {
+		EXPECT_STREQ("invalid channel", ex.what());
+	}
+}
+
+TEST_F(BadFrameMessageTest, ParseHugeChannelNumber)
+{
+	static const std::string frame_content =
+		"MSG 2147483648 1 . 52 120\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		"END\r\n";
+	beep::frame_parser frame_p;
+	ASSERT_THROW(frame_p(frame_content, frm), beep::frame_parsing_error);
+	try {
+		frame_p(frame_content, frm);
+	} catch (const beep::frame_parsing_error &ex) {
+		EXPECT_STREQ("invalid channel", ex.what());
+	}
+}
+
+TEST_F(BadFrameMessageTest, ParseChannelBoundaryNumber)
+{
+	static const std::string frame_content =
+		"MSG 2147483647 1 . 52 120\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		"END\r\n";
+	beep::frame_parser frame_p;
+	ASSERT_NO_THROW(frame_p(frame_content, frm));
+	EXPECT_EQ(2147483647u, frm.channel());
+}
+
+TEST_F(BadFrameMessageTest, ParseMessageNumber)
+{
+	//EXPECT_EQ(1U, frm.message());
+}
+
+TEST_F(BadFrameMessageTest, ParseMore)
+{
+	//EXPECT_EQ(false, frm.more());
+}
+
+TEST_F(BadFrameMessageTest, ParseSequenceNumber)
+{
+	//EXPECT_EQ(52U, frm.sequence());
+}
+
+TEST_F(BadFrameMessageTest, ParsePayload)
+{
+	const std::string payload =
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+			"<start number='1'>\r\n" // 20
+			"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+			"</start>\r\n" // 10
+		;
+	//EXPECT_EQ(payload, frm.payload());
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Test valid "reply" frames (RPY)
 ///////////////////////////////////////////////////////////////////////////////
 class FrameReplyTest : public testing::Test {
