@@ -11,7 +11,10 @@
 namespace beep {
 namespace transport_service {
 
+/// \note These services use plaintext transfer
 typedef basic_solo_stream_initiator<boost::asio::ip::tcp::socket> solo_tcp_initiator;
+
+/// \todo implement services that support "Transport Security" (TLS).
 
 }      // namespace transport_service
 }      // namespace beep
