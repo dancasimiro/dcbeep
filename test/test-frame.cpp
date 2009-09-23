@@ -11,7 +11,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 class FrameMessageTest : public testing::Test {
 public:
-	~FrameMessageTest() { }
+	virtual ~FrameMessageTest() {}
 protected:
 	virtual void SetUp()
 	{
@@ -74,7 +74,7 @@ TEST_F(FrameMessageTest, ParsePayload)
 ///////////////////////////////////////////////////////////////////////////////
 class BadFrameMessageTest : public testing::Test {
 public:
-	~BadFrameMessageTest() { }
+	virtual ~BadFrameMessageTest() { }
 protected:
 	virtual void SetUp()
 	{
@@ -222,7 +222,7 @@ TEST_F(BadFrameMessageTest, ParsePayload)
 ///////////////////////////////////////////////////////////////////////////////
 class FrameReplyTest : public testing::Test {
 public:
-	~FrameReplyTest() { }
+	virtual ~FrameReplyTest() { }
 protected:
 	virtual void SetUp()
 	{
@@ -287,7 +287,7 @@ TEST_F(FrameReplyTest, ParsePayload)
 ///////////////////////////////////////////////////////////////////////////////
 class FrameAnswerTest : public testing::Test {
 public:
-	~FrameAnswerTest() { }
+	virtual ~FrameAnswerTest() { }
 protected:
 	virtual void SetUp()
 	{
@@ -349,7 +349,7 @@ TEST_F(FrameAnswerTest, ParseAnswerNumber)
 ///////////////////////////////////////////////////////////////////////////////
 class FrameErrorTest : public testing::Test {
 public:
-	~FrameErrorTest() { }
+	virtual ~FrameErrorTest() { }
 protected:
 	virtual void SetUp()
 	{
@@ -410,7 +410,7 @@ TEST_F(FrameErrorTest, ParsePayload)
 ///////////////////////////////////////////////////////////////////////////////
 class FrameNullTest : public testing::Test {
 public:
-	~FrameNullTest() { }
+	virtual ~FrameNullTest() { }
 protected:
 	virtual void SetUp()
 	{
