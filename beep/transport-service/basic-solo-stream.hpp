@@ -6,17 +6,21 @@
 #define BEEP_SOLO_STREAM_HEAD 1
 
 #include <cassert>
+#include <utility>
 #include <istream>
-#include <list>
-#include <algorithm>
+#include <sstream>
+#include <map>
 
 #include <boost/noncopyable.hpp>
+#include <boost/throw_exception.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/function.hpp>
 #include <boost/bind.hpp>
 #include <boost/asio.hpp>
 #include <boost/signals2.hpp>
 
+#include "beep/identifier.hpp"
 #include "beep/frame.hpp"
 #include "beep/frame-stream.hpp"
 
@@ -38,6 +42,12 @@ public:
 	typedef boost::asio::io_service service_type;
 	typedef service_type&           service_reference;
 
+	typedef boost::signals2::connection signal_connection;
+	typedef boost::system::error_code   error_code_type;
+	typedef boost::signals2::signal<void (const error_code_type&, const frame&)> frame_signal_t;
+
+	typedef boost::function<void (const error_code_type&, const identifier&)> network_cb_t;
+
 	solo_stream_service_impl(service_reference service)
 		: stream_(service)
 		, rsb_()
@@ -45,10 +55,13 @@ public:
 		, fwsb_(&wsb_[0])
 		, bwsb_(&wsb_[1])
 		, wstrand_(service)
+		, signal_frame_()
+		, net_changed_()
 	{
 	}
 
 	stream_reference get_stream() { return stream_; }
+	void set_network_callback(const network_cb_t &cb) { net_changed_ = cb; }
 
 	void send_frame(const frame &aFrame)
 	{
@@ -65,7 +78,6 @@ public:
 	void send_frames(FwdIterator first, const FwdIterator last)
 	{
 		using boost::bind;
-		using std::for_each;
 		for (; first != last; ++first) {
 			wstrand_.dispatch(bind(&solo_stream_service_impl::serialize_frame,
 								   this->shared_from_this(), *first));
@@ -74,12 +86,17 @@ public:
 							   this->shared_from_this()));
 	}
 
-	void start()
+	signal_connection subscribe(const frame_signal_t::slot_type slot)
 	{
+		return signal_frame_.connect(slot);
 	}
 
-	void set_error(const boost::system::error_code &/*error*/)
+	void start(const boost::system::error_code &error, const identifier &id)
 	{
+		net_changed_(boost::system::error_code(), id);
+		if (!error) {
+			do_start_read();
+		}
 	}
 private:
 	typedef boost::asio::streambuf streambuf_type;
@@ -91,6 +108,16 @@ private:
 	streambuf_type *fwsb_;  // current (foreground) sendbuf that is being sent
 	streambuf_type *bwsb_;  // background streambuf that is updated while fwsb_ is transmitted
 	strand_type    wstrand_; // serialize write operations
+	frame_signal_t signal_frame_;
+	network_cb_t   net_changed_;
+
+	void set_error(const boost::system::error_code &error)
+	{
+		stream_.close();
+		fwsb_->consume(fwsb_->size());
+		bwsb_->consume(bwsb_->size());
+		signal_frame_(error, beep::frame());
+	}
 
 	void serialize_frame(const frame &frame)
 	{
@@ -123,6 +150,19 @@ private:
 									   placeholders::bytes_transferred)));
 	}
 
+	void
+	do_start_read()
+	{
+		using boost::bind;
+		using namespace boost::asio;
+		async_read_until(stream_, rsb_,
+						 frame::sentinel(),
+						 bind(&solo_stream_service_impl::handle_frame_read,
+							  this->shared_from_this(),
+							  placeholders::error,
+							  placeholders::bytes_transferred));
+	}
+
 	void handle_send(const boost::system::error_code &error,
 					 std::size_t /*bytes_transferred*/)
 	{
@@ -133,25 +173,37 @@ private:
 									   this->shared_from_this()));
 			}
 		} else {
-			stream_.close();
-			fwsb_->consume(fwsb_->size());
-			bwsb_->consume(bwsb_->size());
+			set_error(error);
+		}
+	}
+
+	void handle_frame_read(const boost::system::error_code &error,
+						   std::size_t /*bytes_transferred*/)
+	{
+		if (!error || error == boost::asio::error::message_size) {
+			beep::frame myFrame;
+			std::istream stream(&rsb_);
+			boost::system::error_code parse_error;
+			if (!(stream >> myFrame)) {
+				/// \todo set a proper error code!
+				parse_error = boost::asio::error::access_denied;
+			}
+			signal_frame_(parse_error, myFrame);
+			do_start_read();
+		} else {
+			set_error(error);
 		}
 	}
 };
 
-template <class T>
-void handle_initiator_connection(const boost::system::error_code &error,
-								 const T service_impl)
-{
-	if (!error) {
-		service_impl->start();
-	} else {
-		service_impl->set_error(error);
-	}
-}
-	
 }      // namespace detail
+
+class bad_session_error : public std::runtime_error {
+public:
+	bad_session_error(const char *msg) : std::runtime_error(msg) {}
+	bad_session_error(const std::string &msg) : std::runtime_error(msg) {}
+	virtual ~bad_session_error() throw () {}
+};
 
 /// \brief BEEP single stream connection transport layer using ASIO
 /// \note this concept can be extended to support TLS and possible SASL
@@ -160,34 +212,47 @@ class basic_solo_stream : private boost::noncopyable {
 public:
 	typedef StreamType                  stream_type;
 	typedef stream_type&                stream_reference;
-	typedef boost::system::error_code   error_code_type;
 	typedef boost::signals2::connection signal_connection;
 
-	typedef boost::signals2::signal<void (const error_code_type&, const frame&)> new_frame_signal;
+	typedef boost::signals2::signal<void (const boost::system::error_code&, const identifier&)> network_signal_t;
+	typedef boost::signals2::signal<void (const boost::system::error_code&, const frame&)>      frame_signal_t;
 
 	basic_solo_stream()
 		: connections_()
+		, network_signal_()
 	{
 	}
 
 	virtual ~basic_solo_stream() {}
 
+	/// \brief Get notified when a new network session is established
+	signal_connection install_network_handler(const network_signal_t::slot_type slot)
+	{
+		return network_signal_.connect(slot);
+	}
+
 	/// \brief Get notified when new frames arrive
 	///
 	/// Use this member function to install a callback function that is
 	/// invoked whenever a new frame arrives from the network.
-	signal_connection subscribe(new_frame_signal::slot_function_type slot)
+	signal_connection subscribe(const identifier &id,
+								const frame_signal_t::slot_type slot)
 	{
-		signal_connection c;
-		return c;
+		const typename container_type::iterator i = connections_.find(id);
+		if (i == connections_.end()) {
+			std::ostringstream strm;
+			strm << "Session " << id << " is not recognized.";
+			BOOST_THROW_EXCEPTION(bad_session_error(strm.str()));
+		}
+		return i->second->subscribe(slot);
 	}
 
 	void send_frame(const frame &aFrame)
 	{
-		using std::for_each;
-		using boost::bind;
-		for_each(connections_.begin(), connections_.end(),
-				 bind(&impl_type::send_frame, _1, aFrame));
+		typedef typename container_type::iterator iterator;
+		for (iterator i = connections_.begin(); i != connections_.end(); ++i) {
+			i->second->send_frame(aFrame);
+		}
 	}
 
 	/// \brief Send frames to the remote endpoint
@@ -198,7 +263,7 @@ public:
 	{
 		typedef typename container_type::iterator iterator;
 		for (iterator i = connections_.begin(); i != connections_.end(); ++i) {
-			(*i)->send_frames(first, last);
+			i->second->send_frames(first, last);
 		}
 	}
 
@@ -207,18 +272,31 @@ protected:
 	typedef detail::solo_stream_service_impl<stream_type> impl_type;
 	typedef boost::shared_ptr<impl_type>                  pimpl_type;
 
-	void add_connection(const pimpl_type connection)
+	identifier add_connection(const pimpl_type connection)
 	{
-		connections_.push_back(connection);
+		using boost::bind;
+		using std::make_pair;
+		identifier id;
+		connections_.insert(make_pair(id, connection));
+		connection->set_network_callback(bind(&basic_solo_stream::invoke_network_signal, this, _1, _2));
+		return id;
 	}
 
-	void remove_connection(const pimpl_type connection)
+	void remove_connection(const identifier &id)
 	{
-		connections_.remove(connection);
+		connections_.erase(id);
 	}
 private:
-	typedef std::list<pimpl_type> container_type;
-	container_type connections_;
+	typedef std::map<identifier, pimpl_type> container_type;
+
+	container_type   connections_;
+	network_signal_t network_signal_;
+
+	void invoke_network_signal(const boost::system::error_code &error,
+							   const identifier &id)
+	{
+		network_signal_(error, id);
+	}
 };     // class basic_solo_stream
 
 /// \brief Actively open a TCP connection
@@ -232,12 +310,13 @@ public:
 	typedef boost::asio::io_service             service_type;
 	typedef service_type&                       service_reference;
 	typedef typename stream_type::endpoint_type endpoint_type;
+	typedef basic_solo_stream<stream_type>      super_type;
 	
 	basic_solo_stream_initiator(service_reference service)
 		: basic_solo_stream<StreamT>()
 		, service_(service)
+		, id_()
 		, current_()
-		, ep_()
 	{
 	}
 
@@ -249,25 +328,24 @@ public:
 		using boost::swap;
 		using namespace boost::asio;
 
-		ep_ = ep;
 		pimpl_type next(new impl_type(service_));
 		if (current_) {
-			this->remove_connection(current_);
+			this->remove_connection(id_);
 		}
 		swap(current_, next);
-		this->add_connection(current_);
-		current_->get_stream().async_connect(ep_,
-											 bind(detail::handle_initiator_connection<pimpl_type>,
+		id_ = this->add_connection(current_);
+		current_->get_stream().async_connect(ep,
+											 bind(&impl_type::start,
+												  current_,
 												  placeholders::error,
-												  current_));
+												  id_));
 	}
 private:
-	typedef basic_solo_stream<stream_type>  super_type;
 	typedef typename super_type::impl_type  impl_type;
 	typedef typename super_type::pimpl_type pimpl_type;
 	const service_reference service_;
-	pimpl_type    current_; // current connection
-	endpoint_type ep_;
+	identifier              id_;
+	pimpl_type              current_; // current network connection
 };     // class basic_solo_stream_initiator
 
 /// \brief Passively wait for a new TCP connection.

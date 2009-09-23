@@ -29,6 +29,7 @@ public:
 		, last_error()
 		, buffer()
 		, start_time()
+		, session_connection()
 	{
 	}
 
@@ -44,6 +45,11 @@ public:
 		buffer.consume(buffer.size());
 		last_error = boost::system::error_code();
 		last_frame = beep::frame();
+		socket.close();
+
+		session_connection =
+			ts.install_network_handler(bind(&SingleTCPTransportServiceInitiator::network_is_ready,
+											this, _1, _2));
 
 		tcp::endpoint ep(address::from_string("127.0.0.1"), 9999);
 		acceptor.open(ep.protocol());
@@ -55,10 +61,13 @@ public:
 								   this,
 								   boost::asio::placeholders::error));
 		ts.set_endpoint(ep);
+
+		ASSERT_NO_THROW(run_event_loop_until_connect());
 	}
 
 	virtual void TearDown()
 	{
+		session_connection.disconnect();
 		boost::system::error_code error;
 		socket.close(error);
 		acceptor.close(error);
@@ -75,6 +84,22 @@ public:
 	boost::asio::streambuf                      buffer;
 	boost::posix_time::ptime                    start_time;
 	beep::frame                                 last_frame;
+	boost::signals2::connection                 session_connection;
+
+	void network_is_ready(const boost::system::error_code &error, const beep::identifier &id)
+	{
+		using beep::transport_service::solo_tcp_initiator;
+		using boost::bind;
+
+		last_error = error;
+		if (!error) {
+			solo_tcp_initiator::signal_connection sigconn =
+				ts.subscribe(id,
+							 bind(&SingleTCPTransportServiceInitiator::handle_new_frame,
+								  this, _1, _2));
+			EXPECT_TRUE(sigconn.connected());
+		}
+	}
 
 	void run_event_loop_until_connect()
 	{
@@ -105,7 +130,7 @@ public:
 		}
 	}
 
-	void run_event_loop_new_frame()
+	void run_event_loop_until_new_frame()
 	{
 		got_new_frame = false;
 		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
@@ -145,15 +170,15 @@ public:
 						  const beep::frame &frame)
 	{
 		last_error = error;
-		if (!error || error == boost::asio::error::message_size) {
+		if (!error) {
 			last_frame = frame;
+			got_new_frame = true;
 		}
 	}
 };
 
 TEST_F(SingleTCPTransportServiceInitiator, Connect)
 {
-	ASSERT_NO_THROW(run_event_loop_until_connect());
 	EXPECT_FALSE(last_error);
 	EXPECT_TRUE(is_connected);
 }
@@ -161,10 +186,6 @@ TEST_F(SingleTCPTransportServiceInitiator, Connect)
 TEST_F(SingleTCPTransportServiceInitiator, SendsProperFrame)
 {
 	using boost::bind;
-
-	ASSERT_NO_THROW(run_event_loop_until_connect());
-	ASSERT_FALSE(last_error);
-	ASSERT_TRUE(is_connected);
 
 	beep::frame myFrame;
 	myFrame.set_header(beep::frame::msg());
@@ -191,10 +212,6 @@ TEST_F(SingleTCPTransportServiceInitiator, SendsProperFrame)
 TEST_F(SingleTCPTransportServiceInitiator, SendsMultipleFrames)
 {
 	using boost::bind;
-
-	ASSERT_NO_THROW(run_event_loop_until_connect());
-	ASSERT_FALSE(last_error);
-	ASSERT_TRUE(is_connected);
 
 	std::vector<beep::frame> multiple_frames;
 	beep::frame firstFrame;
@@ -241,14 +258,12 @@ TEST_F(SingleTCPTransportServiceInitiator, SendsMultipleFrames)
 		EXPECT_EQ(secondFrame, recvFrame2);
 	}
 }
-#if 0
+
 TEST_F(SingleTCPTransportServiceInitiator, ReceivesProperFrame)
 {
 	using boost::bind;
 	using beep::transport_service::solo_tcp_initiator;
-	solo_tcp_initiator::signal_connection sigconn =
-		ts.subscribe(bind(&SingleTCPTransportServiceInitiator::handle_new_frame,
-						  this, _1, _2));
+	using boost::asio::async_write;
 
 	const std::string test_payload =
 		"MSG 9 1 . 52 120\r\n"
@@ -257,11 +272,11 @@ TEST_F(SingleTCPTransportServiceInitiator, ReceivesProperFrame)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	socket.async_send(boost::asio::buffer(test_payload),
-					  bind(&SingleTCPTransportServiceInitiator::handle_test_server_send,
-						   this,
-						   boost::asio::placeholders::error,
-						   boost::asio::placeholders::bytes_transferred));
+	async_write(socket, boost::asio::buffer(test_payload),
+				bind(&SingleTCPTransportServiceInitiator::handle_test_server_send,
+					 this,
+					 boost::asio::placeholders::error,
+					 boost::asio::placeholders::bytes_transferred));
 
 	beep::frame expectedFrame;
 	expectedFrame.set_header(beep::frame::msg());
@@ -274,12 +289,12 @@ TEST_F(SingleTCPTransportServiceInitiator, ReceivesProperFrame)
 							  "   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 							  "</start>\r\n" // 10
 							  );
-	ASSERT_NO_THROW(run_event_loop_new_frame());
+	ASSERT_NO_THROW(run_event_loop_until_new_frame());
 	EXPECT_TRUE(got_new_frame);
-	EXPECT_FALSE(last_error);
+	EXPECT_EQ(boost::system::error_code(), last_error);
 	EXPECT_EQ(expectedFrame, last_frame);
 }
-#endif
+
 int
 main(int argc, char **argv)
 {
