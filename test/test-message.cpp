@@ -1,3 +1,6 @@
+/// \file test-message.cpp
+///
+/// UNCLASSIFIED
 #include <gtest/gtest.h>
 
 #include "beep/message.hpp"

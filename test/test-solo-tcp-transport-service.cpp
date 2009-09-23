@@ -1,3 +1,6 @@
+/// \file test-solo-tcp-transport-service.cpp
+///
+/// UNCLASSIFIED
 #include <gtest/gtest.h>
 
 #include "beep/transport-service/solo-tcp.hpp"
