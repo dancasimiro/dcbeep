@@ -19,11 +19,18 @@ namespace beep {
 class frame {
 public:
 	typedef std::string string_type;
+	typedef std::string header_type;
 
 	static const string_type &sentinel()
 	{
 		static const string_type sent("END\r\n");
 		return sent;
+	}
+
+	static const string_type &terminator()
+	{
+		static const string_type term("\r\n");
+		return term;
 	}
 
 	static const string_type &msg()
@@ -67,6 +74,12 @@ public:
 		static const char c = '.';
 		return c;
 	}
+
+	static char separator()
+	{
+		static const char s = ' ';
+		return s;
+	}
 public:
 	frame()
 		: header_()
@@ -103,6 +116,17 @@ private:
 	unsigned int answer_;
 	char         continuation_;
 };     // class frame
+
+bool operator==(const frame &lhs, const frame &rhs)
+{
+	return lhs.header() == rhs.header() &&
+		lhs.channel() == rhs.channel() &&
+		lhs.message() == rhs.message() &&
+		lhs.more() == rhs.more() &&
+		lhs.sequence() == rhs.sequence() &&
+		lhs.answer() == rhs.answer() &&
+		lhs.payload() == rhs.payload();
+}
 
 struct frame_closure : BOOST_SPIRIT_CLASSIC_NS::closure<frame_closure, frame> {
 	member1 val;

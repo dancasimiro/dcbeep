@@ -11,7 +11,7 @@
 namespace beep {
 namespace transport_service {
 
-typedef basic_solo_stream<boost::asio::ip::tcp::socket> solo_tcp;
+typedef basic_solo_stream_initiator<boost::asio::ip::tcp::socket> solo_tcp_initiator;
 
 }      // namespace transport_service
 }      // namespace beep
