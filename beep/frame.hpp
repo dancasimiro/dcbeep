@@ -164,10 +164,7 @@ BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_size(invalid_size
 BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_answer(invalid_answer_number);
 
 BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_payload(payload_size_mismatch);
-
 BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_trailer(trailer_expected);
-
-BOOST_SPIRIT_CLASSIC_NS::guard<frame_syntax_errors> frame_syntax_guard;
 
 // Set Frame Header Actor
 struct set_frame_header_actor {

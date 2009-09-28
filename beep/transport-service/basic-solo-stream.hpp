@@ -30,11 +30,11 @@ namespace beep {
 struct error_handler {
 	template <class ScannerT, typename ErrorT>
 	BOOST_SPIRIT_CLASSIC_NS::error_status<>
-	operator()(const ScannerT &scan, ErrorT error) const
+	operator()(const ScannerT &/*scan*/, ErrorT /*error*/) const
 	{
 		// ErrorT is BOOST_SPIRIT_CLASSIC_NS::parser_error<beep::frame_syntax_errors>
 		using BOOST_SPIRIT_CLASSIC_NS::error_status;
-		std::cerr << "exception caught: " << error.descriptor << " at location " << std::distance(scan.first, error.where) << std::endl;
+		//std::cerr << "exception caught: " << error.descriptor << " at location " << std::distance(scan.first, error.where) << std::endl;
 		return error_status<>(error_status<>::fail);
 	}
 };
@@ -61,6 +61,8 @@ struct asio_frame_parser {
 	std::size_t  size;
 	frame        current_frame;
 	frame_syntax syntax;
+
+	BOOST_SPIRIT_CLASSIC_NS::guard<frame_syntax_errors> frame_syntax_guard;
 };
 }      // namespace beep
 	
