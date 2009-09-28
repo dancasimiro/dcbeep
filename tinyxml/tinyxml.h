@@ -25,6 +25,7 @@ distribution.
 
 #ifndef TINYXML_INCLUDED
 #define TINYXML_INCLUDED
+#define TINYXML_USE_STL 1
 
 #ifdef _MSC_VER
 #pragma warning( push )
