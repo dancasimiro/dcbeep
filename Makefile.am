@@ -8,6 +8,7 @@ AM_CXXFLAGS = \
 AM_LDFLAGS = @BOOST_LDFLAGS@
 
 noinst_PROGRAMS = example/listener example/initiator
+noinst_LTLIBRARIES = tinyxml/libti.la
 
 check_PROGRAMS = \
 	test/utframe \
@@ -29,6 +30,16 @@ nobase_include_HEADERS = \
 	beep/identifier.hpp \
 	beep/transport-service/basic-solo-stream.hpp \
 	beep/transport-service/solo-tcp.hpp
+###############################################################################
+# tinyxml convenience library
+# -----------------------------------------------------------------------------
+tinyxml_libti_la_SOURCES = \
+	tinyxml/tinyxml.cpp \
+	tinyxml/tinyxml.h \
+	tinyxml/tinyxmlerror.cpp \
+	tinyxml/tinyxmlparser.cpp \
+	tinyxml/tinystr.cpp \
+	tinyxml/tinystr.h
 
 ###############################################################################
 # Test Programs
