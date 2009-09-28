@@ -4,6 +4,19 @@
 /// UNCLASSIFIED
 #ifndef BEEP_SESSION_HEAD
 #define BEEP_SESSION_HEAD 1
+
+#include <vector>
+#include <iterator>
+
+#include <boost/bind.hpp>
+#include <boost/system/error_code.hpp>
+
+#include "frame.hpp"
+#include "frame-generator.hpp"
+#include "message.hpp"
+#include "channel.hpp"
+#include "channel-manager.hpp"
+
 namespace beep {
 
 enum role {
@@ -34,7 +47,7 @@ enum reply_code {
 template <class U> class basic_session;
 
 namespace detail {
-
+#if 0
 inline std::istream&
 decode_start_channel(istream &strm, int &channel)
 {
@@ -524,26 +537,22 @@ private:
 		}
 	};
 };     // class session_impl
-
+#endif
 }      // namespace detail
 
 /// \brief BEEP session management
 ///
 /// \note Each session has an implicit tuning channel that performs
 ///       initialization.
-template <class TransportLayer>
+template <class TransportServiceT>
 class basic_session
-	: private noncopyable
+//: private boost::noncopyable
 {
 public:
-	typedef TransportLayer                        transport_layer;
-	typedef transport_layer&                      transport_layer_reference;
-	typedef basic_session<transport_layer>        base_type;
-	typedef typename transport_layer::connection_type  connection_type;
-	typedef typename connection_type::lowest_layer_type     connection_layer_type;
-
-	//template<class T> friend reply_code start_channel(T, channel&, const string&);
-
+	typedef TransportServiceT                     transport_service;
+	typedef transport_service&                    transport_service_reference;
+	typedef basic_session<transport_service>      base_type;
+#if 0
 	/// this is a leaked implementation detail. do not use it.
 	reply_code initialize(channel &aChannel, const string &init)
 	{
@@ -582,16 +591,48 @@ public:
 	{
 		pimpl_->set_session(this);
 	}
-
-	basic_session(transport_layer_reference transport, role r)
-		: nextchan_(r == initiating_role ? 1 : 2)
-		, profiles_()
-		, channels_()
-		, pimpl_(new impl_type(transport))
+#endif
+	basic_session(transport_service_reference ts)
+		: transport_(ts)
+		, id_()
+		, netchng_()
+		, chman_()
 	{
-		pimpl_->set_session(this);
+		using boost::bind;
+		netchng_ =
+			transport_.install_network_handler(bind(&basic_session::handle_network_change,
+													this, _1, _2));
 	}
 
+	~basic_session()
+	{
+		netchng_.disconnect();
+	}
+private:
+	void handle_network_change(const boost::system::error_code &error,
+							   const identifier &id)
+	{
+		if (!error) {
+			id_ = id;
+			start();
+		} else {
+			// try to re-establish???
+			// report error?
+			// throw system_error?
+		}
+	}
+
+	void start()
+	{
+		using std::vector;
+		using std::back_inserter;
+
+		vector<frame> frames;
+		make_frames(chman_.greeting(), chman_.tuning_channel(),
+					back_inserter(frames));
+		transport_.send_frames(frames.begin(), frames.end());
+	}
+#if 0
 	virtual ~basic_session()
 	{
 		pimpl_->set_session(NULL);
@@ -703,15 +744,23 @@ public:
 
 	typedef pair<channel, channel_handler>                  channel_pair;
 	typedef map<int, channel_pair>                          channel_container;
+#endif
 private:
+#if 0
 	typedef channel_management_profile                      tuner_profile;
 	typedef detail::session_impl<transport_layer>           impl_type;
 	typedef typename impl_type::pointer                     pimpl_type;
+#endif
+	typedef typename transport_service::signal_connection   signal_connection_t;
+	transport_service_reference transport_;
+	identifier                  id_;
+	signal_connection_t         netchng_;
 
-	unsigned int              nextchan_;
-	profile_container         profiles_;
-	channel_container         channels_;
-	pimpl_type                pimpl_;
+	channel_manager             chman_;
+	//unsigned int              nextchan_;
+	//profile_container         profiles_;
+	//channel_container         channels_;
+	//pimpl_type                pimpl_;
 };     // class basic_session
 
 }      // namespace beep

@@ -12,10 +12,12 @@ noinst_PROGRAMS = example/listener example/initiator
 check_PROGRAMS = \
 	test/utframe \
 	test/utmessage \
+	test/utsession \
 	test/utsolotcp
 TESTS = \
 	test/utframe \
 	test/utmessage \
+	test/utsession \
 	test/utsolotcp
 
 ###############################################################################
@@ -50,6 +52,12 @@ test_utsolotcp_SOURCES = test/test-solo-tcp-transport-service.cpp
 test_utsolotcp_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
 test_utsolotcp_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
 test_utsolotcp_LDADD = $(AM_LDFLAGS) @BOOST_SYSTEM_LIB@ @GTEST_LIBS@
+# BEEP session test
+# -----------------------------------------------------------------------------
+test_utsession_SOURCES = test/test-session.cpp
+test_utsession_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
+test_utsession_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
+test_utsession_LDADD = $(AM_LDFLAGS) @BOOST_SYSTEM_LIB@ @GTEST_LIBS@
 
 ###############################################################################
 # Examples
