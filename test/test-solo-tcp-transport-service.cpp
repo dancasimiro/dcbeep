@@ -136,7 +136,7 @@ public:
 		got_new_frame = false;
 		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
 		while (!last_error && !got_new_frame && (current_time - start_time) < boost::posix_time::seconds(5)) {
-			service.poll();
+			service.poll_one();
 			current_time = boost::posix_time::second_clock::local_time();
 			service.reset();
 		}
@@ -293,6 +293,71 @@ TEST_F(SingleTCPTransportServiceInitiator, ReceivesProperFrame)
 	EXPECT_TRUE(got_new_frame);
 	EXPECT_EQ(boost::system::error_code(), last_error);
 	EXPECT_EQ(expectedFrame, last_frame);
+}
+
+TEST_F(SingleTCPTransportServiceInitiator, ReceivesMultipleFrames)
+{
+	using boost::bind;
+	using beep::transport_service::solo_tcp_initiator;
+	using boost::asio::async_write;
+
+	const std::string test_payload =
+		"MSG 9 1 . 52 120\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		"END\r\n"
+
+		"MSG 9 2 . 99 120\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='2'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		"END\r\n"
+		;
+
+	async_write(socket, boost::asio::buffer(test_payload),
+				bind(&SingleTCPTransportServiceInitiator::handle_test_server_send,
+					 this,
+					 boost::asio::placeholders::error,
+					 boost::asio::placeholders::bytes_transferred));
+
+	beep::frame expectedFrame;
+	expectedFrame.set_header(beep::frame::msg());
+	expectedFrame.set_channel(9);
+	expectedFrame.set_message(1);
+	expectedFrame.set_more(false);
+	expectedFrame.set_sequence(52);
+	expectedFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n" // 38
+							  "<start number='1'>\r\n" // 20
+							  "   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+							  "</start>\r\n" // 10
+							  );
+	ASSERT_NO_THROW(run_event_loop_until_new_frame());
+	EXPECT_TRUE(got_new_frame);
+	EXPECT_EQ(boost::system::error_code(), last_error);
+	EXPECT_EQ(expectedFrame, last_frame);
+
+	got_new_frame = false;
+	last_frame = beep::frame();
+
+	beep::frame expectedFrame2;
+	expectedFrame2.set_header(beep::frame::msg());
+	expectedFrame2.set_channel(9);
+	expectedFrame2.set_message(2);
+	expectedFrame2.set_more(false);
+	expectedFrame2.set_sequence(99);
+	expectedFrame2.set_payload("Content-Type: application/beep+xml\r\n\r\n" // 38
+							   "<start number='2'>\r\n" // 20
+							   "   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+							   "</start>\r\n" // 10
+							  );
+
+	ASSERT_NO_THROW(run_event_loop_until_new_frame());
+	EXPECT_TRUE(got_new_frame);
+	EXPECT_EQ(boost::system::error_code(), last_error);
+	EXPECT_EQ(expectedFrame2, last_frame);
 }
 
 int
