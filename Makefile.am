@@ -4,6 +4,7 @@ AM_CFLAGS = \
 	-fvisibility=hidden
 AM_CXXFLAGS = \
 	-fvisibility=hidden -fvisibility-inlines-hidden \
+	-I$(top_srcdir)/tinyxml \
 	@BOOST_CPPFLAGS@
 AM_LDFLAGS = @BOOST_LDFLAGS@
 
@@ -68,7 +69,9 @@ test_utsolotcp_LDADD = $(AM_LDFLAGS) @BOOST_SYSTEM_LIB@ @GTEST_LIBS@
 test_utsession_SOURCES = test/test-session.cpp
 test_utsession_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
 test_utsession_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
-test_utsession_LDADD = $(AM_LDFLAGS) @BOOST_SYSTEM_LIB@ @GTEST_LIBS@
+test_utsession_LDADD = $(AM_LDFLAGS) \
+	$(top_builddir)/tinyxml/libti.la \
+	@BOOST_SYSTEM_LIB@ @GTEST_LIBS@
 
 ###############################################################################
 # Examples

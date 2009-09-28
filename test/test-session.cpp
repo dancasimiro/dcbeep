@@ -9,6 +9,34 @@
 #include "beep/transport-service/solo-tcp.hpp"
 #include "beep/session.hpp"
 
+TEST(ChannelManager, Greeting)
+{
+	beep::channel_manager chman;
+	std::vector<beep::frame> frames;
+	EXPECT_EQ(1, beep::make_frames(chman.greeting(), chman.tuning_channel(),
+								   std::back_inserter(frames)));
+	ASSERT_EQ(1u, frames.size());
+
+	const std::string encoded_out =
+		"RPY 0 0 . 0 50\r\n"
+		"Content-Type: application/beep+xml\r\n"
+		"\r\n"
+		//"<greeting>\r\n"
+		//"   <profile uri='http://iana.org/beep/TLS' />\r\n"
+        //"</greeting>\r\n"
+		"<greeting />"
+		"END\r\n"
+		;
+	std::ostringstream strm;
+	strm << frames[0];
+	EXPECT_EQ(encoded_out, strm.str());
+
+	EXPECT_EQ(0u, chman.tuning_channel().get_number());
+	EXPECT_EQ(1u, chman.tuning_channel().get_message_number());
+	EXPECT_EQ(50u, chman.tuning_channel().get_sequence_number());
+	EXPECT_EQ(0u, chman.tuning_channel().get_answer_number());
+}
+
 class SessionInitiator : public testing::Test {
 public:
 	SessionInitiator()
