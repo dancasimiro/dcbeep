@@ -19,10 +19,60 @@
 #include <boost/bind.hpp>
 #include <boost/asio.hpp>
 #include <boost/signals2.hpp>
+#include <boost/spirit/include/classic.hpp>
 
 #include "beep/identifier.hpp"
 #include "beep/frame.hpp"
 #include "beep/frame-stream.hpp"
+
+namespace beep {
+
+struct error_handler {
+	template <class ScannerT, typename ErrorT>
+	BOOST_SPIRIT_CLASSIC_NS::error_status<>
+	operator()(const ScannerT &scan, ErrorT error) const
+	{
+		// ErrorT is BOOST_SPIRIT_CLASSIC_NS::parser_error<beep::frame_syntax_errors>
+		using BOOST_SPIRIT_CLASSIC_NS::error_status;
+		std::cerr << "exception caught: " << error.descriptor << " at location " << std::distance(scan.first, error.where) << std::endl;
+		return error_status<>(error_status<>::fail);
+	}
+};
+
+struct asio_frame_parser {
+	asio_frame_parser()
+		: size(0)
+		, current_frame()
+		, syntax(current_frame, size)
+	{
+	}
+
+	template <typename Iterator>
+	std::pair<Iterator, bool> operator()(Iterator begin, Iterator end)
+	{
+		using namespace BOOST_SPIRIT_CLASSIC_NS;
+		using std::make_pair;
+
+		const parse_info<Iterator> pi =
+			parse(begin, end, frame_syntax_guard(syntax)[error_handler()]);
+		return make_pair(pi.stop, pi.hit);
+	}
+
+	std::size_t  size;
+	frame        current_frame;
+	frame_syntax syntax;
+};
+}      // namespace beep
+	
+
+namespace boost {
+namespace asio {
+
+template <>
+struct is_match_condition<beep::asio_frame_parser>
+	: public boost::true_type {};
+}      // namespace asio
+}      // namespace boost
 
 namespace beep {
 namespace transport_service {
@@ -57,6 +107,7 @@ public:
 		, wstrand_(service)
 		, signal_frame_()
 		, net_changed_()
+		, matcher_()
 	{
 	}
 
@@ -101,6 +152,7 @@ public:
 private:
 	typedef boost::asio::streambuf streambuf_type;
 	typedef service_type::strand   strand_type;
+	typedef asio_frame_parser      matcher_type;
 
 	stream_type    stream_;
 	streambuf_type rsb_; // read streambuf
@@ -110,6 +162,7 @@ private:
 	strand_type    wstrand_; // serialize write operations
 	frame_signal_t signal_frame_;
 	network_cb_t   net_changed_;
+	matcher_type   matcher_;
 
 	void set_error(const boost::system::error_code &error)
 	{
@@ -156,7 +209,7 @@ private:
 		using boost::bind;
 		using namespace boost::asio;
 		async_read_until(stream_, rsb_,
-						 frame::sentinel(),
+						 matcher_,
 						 bind(&solo_stream_service_impl::handle_frame_read,
 							  this->shared_from_this(),
 							  placeholders::error,
@@ -178,17 +231,11 @@ private:
 	}
 
 	void handle_frame_read(const boost::system::error_code &error,
-						   std::size_t /*bytes_transferred*/)
+						   std::size_t bytes_transferred)
 	{
 		if (!error || error == boost::asio::error::message_size) {
-			beep::frame myFrame;
-			std::istream stream(&rsb_);
-			boost::system::error_code parse_error;
-			if (!(stream >> myFrame)) {
-				/// \todo set a proper error code!
-				parse_error = boost::asio::error::access_denied;
-			}
-			signal_frame_(parse_error, myFrame);
+			rsb_.consume(bytes_transferred);
+			signal_frame_(boost::system::error_code(), matcher_.current_frame);
 			do_start_read();
 		} else {
 			set_error(error);

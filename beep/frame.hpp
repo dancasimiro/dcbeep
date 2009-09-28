@@ -128,14 +128,6 @@ bool operator==(const frame &lhs, const frame &rhs)
 		lhs.payload() == rhs.payload();
 }
 
-struct frame_closure : BOOST_SPIRIT_CLASSIC_NS::closure<frame_closure, frame> {
-	member1 val;
-};     // struct frame_closure
-
-enum frame_error {
-	size_mismatch,
-};
-
 class frame_parsing_error : public std::runtime_error {
 public:
 	frame_parsing_error(const char *msg) : std::runtime_error(msg) {}
@@ -143,74 +135,212 @@ public:
 	virtual ~frame_parsing_error() throw () {}
 };
 
-struct error_report_parser { 
-    error_report_parser(const char *msg) : _msg(msg) {}
+enum frame_syntax_errors {
+	unknown_header_type,
+	missing_space,
+	missing_crlf,
 
-    typedef BOOST_SPIRIT_CLASSIC_NS::nil_t result_t;
+	invalid_channel_number,
+	invalid_message_number,
+	invalid_more_character,
+	invalid_sequence_number,
+	invalid_size_number,
+	invalid_answer_number,
 
-    template <typename ScannerT>
-    int operator()(ScannerT const& /*scan*/, result_t& /*result*/) const
-    {
-		BOOST_THROW_EXCEPTION(frame_parsing_error(_msg));
-		return 0;
-    }
-private:
-	std::string _msg;
+	payload_size_mismatch,
+
+	trailer_expected,
 };
 
-struct frame_syntax : public BOOST_SPIRIT_CLASSIC_NS::grammar<frame_syntax, frame_closure::context_t> {
+BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> unknown_header(unknown_header_type);
+BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_space(missing_space);
+BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_crlf(missing_crlf);
 
-	typedef BOOST_SPIRIT_CLASSIC_NS::functor_parser<error_report_parser> error_report_p; 
+BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_channel(invalid_channel_number);
+BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_message(invalid_message_number);
+BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_more(invalid_more_character);
+BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_sequence(invalid_sequence_number);
+BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_size(invalid_size_number);
+BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_answer(invalid_answer_number);
 
-	static error_report_p error_invalid_header;
-	static error_report_p error_invalid_channel;
-	/// \todo Define more errors and insert them in the grammar
+BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_payload(payload_size_mismatch);
 
-	frame_syntax (std::size_t &s) : payload_size(s) {}
+BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_trailer(trailer_expected);
+
+BOOST_SPIRIT_CLASSIC_NS::guard<frame_syntax_errors> frame_syntax_guard;
+
+// Set Frame Header Actor
+struct set_frame_header_actor {
+	template<typename T, typename ValueT>
+	void act(T& ref, ValueT const & value) const
+	{
+		ref.set_header((*value));
+	}
+
+	template <typename T, typename IteratorT>
+	void act(T& ref, IteratorT const& first, IteratorT const& last) const
+	{
+		typedef typename T::header_type header_type;
+		header_type vt(first, last);
+		ref.set_header(vt);
+	}
+};
+
+template <typename T>
+inline BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_header_actor>
+set_frame_header_a(T &ref)
+{
+	return BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_header_actor>(ref);
+}
+// end header
+
+// Set Frame Payload Actor
+struct set_frame_payload_actor {
+	template<typename T, typename ValueT>
+	void act(T& ref, ValueT const & value) const
+	{
+		ref.set_payload((*value));
+	}
+
+	template <typename T, typename IteratorT>
+	void act(T& ref, IteratorT const& first, IteratorT const& last) const
+	{
+		typedef typename T::string_type string_type;
+		string_type vt(first, last);
+		ref.set_payload(vt);
+	}
+};
+
+template <typename T>
+inline BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_payload_actor>
+set_frame_payload_a(T &ref)
+{
+	return BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_payload_actor>(ref);
+}
+// end payload
+
+// Set frame channel actor
+struct set_frame_channel_actor {
+	template<typename T, typename ValueT>
+	void act(T& ref, ValueT const & value) const
+	{
+		ref.set_channel(value);
+	}
+};
+
+template <typename T>
+inline BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_channel_actor>
+set_frame_channel_a(T &ref)
+{
+	return BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_channel_actor>(ref);
+}
+// end channel actor
+
+struct set_frame_message_action {
+	template<typename T, typename ValueT>
+	void act(T& ref, ValueT const & value) const
+	{
+		ref.set_message(value);
+	}
+};
+
+template <typename T>
+inline BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_message_action>
+set_frame_message_a(T &ref)
+{
+	return BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_message_action>(ref);
+}
+
+struct set_frame_continuation_actor {
+	template<typename T, typename ValueT>
+	void act(T& ref, ValueT const & value) const
+	{
+		ref.set_more(value == frame::intermediate());
+	}
+};
+
+template <typename T>
+inline BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_continuation_actor>
+set_frame_continuation_a(T &ref)
+{
+	return BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_continuation_actor>(ref);
+}
+
+struct set_frame_sequence_actor {
+	template<typename T, typename ValueT>
+	void act(T& ref, ValueT const & value) const
+	{
+		ref.set_sequence(value);
+	}
+};
+
+template <typename T>
+inline BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_sequence_actor>
+set_frame_sequence_a(T &ref)
+{
+	return BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_sequence_actor>(ref);
+}
+
+struct set_frame_answer_actor {
+	template<typename T, typename ValueT>
+	void act(T& ref, ValueT const & value) const
+	{
+		ref.set_answer(value);
+	}
+};
+
+template <typename T>
+inline BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_answer_actor>
+set_frame_answer_a(T &ref)
+{
+	return BOOST_SPIRIT_CLASSIC_NS::ref_value_actor<T, set_frame_answer_actor>(ref);
+}
+
+struct frame_syntax : public BOOST_SPIRIT_CLASSIC_NS::grammar<frame_syntax> {
 	template <typename ScannerT>
 	struct definition {
-		typedef BOOST_SPIRIT_CLASSIC_NS::rule<ScannerT, frame_closure::context_t> rule_type;
+		typedef BOOST_SPIRIT_CLASSIC_NS::rule<ScannerT>   rule_type;
 
 		// standard BEEP header grammar
+		rule_type sp;
+		rule_type crlf;
+
 		rule_type channel;
 		rule_type msgno;
 		rule_type more;
 		rule_type seqno;
 		rule_type size;
 		rule_type ansno;
+
 		rule_type common;
+		rule_type message_frame;
+		rule_type reply_frame;
+		rule_type answer_frame;
+		rule_type null_frame;
+		rule_type error_frame;
 
-		rule_type msg;
-		rule_type rpy;
-		rule_type ans;
-		rule_type err;
-		rule_type nul;
-
-		rule_type header;
+		rule_type supported_frame;
 		rule_type payload;
 		rule_type trailer;
 		rule_type top;
 
-		definition(const frame_syntax &self)
+		definition(frame_syntax const& self)
 		{
 			using namespace BOOST_SPIRIT_CLASSIC_NS;
-			using namespace phoenix;
 			using boost::ref;
 
-			// The frame header consists of a three-character keyword (one of: 
-			// "MSG", "RPY", "ERR", "ANS", or "NUL"), followed by zero or more 
-			// parameters.  A single space character (decimal code 32, " ") 
-			// separates each component.  The header is terminated with a CRLF pair.
+			sp = expect_space(ch_p(' '));
+			crlf = expect_crlf(str_p("\r\n"));
 
 			// The channel number ("channel") must be a non-negative integer (in the 
 			// range 0..2147483647).
-			channel = limit_d(0u, 2147483647u)[uint_p[bind(&frame::set_channel)(channel.val, arg1)]];
+			channel = expect_channel(limit_d(0u, 2147483647u)[uint_p[set_frame_channel_a(self.f)]]);
 
 			// The message number ("msgno") must be a non-negative integer (in the 
 			// range 0..2147483647) and have a different value than all other "MSG" 
 			// messages on the same channel for which a reply has not been 
 			// completely received. 
-			msgno = limit_d(0u, 2147483647u)[uint_p[bind(&frame::set_message)(msgno.val, arg1)]];
+			msgno = expect_message(limit_d(0u, 2147483647u)[uint_p[set_frame_message_a(self.f)]]);
 
 			// The continuation indicator ("more", one of: decimal code 42, "*", or 
 			// decimal code 46, ".") specifies whether this is the final frame of 
@@ -218,14 +348,14 @@ struct frame_syntax : public BOOST_SPIRIT_CLASSIC_NS::grammar<frame_syntax, fram
 			//   intermediate ("*"): at least one other frame follows for the 
 			//   message; or, 
 			//  complete ("."): this frame completes the message. 
-			more = ch_p('*')[bind(&frame::set_more)(more.val, true)] |
-				ch_p('.')[bind(&frame::set_more)(more.val, false)];
+			more = expect_more(ch_p('*')[set_frame_continuation_a(self.f)] |
+							   ch_p('.')[set_frame_continuation_a(self.f)]);
 
 			// The sequence number ("seqno") must be a non-negative integer (in the 
 			// range 0..4294967295) and specifies the sequence number of the first 
 			// octet in the payload, for the associated channel (c.f., Section 
 			// 2.2.1.2).
-			seqno = limit_d(0u, 4294967295u)[uint_p[bind(&frame::set_sequence)(seqno.val, arg1)]];
+			seqno = expect_sequence(limit_d(0u, 4294967295u)[uint_p[set_frame_sequence_a(self.f)]]);
 
 			// The payload size ("size") must be a non-negative integer (in the 
 			// range 0..2147483647) and specifies the exact number of octets in the 
@@ -237,68 +367,70 @@ struct frame_syntax : public BOOST_SPIRIT_CLASSIC_NS::grammar<frame_syntax, fram
 			//  S: END 
 			//  S: RPY 0 1 . 307 0 
 			//  S: END
-			size = limit_d(0u, 2147483647u)[uint_p[assign_a(self.payload_size)]];
+			size = expect_size(limit_d(0u, 2147483647u)[uint_p[assign_a(self.payload_size)]]);
 
 			// The answer number ("ansno") must be a non-negative integer (in the 
 			// range 0..4294967295) and must have a different value than all other 
 			// answers in progress for the message being replied to. 
-			ansno = limit_d(0u, 4294967295u)[uint_p[bind(&frame::set_answer)(ansno.val, arg1)]];
+			ansno = expect_answer(limit_d(0u, 4294967295u)[uint_p[set_frame_answer_a(self.f)]]);
 
 			common =
-				(channel(common.val)[common.val = arg1]|error_invalid_channel) >> ch_p(' ') >>
-				msgno(common.val)[common.val = arg1] >> ch_p(' ') >>
-				more(common.val)[common.val = arg1] >> ch_p(' ') >>
-				seqno(common.val)[common.val = arg1] >> ch_p(' ') >>
-				size(common.val)[common.val = arg1];
+				channel >> sp >>
+				msgno >> sp >>
+				more >> sp >>
+				seqno >> sp >>
+				size
+				;
 
-			msg = str_p("MSG")[bind(&frame::set_header)(msg.val, construct_<std::string>(arg1, arg2))] >> ch_p(' ') >> common(msg.val)[msg.val = arg1] >> str_p("\r\n");
-			rpy = str_p("RPY")[bind(&frame::set_header)(rpy.val, construct_<std::string>(arg1, arg2))] >> ch_p(' ') >> common(rpy.val)[rpy.val = arg1] >> str_p("\r\n");
-			ans = str_p("ANS")[bind(&frame::set_header)(ans.val, construct_<std::string>(arg1, arg2))] >> ch_p(' ') >> common(ans.val)[ans.val = arg1] >> ch_p(' ') >> ansno(ans.val)[ans.val = arg1] >> str_p("\r\n");
-			err = str_p("ERR")[bind(&frame::set_header)(err.val, construct_<std::string>(arg1, arg2))] >> ch_p(' ') >> common(err.val)[err.val = arg1] >> str_p("\r\n");
-			nul = str_p("NUL")[bind(&frame::set_header)(nul.val, construct_<std::string>(arg1, arg2))] >> ch_p(' ') >> common(nul.val)[nul.val = arg1] >> str_p("\r\n");
+			// The frame header consists of a three-character keyword (one of: 
+			// "MSG", "RPY", "ERR", "ANS", or "NUL"), followed by zero or more 
+			// parameters.  A single space character (decimal code 32, " ") 
+			// separates each component.  The header is terminated with a CRLF pair.
+			message_frame = str_p("MSG")[set_frame_header_a(self.f)] >> sp >> common;
+			reply_frame = str_p("RPY")[set_frame_header_a(self.f)] >> sp >> common;
+			answer_frame = str_p("ANS")[set_frame_header_a(self.f)] >> sp >> common >> sp >> ansno;
+			null_frame = str_p("NUL")[set_frame_header_a(self.f)] >> sp >> common;
+			error_frame = str_p("ERR")[set_frame_header_a(self.f)] >> sp >> common;
+			supported_frame = (
+							   message_frame
+							   | reply_frame
+							   | answer_frame
+							   | null_frame
+							   | error_frame
+							   )
+				>> crlf
+				;
 
-			header =
-				msg[self.val = arg1] |
-				rpy[self.val = arg1] |
-				ans[self.val = arg1] |
-				err[self.val = arg1] |
-				nul[self.val = arg1] |
-				error_invalid_header;
-			payload = repeat_p(ref(self.payload_size))[anychar_p][bind(&frame::set_payload)(self.val, construct_<std::string>(arg1, arg2))];
+			payload = repeat_p(ref(self.payload_size))[anychar_p][set_frame_payload_a(self.f)];
 			trailer = str_p("END\r\n");
+			top = unknown_header(supported_frame) >> expect_payload(payload) >> expect_trailer(trailer);
 
-			top = header >> payload >> trailer;
+            BOOST_SPIRIT_DEBUG_RULE(sp);
+            BOOST_SPIRIT_DEBUG_RULE(crlf);
+			BOOST_SPIRIT_DEBUG_RULE(channel);
+			BOOST_SPIRIT_DEBUG_RULE(msgno);
+			BOOST_SPIRIT_DEBUG_RULE(more);
+			BOOST_SPIRIT_DEBUG_RULE(seqno);
+			BOOST_SPIRIT_DEBUG_RULE(size);
+			BOOST_SPIRIT_DEBUG_RULE(ansno);
+            BOOST_SPIRIT_DEBUG_RULE(common);
+			BOOST_SPIRIT_DEBUG_RULE(message_frame);
+            BOOST_SPIRIT_DEBUG_RULE(reply_frame);
+			BOOST_SPIRIT_DEBUG_RULE(answer_frame);
+			BOOST_SPIRIT_DEBUG_RULE(null_frame);
+			BOOST_SPIRIT_DEBUG_RULE(error_frame);
+            BOOST_SPIRIT_DEBUG_RULE(supported_frame);
+			BOOST_SPIRIT_DEBUG_RULE(payload);
+			BOOST_SPIRIT_DEBUG_RULE(trailer);
+            BOOST_SPIRIT_DEBUG_RULE(top);
 		}
 
 		const rule_type &start() const { return top; }
-	};
+	}; // struct definition
 
+	frame_syntax(frame &f_, std::size_t &s_) : f(f_), payload_size(s_) {}
+	frame &f;
 	std::size_t &payload_size;
 };     // struct frame_syntax
-
-frame_syntax::error_report_p frame_syntax::error_invalid_header("invalid header tag");
-frame_syntax::error_report_p frame_syntax::error_invalid_channel("invalid channel");
-
-class frame_parser : private boost::noncopyable {
-public:
-	frame_parser()
-		: size_(0)
-		, grammar_(size_)
-	{
-	}
-
-	void operator()(const std::string &myInput, frame &f) const
-	{
-		using namespace BOOST_SPIRIT_CLASSIC_NS;
-		using namespace phoenix;
-		if (!parse(myInput.begin(), myInput.end(), grammar_[var(f) = arg1]).full) {
-			BOOST_THROW_EXCEPTION(frame_parsing_error("unexpected error"));
-		}
-	}
-private:
-	std::size_t  size_; // memory to store the payload size
-	frame_syntax grammar_;
-};     // class frame_parser
-
 }      // namespace beep
 #endif // BEEP_FRAME_HEAD

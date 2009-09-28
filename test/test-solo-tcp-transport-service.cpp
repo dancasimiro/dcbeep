@@ -1,6 +1,7 @@
 /// \file test-solo-tcp-transport-service.cpp
 ///
 /// UNCLASSIFIED
+//#define BOOST_SPIRIT_DEBUG
 #include <gtest/gtest.h>
 
 #include <string>
@@ -61,8 +62,8 @@ public:
 								   this,
 								   boost::asio::placeholders::error));
 		ts.set_endpoint(ep);
-
 		ASSERT_NO_THROW(run_event_loop_until_connect());
+		ASSERT_TRUE(socket.is_open());
 	}
 
 	virtual void TearDown()
@@ -146,8 +147,6 @@ public:
 		last_error = error;
 		if (!error) {
 			is_connected = true;
-		} else {
-			std::cerr << "connection failed: " << error << std::endl;
 		}
 	}
 
@@ -272,6 +271,7 @@ TEST_F(SingleTCPTransportServiceInitiator, ReceivesProperFrame)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
+
 	async_write(socket, boost::asio::buffer(test_payload),
 				bind(&SingleTCPTransportServiceInitiator::handle_test_server_send,
 					 this,
