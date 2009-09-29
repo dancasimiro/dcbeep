@@ -73,6 +73,8 @@ public:
 		update_payload();
 	}
 
+	const content_type &content() const { return content_; }
+
 	const content_type &payload() const { return payload_; }
 	size_type payload_size() const { return payload_.size(); }
 

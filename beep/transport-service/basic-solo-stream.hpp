@@ -22,6 +22,7 @@
 #include <boost/spirit/include/classic.hpp>
 
 #include "beep/identifier.hpp"
+#include "beep/role.hpp"
 #include "beep/frame.hpp"
 #include "beep/frame-stream.hpp"
 
@@ -256,7 +257,7 @@ public:
 
 /// \brief BEEP single stream connection transport layer using ASIO
 /// \note this concept can be extended to support TLS and possible SASL
-template <class StreamType>
+template <class StreamType, role RoleEnum>
 class basic_solo_stream : private boost::noncopyable {
 public:
 	typedef StreamType                  stream_type;
@@ -265,6 +266,8 @@ public:
 
 	typedef boost::signals2::signal<void (const boost::system::error_code&, const identifier&)> network_signal_t;
 	typedef boost::signals2::signal<void (const boost::system::error_code&, const frame&)>      frame_signal_t;
+
+	static role get_role() { return RoleEnum; }
 
 	basic_solo_stream()
 		: connections_()
@@ -312,11 +315,10 @@ public:
 	{
 		typedef typename container_type::iterator iterator;
 		for (iterator i = connections_.begin(); i != connections_.end(); ++i) {
+
 			i->second->send_frames(first, last);
 		}
 	}
-
-	//bool create_channel(const channel &chan)
 protected:
 	typedef detail::solo_stream_service_impl<stream_type> impl_type;
 	typedef boost::shared_ptr<impl_type>                  pimpl_type;
@@ -352,17 +354,18 @@ private:
 ///
 /// Start a new connection by setting the remote endpoint
 template <class StreamT>
-class basic_solo_stream_initiator : public basic_solo_stream<StreamT> {
+class basic_solo_stream_initiator : public basic_solo_stream<StreamT, initiating_role> {
 public:
 	typedef StreamT                             stream_type;
 	typedef stream_type&                        stream_reference;
 	typedef boost::asio::io_service             service_type;
 	typedef service_type&                       service_reference;
 	typedef typename stream_type::endpoint_type endpoint_type;
-	typedef basic_solo_stream<stream_type>      super_type;
+
+	typedef basic_solo_stream<stream_type, initiating_role> super_type;
 	
 	basic_solo_stream_initiator(service_reference service)
-		: basic_solo_stream<StreamT>()
+		: super_type()
 		, service_(service)
 		, id_()
 		, current_()
@@ -401,7 +404,7 @@ private:
 ///
 /// Listen for incoming connections
 template <class StreamT>
-class basic_solo_stream_listener : public basic_solo_stream<StreamT> {
+class basic_solo_stream_listener : public basic_solo_stream<StreamT, listening_role> {
 public:
 	typedef StreamT                             stream_type;
 	typedef stream_type&                        stream_reference;
@@ -411,7 +414,7 @@ public:
 	typedef typename protocol_type::acceptor    acceptor_type;
 
 	basic_solo_stream_listener(service_reference service)
-		: basic_solo_stream<stream_type>()
+		: basic_solo_stream<stream_type, listening_role>()
 	{
 	}
 private:

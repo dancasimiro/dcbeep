@@ -56,6 +56,7 @@ public:
 	/// The channel number ("channel") must be a non-negative integer (in the
 	/// range 0..2147483647).
 	unsigned int get_number() const { return num_; }
+	unsigned int number() const { return num_; }
 
 	void set_profile(const profile_type &p) { profile_ = p; }
 	const profile_type &get_profile() const { return profile_; }

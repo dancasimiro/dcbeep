@@ -4,44 +4,34 @@
 /// UNCLASSIFIED
 #ifndef BEEP_PROFILE_HEAD
 #define BEEP_PROFILE_HEAD 1
+
+#include <string>
+#include "message.hpp"
+
 namespace beep {
 
 class profile {
 public:
 	profile()
 		: uri_()
-		, encoding_()
-		, content_()
+		, initialization_()
+		, has_initiailizer_(false)
 	{
 	}
 
-	profile(const string &uri)
-		: uri_(uri)
-		, encoding_()
-		, content_()
+	const std::string &get_uri() const { return uri_; }
+	const std::string &uri() const { return uri_; }
+	void set_uri(const std::string &u) { uri_ = u; }
+
+	void set_initialization_message(const message &m)
 	{
+		initialization_ = m;
+		has_initiailizer_ = true;
 	}
-
-	virtual ~profile()
-	{
-	}
-
-	const string &get_uri() const { return uri_; }
-	void set_uri(const string &n) { uri_ = n; }
-
-	/// \brief Does this profile need some sort of initialization?
-	/// \param msg (out) Insert the initialization message here
-	/// \return True if this profile sends an initialization message
-	bool initialize(message &msg)
-	{ return do_initialize(msg); }
-
 private:
-	string                    uri_;
-	string                    encoding_;
-	string                    content_;
-
-	virtual bool do_initialize(message &msg) = 0;
+	std::string uri_;
+	message     initialization_;
+	bool        has_initiailizer_;
 };     // class profile
-
 }      // namespace beep
 #endif // BEEP_PROFILE_HEAD
