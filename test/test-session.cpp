@@ -83,6 +83,8 @@ public:
 		transport.set_endpoint(ep);
 		ASSERT_NO_THROW(run_event_loop_until_connect());
 		ASSERT_TRUE(socket.is_open());
+		// wait for the greeting message
+		EXPECT_NO_THROW(run_event_loop_until_frame_received());
 	}
 
 	virtual void TearDown()
@@ -191,7 +193,6 @@ public:
 
 TEST_F(SessionInitiator, SendsGreeting)
 {
-	EXPECT_NO_THROW(run_event_loop_until_frame_received());
 	ASSERT_TRUE(have_frame);
 	EXPECT_FALSE(last_error);
 
@@ -214,8 +215,6 @@ TEST_F(SessionInitiator, SendsGreeting)
 TEST_F(SessionInitiator, StartChannel)
 {
 	using boost::bind;
-	EXPECT_NO_THROW(run_event_loop_until_frame_received()); // Get the greeting message
-
 	std::vector<std::string> supported_profiles;
 	EXPECT_EQ(1u, initiator.available_profiles(std::back_inserter(supported_profiles)));
 	ASSERT_EQ(1u, supported_profiles.size());
