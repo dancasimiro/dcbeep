@@ -479,6 +479,11 @@ public:
 		}
 	}
 
+	bool channel_in_use(const unsigned int channel) const
+	{
+		return chnum_.count(channel) > 0;
+	}
+
 	/// To avoid conflict in assigning channel numbers when requesting the
 	/// creation of a channel, BEEP peers acting in the initiating role use
 	/// only positive integers that are odd-numbered; similarly, BEEP peers

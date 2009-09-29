@@ -39,41 +39,41 @@ on_channel_closed(const beep::reply_code status,
 	cout << "The test channel was closed." << endl;
 	theSession.stop(on_session_stopped);
 }
-
+#endif
 static void
-on_got_data(const beep::reply_code status, 
-			session &theSession, const beep::channel &theChannel,
-			size_t bytes_transferred)
+on_got_data(const boost::system::error_code &error,
+			const beep::message &msg,
+			const unsigned int channel)
 {
-	if (status == beep::success) {
-		cout << "The initiator got " << bytes_transferred
-			 << " bytes of application data on channel " << theChannel.number()
+	if (!error) {
+		cout << "The initiator got " << msg.payload_size()
+			 << " bytes of application data on channel " << channel
 			 << "!" << endl;
-		a_global_buffer[bytes_transferred] = '\0';
 		cout << "Contents:\n";// << a_global_buffer << endl;
-		std::string line;
-		std::string contents(a_global_buffer, bytes_transferred);
-		std::istringstream strm(contents);
-		while (std::getline(strm, line)) {
+		string line;
+		istringstream strm(msg.content());
+		while (getline(strm, line)) {
 			cout << line << endl;
 		}
 	} else {
-		cerr << "Error receiving application data: " << status << "\n";
+		cerr << "Error receiving application data: " << error << "\n";
 	}
+#if 0
 	if (!theSession.remove_channel(theChannel, on_channel_closed)) {
 		cerr << "Failed to remove the channel." << endl;
 	}
-}
 #endif
+}
+
 static void
 on_channel_created(const boost::system::error_code &error,
 				   const unsigned int channel,
-				   session_type &/*mySession*/)
+				   session_type &mySession)
 {
 	if (!error) {
 		cout << "The test channel (#" << channel
 			 << " is ready; read some data..." << endl;
-		//mySession.async_read(info, buffer(a_global_buffer), on_got_data);
+		mySession.async_read(channel, on_got_data);
 	} else { 
 		cerr << "Failed to create the channel: " << error << endl;
 	}

@@ -8,6 +8,7 @@
 
 #include "beep/transport-service/solo-tcp.hpp"
 #include "beep/session.hpp"
+#include "beep/message-stream.hpp"
 
 TEST(ChannelManager, Greeting)
 {
@@ -194,6 +195,7 @@ public:
 	SessionChannelInitiator()
 		: SessionInitiator()
 		, session_channel(0)
+		, user_read(false)
 	{
 	}
 	virtual ~SessionChannelInitiator() {}
@@ -205,6 +207,8 @@ public:
 		SessionInitiator::SetUp();
 
 		session_channel = 0;
+		user_read = false;
+		user_message = beep::message();
 
 		std::vector<std::string> supported_profiles;
 		EXPECT_EQ(1u, initiator.available_profiles(std::back_inserter(supported_profiles)));
@@ -254,7 +258,9 @@ public:
 		SessionInitiator::TearDown();
 	}
 
-	unsigned int session_channel;
+	unsigned int  session_channel;
+	bool          user_read;
+	beep::message user_message;
 
 	void handle_channel_ready(const boost::system::error_code &error,
 							  unsigned int channel)
@@ -265,11 +271,35 @@ public:
 		}
 	}
 
+	void handle_user_read(const boost::system::error_code &error,
+						  const beep::message &msg,
+						  const unsigned int channel)
+	{
+		last_error = error;
+		if (!error) {
+			user_read = true;
+			session_channel = channel;
+			user_message = msg;
+		}
+	}
+
 	void run_event_loop_until_channel_ready()
 	{
 		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
 		service.reset();
 		while (!last_error && !session_channel && (current_time - start_time) < boost::posix_time::seconds(5)) {
+			service.poll();
+			current_time = boost::posix_time::second_clock::local_time();
+			service.reset();
+		}
+	}
+
+	void run_event_loop_until_user_read()
+	{
+		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
+		service.reset();
+		user_read = false;
+		while (!last_error && !user_read && (current_time - start_time) < boost::posix_time::seconds(5)) {
 			service.poll();
 			current_time = boost::posix_time::second_clock::local_time();
 			service.reset();
@@ -305,6 +335,24 @@ TEST_F(SessionChannelInitiator, PeerClosesChannel)
 	okFrame.set_sequence(207);
 	okFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n<ok />");
 	EXPECT_EQ(okFrame, recvFrame);
+}
+
+TEST_F(SessionChannelInitiator, AsyncRead)
+{
+	using boost::bind;
+	initiator.async_read(session_channel,
+						 bind(&SessionChannelInitiator::handle_user_read,
+							  this,
+							  _1, _2, _3));
+	const std::string payload =
+		"MSG 1 0 . 0 12\r\nTest PayloadEND\r\n";
+	boost::asio::write(socket, boost::asio::buffer(payload));
+	EXPECT_NO_THROW(run_event_loop_until_user_read());
+
+	EXPECT_EQ(1u, session_channel);
+	beep::message expected;
+	expected.set_content("Test Payload");
+	EXPECT_EQ(expected, user_message);
 }
 
 int

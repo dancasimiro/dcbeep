@@ -31,6 +31,19 @@ operator>>(istream &strm, beep::mime &mm)
 	return strm;
 }
 
+ostream&
+operator<<(ostream &strm, const beep::mime &mm)
+{
+	if (strm) {
+		if (mm == beep::mime::beep_xml()) {
+			strm << "BEEP+XML MIME";
+		} else {
+			strm << "Unknown MIME (" << mm.content_type() << ")";
+		}
+	}
+	return strm;
+}
+
 istream&
 operator>>(istream &strm, beep::message &msg)
 {
@@ -50,5 +63,15 @@ operator>>(istream &strm, beep::message &msg)
 	}
 	return strm;
 }
+
+ostream&
+operator<<(ostream &strm, const beep::message &msg)
+{
+	if (strm) {
+		strm << "BEEP [" << msg.get_mime() << "] message";
+	}
+	return strm;
+}
+
 }      // namespace std
 #endif // BEEP_MESSAGE_STREAM_HEAD

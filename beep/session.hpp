@@ -30,25 +30,26 @@ template <class U> class basic_session;
 
 namespace detail {
 
-class handler_tuning_events {
+template <typename FunctionT>
+class basic_event_handler {
 public:
 	typedef const boost::system::error_code & error_code_reference;
-	typedef unsigned int message_number_type;
-	typedef boost::function<void (error_code_reference)> function_type;
-	typedef std::map<message_number_type, function_type> callback_container;
-	typedef callback_container::iterator iterator;
+	typedef unsigned int key_type;
+	typedef FunctionT    function_type;
 
-	handler_tuning_events()
-		: callbacks_()
-	{
-	}
+	basic_event_handler() : callbacks_() {}
+	virtual ~basic_event_handler() {}
 
-	void add(const message_number_type num, function_type cb)
+	void add(const key_type num, function_type cb)
 	{
 		callbacks_[num] = cb;
 	}
 
-	iterator get_callback(const message_number_type num)
+protected:
+	typedef std::map<key_type, function_type>     callback_container;
+	typedef typename callback_container::iterator iterator;
+
+	iterator get_callback(const key_type num)
 	{
 		const iterator i = callbacks_.find(num);
 		if (i == callbacks_.end()) {
@@ -57,13 +58,42 @@ public:
 		return i;
 	}
 
-	void remove_callback(iterator i)
+	void remove_callback(const iterator i)
 	{
 		callbacks_.erase(i);
 	}
 private:
 	callback_container callbacks_;
+};
+
+typedef boost::system::error_code error_code;
+
+class handler_tuning_events
+	: public basic_event_handler<boost::function<void (const error_code&)> > {
+public:
+	virtual ~handler_tuning_events() {}
+
+	void execute(const key_type num, const error_code &error)
+	{
+		iterator i = get_callback(num);
+		i->second(error);
+		remove_callback(i);
+	}
 };     // class handler_tuning_events
+
+class handler_user_events
+	: public basic_event_handler<boost::function<void (const error_code&, const message&, unsigned)> > {
+public:
+	virtual ~handler_user_events() {}
+
+	void execute(const key_type channel, const error_code &error, const message &msg)
+	{
+		iterator i = get_callback(channel);
+		i->second(error, msg, channel);
+		remove_callback(i);
+	}
+};     // class handler_user_events
+
 }      // namespace detail
 
 /// \brief BEEP session management
@@ -86,8 +116,9 @@ public:
 		, netchng_()
 		, frmsig_()
 		, chman_()
-		, handler_()
 		, profiles_()
+		, tuning_handler_()
+		, user_handler_()
 	{
 		using boost::bind;
 		netchng_ =
@@ -135,10 +166,33 @@ public:
 			chman_.start_channel(transport_service::get_role(),
 								 strm.str(), prof, start);
 		const unsigned int msgno = send_tuning_message(start);
-		handler_.add(msgno, bind(handler, _1, ch, prof));
+		tuning_handler_.add(msgno, bind(handler, _1, ch, prof));
 		return ch;
 	}
+
+	template <class Handler>
+	void async_read(const unsigned int channel, Handler handler)
+	{
+		if (chman_.channel_in_use(channel)) {
+			user_handler_.add(channel, handler);
+		} else {
+			throw std::runtime_error("the selected channel is not in use.");
+		}
+	}
 private:
+	typedef typename transport_service::signal_connection   signal_connection_t;
+	typedef std::map<std::string, profile>                  profile_container;
+	transport_service_reference   transport_;
+	identifier                    id_;
+	signal_connection_t           netchng_;
+	signal_connection_t           frmsig_;
+
+	channel_manager               chman_;
+	profile_container             profiles_;
+
+	detail::handler_tuning_events tuning_handler_;
+	detail::handler_user_events   user_handler_;
+
 	void handle_network_change(const boost::system::error_code &error,
 							   const identifier &id)
 	{
@@ -165,7 +219,7 @@ private:
 			if (frm.channel() == chman_.get_tuning_channel().number()) {
 				handle_tuning_frame(frm, msg);
 			} else {
-				// distribute the message to appropriate handler
+				handle_user_frame(frm, msg);
 			}
 		} else {
 			/// \todo handle the error condition!
@@ -193,15 +247,18 @@ private:
 			send_tuning_message(response);
 		} else if (msg.get_type() == message::RPY && cmp::is_ok_message(msg)) {
 			boost::system::error_code message_error;
-			detail::handler_tuning_events::iterator i =
-				handler_.get_callback(frm.message());
-			i->second(message_error);
-			handler_.remove_callback(i);
+			tuning_handler_.execute(frm.message(), message_error);
 		} else if (msg.get_type() == message::RPY && cmp::is_error_message(msg)) {
 		} else {
 			/// \todo handle other frame types
 			assert(false);
 		}
+	}
+
+	void handle_user_frame(const frame &frm, const message &msg)
+	{
+		boost::system::error_code error;
+		user_handler_.execute(frm.channel(), error, msg);
 	}
 
 	void start()
@@ -210,17 +267,6 @@ private:
 		chman_.get_greeting_message(profiles_.begin(), profiles_.end(), greeting);
 		send_tuning_message(greeting);
 	}
-private:
-	typedef typename transport_service::signal_connection   signal_connection_t;
-	typedef std::map<std::string, profile>                  profile_container;
-	transport_service_reference   transport_;
-	identifier                    id_;
-	signal_connection_t           netchng_;
-	signal_connection_t           frmsig_;
-
-	channel_manager               chman_;
-	detail::handler_tuning_events handler_;
-	profile_container             profiles_;
 
 	const profile &get_profile(const std::string &uri) const
 	{

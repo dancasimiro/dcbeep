@@ -73,6 +73,7 @@ public:
 		update_payload();
 	}
 
+	const mime &get_mime() const { return mime_; }
 	const content_type &content() const { return content_; }
 
 	const content_type &payload() const { return payload_; }
@@ -92,6 +93,16 @@ private:
 		payload_ = mime_.content_type() + sep + content_;
 	}
 };     // class message
+
+bool operator==(const message &lhs, const message &rhs)
+{
+	return lhs.payload() == rhs.payload();
+}
+
+bool operator==(const mime &lhs, const mime &rhs)
+{
+	return lhs.content_type() == rhs.content_type();
+}
 
 }      // namespace beep
 #endif // BEEP_MESSAGE_HEAD
