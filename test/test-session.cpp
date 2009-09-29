@@ -282,6 +282,31 @@ TEST_F(SessionChannelInitiator, StartChannel)
 	EXPECT_EQ(1u, session_channel);
 }
 
+TEST_F(SessionChannelInitiator, PeerClosesChannel)
+{
+	const std::string close_message =
+		"MSG 0 2 . 0 71\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<close number='1' code='200' />\r\n"
+		"END\r\n";
+	boost::asio::write(socket, boost::asio::buffer(close_message));
+
+	EXPECT_NO_THROW(run_event_loop_until_frame_received()); // Get the ok message
+
+	std::istream stream(&buffer);
+	beep::frame recvFrame;
+	EXPECT_TRUE(stream >> recvFrame);
+
+	beep::frame okFrame;
+	okFrame.set_header(beep::frame::rpy());
+	okFrame.set_channel(0);
+	okFrame.set_message(2);
+	okFrame.set_more(false);
+	okFrame.set_sequence(207);
+	okFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n<ok />");
+	EXPECT_EQ(okFrame, recvFrame);
+}
+
 int
 main(int argc, char **argv)
 {

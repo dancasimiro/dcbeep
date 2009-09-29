@@ -26,26 +26,6 @@
 
 namespace beep {
 
-enum reply_code {
-	success                                      = 200,
-	service_not_available                        = 421,
-	requested_action_not_taken                   = 450, ///< \note e.g., lock already in use
-	requested_action_aborted                     = 451, ///< \note e.g., local error in processing
-	temporary_authentication_failure             = 454,
-	general_syntax_error                         = 500, ///< \note e.g., poorly-formed XML
-	syntax_error_in_parameters                   = 501, ///< \note e.g., non-valid XML
-	parameter_not_implemented                    = 504,
-	authentication_required                      = 530,
-	authentication_mechanism_insufficient        = 534, ///< \note e.g., too weak, sequence exhausted, etc.
-	authentication_failure                       = 535,
-	action_not_authorized_for_user               = 537,
-	authentication_mechanism_requires_encryption = 538,
-	requested_action_not_accepted                = 550, ///< \note e.g., no requested profiles are acceptable
-	parameter_invalid                            = 553,
-	transaction_failed                           = 554, ///< \note e.g., policy violation
-};
-
-
 template <class U> class basic_session;
 
 namespace detail {
@@ -675,23 +655,18 @@ public:
 	template <class Handler>
 	unsigned int async_add_channel(const std::string &profile_uri, Handler handler)
 	{
-		using std::vector;
-		using std::back_inserter;
 		using std::ostringstream;
 		using boost::bind;
 
-		message start;
-		profile p = get_profile(profile_uri);
 		ostringstream strm;
 		strm << id_;
+		message start;
+		profile prof = get_profile(profile_uri);
 		const unsigned int ch =
-			chman_.get_start_message(transport_service::get_role(),
-									 strm.str(), p, start);
-		vector<frame> frames;
-		make_frames(start, chman_.get_tuning_channel(), back_inserter(frames));
-		assert(!frames.empty());
-		handler_.add(frames.front().message(), bind(handler, _1, ch, p));
-		transport_.send_frames(frames.begin(), frames.end());
+			chman_.start_channel(transport_service::get_role(),
+								 strm.str(), prof, start);
+		const unsigned int msgno = send_tuning_message(start);
+		handler_.add(msgno, bind(handler, _1, ch, prof));
 		return ch;
 	}
 private:
@@ -742,6 +717,11 @@ private:
 			}
 		} else if (msg.get_type() == message::MSG && cmp::is_start_message(msg)) {
 		} else if (msg.get_type() == message::MSG && cmp::is_close_message(msg)) {
+			message response;
+			if (chman_.close_channel(msg, response)) {
+				/// \todo notify the client that its channel was closed...
+			}
+			send_tuning_message(response);
 		} else if (msg.get_type() == message::RPY && cmp::is_ok_message(msg)) {
 			boost::system::error_code message_error;
 			detail::handler_tuning_events::iterator i =
@@ -910,6 +890,19 @@ private:
 			throw std::runtime_error("Invalid profile!");
 		}
 		return i->second;
+	}
+
+	/// \return the used message number
+	unsigned int send_tuning_message(const message &msg)
+	{
+		using std::vector;
+		using std::back_inserter;
+
+		vector<frame> frames;
+		make_frames(msg, chman_.get_tuning_channel(), back_inserter(frames));
+		assert(!frames.empty());
+		transport_.send_frames(frames.begin(), frames.end());
+		return frames.front().message();
 	}
 };     // class basic_session
 

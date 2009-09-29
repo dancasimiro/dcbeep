@@ -21,6 +21,7 @@
 #include "message.hpp"
 #include "channel.hpp"
 #include "profile.hpp"
+#include "reply-code.hpp"
 
 #include "tinyxml.h"
 
@@ -155,6 +156,100 @@ private:
 	unsigned int      channel_; // number
 	std::string       server_; // serverName
 	profile_container profiles_;
+};     // class start
+
+/// The "close" element has a "number" attribute, a "code" attribute, an
+/// optional "xml:lang" attribute, and an optional textual diagnostic as
+/// its content:
+///  *  the "number" attribute indicates the channel number;
+///  *  the "code" attribute is a three-digit reply code meaningful to
+///     programs (c.f., Section 8);
+///  *  the "xml:lang" attribute identifies the language that the
+///     element's content is written in (the value is suggested, but not
+///     mandated, by the "localize" attribute of the "greeting" element
+///     sent by the remote BEEP peer); and,
+///  *  the textual diagnostic (which may be multiline) is meaningful to
+///     implementers, perhaps administrators, and possibly even users, but
+///     never programs.
+class close {
+public:
+	close()
+		: channel_(0)
+		, code_(0)
+	{
+	}
+
+	unsigned int number() const { return channel_; }
+	unsigned int code() const { return code_; }
+
+	void set_number(const unsigned int c) { channel_ = c; }
+	void set_code(const unsigned int c) { code_ = c; }
+private:
+	unsigned int channel_;
+	unsigned int code_;
+};     // class close
+
+/// When a BEEP peer agrees to close a channel (or release the BEEP
+/// session), it sends an "ok" element in a positive reply.
+///
+/// The "ok" element has no attributes and no content.
+class ok {
+};
+
+/// When a BEEP peer declines the creation of a channel, it sends an
+/// "error" element in a negative reply, e.g.,
+///
+///      I: MSG 0 1 . 52 115
+///      I: Content-Type: application/beep+xml
+///      I:
+///      I: <start number='2'>
+///      I:    <profile uri='http://iana.org/beep/FOO' />
+///      I: </start> 
+///      I: END 
+///      L: ERR 0 1 . 221 105 
+///      L: Content-Type: application/beep+xml 
+///      L: 
+///      L: <error code='550'>all requested profiles are 
+///      L: unsupported</error> 
+///      L: END 
+///
+/// The "error" element has a "code" attribute, an optional "xml:lang"
+/// attribute, and an optional textual diagnostic as its content:
+///  *  the "code" attribute is a three-digit reply code meaningful to
+///     programs (c.f., Section 8);
+///  *  the "xml:lang" attribute identifies the language that the
+///     element's content is written in (the value is suggested, but not
+///     mandated, by the "localize" attribute of the "greeting" element
+///     sent by the remote BEEP peer); and,
+///  *  the textual diagnostic (which may be multiline) is meaningful to
+///     implementers, perhaps administrators, and possibly even users, but
+///     never programs.
+///
+/// \note that if the textual diagnostic is present, then the "xml:lang"
+///       attribute is absent only if the language indicated as the remote BEEP
+///       peer's first choice is used.
+class error {
+public:
+	error()
+		: code_(reply_code::success)
+		, descr_("There is no error.")
+	{
+	}
+
+	error(const reply_code::reply_code_type rc, const std::string &descr)
+		: code_(rc)
+		, descr_(descr)
+	{
+	}
+
+	reply_code::reply_code_type code() const { return code_; }
+	const std::string &description() const { return descr_; }
+
+	void set_code(const reply_code::reply_code_type rc) { code_ = rc; }
+	void set_description(const std::string &d) { descr_ = d; }
+private:
+	reply_code::reply_code_type code_;
+	std::string                 descr_;
 };
 
 class XmlGreetingVisitor : public TiXmlVisitor {
@@ -183,6 +278,37 @@ public:
 	}
 private:
 	greeting &greeting_;
+
+};     // class XmlGreetingVisitor
+
+class XmlCloseVisitor : public TiXmlVisitor {
+public:
+	XmlCloseVisitor(close &c) : close_(c) {}
+	virtual ~XmlCloseVisitor() {}
+
+	virtual bool VisitEnter(const TiXmlDocument &doc)
+	{
+		if (const TiXmlElement *element = doc.RootElement()) {
+			return ("close" == element->ValueStr());
+		}
+		return false;
+	}
+
+	virtual bool VisitEnter(const TiXmlElement &element, const TiXmlAttribute *attribute)
+	{
+		if ("close" == element.ValueStr()) {
+			for (; attribute; attribute = attribute->Next()) {
+				if (std::string("number") == attribute->Name()) {
+					close_.set_number(attribute->IntValue());
+				} else if (std::string("code") == attribute->Name()) {
+					close_.set_code(attribute->IntValue());
+				}
+			}
+		}
+		return true;
+	}
+private:
+	close &close_;
 
 };     // class XmlVisitor
 
@@ -255,6 +381,54 @@ operator<<(ostream &strm, const beep::cmp::start &start)
 	return strm;
 }
 
+ostream&
+operator<<(ostream &strm, const beep::cmp::close &close)
+{
+	if (strm) {
+		TiXmlElement root("close");
+		root.SetAttribute("number", close.number());
+		root.SetAttribute("code", close.code());
+		strm << root;
+	}
+	return strm;
+}
+
+istream&
+operator>>(istream &strm, beep::cmp::close &close)
+{
+	if (strm) {
+		TiXmlDocument doc;
+		strm >> doc;
+		beep::cmp::XmlCloseVisitor visitor(close);
+		if (!doc.Accept(&visitor)) {
+			strm.setstate(ios::badbit);
+		}
+	}
+	return strm;
+}
+
+ostream&
+operator<<(ostream &strm, const beep::cmp::ok&)
+{
+	if (strm) {
+		strm << "<ok />";
+	}
+	return strm;
+}
+
+ostream&
+operator<<(ostream &strm, const beep::cmp::error &error)
+{
+	if (strm) {
+		TiXmlElement root("error");
+		root.SetAttribute("code", error.code());
+		TiXmlText text(error.description());
+		root.InsertEndChild(text);
+		strm << root;
+	}
+	return strm;
+}
+
 }      // namespace std
 
 namespace beep {
@@ -310,10 +484,8 @@ public:
 	/// only positive integers that are odd-numbered; similarly, BEEP peers
 	/// acting in the listening role use only positive integers that are
 	/// even-numbered.
-	unsigned int get_start_message(const role r,
-								   const std::string &name,
-								   const profile &p,
-								   message &msg)
+	unsigned int start_channel(const role r, const std::string &name,
+							   const profile &p, message &msg)
 	{
 		using std::ostringstream;
 
@@ -336,6 +508,30 @@ public:
 		strm << start;
 		msg.set_content(strm.str());
 		return number;
+	}
+
+	bool close_channel(const message &close_msg, message &response)
+	{
+		using std::istringstream;
+		using std::ostringstream;
+
+		bool is_ok = false;
+		cmp::close close;
+		istringstream strm(close_msg.content());
+		ostringstream ostrm;
+		response.set_mime(mime::beep_xml());
+		if (is_ok = strm >> close) {
+			response.set_type(message::RPY);
+			cmp::ok ok;
+			ostrm << ok;
+		} else {
+			response.set_type(message::ERR);
+			cmp::error error(reply_code::general_syntax_error,
+							 "The 'close' message could not be decoded.");
+			ostrm << error;
+		}
+		response.set_content(ostrm.str());
+		return is_ok;
 	}
 private:
 	typedef std::set<unsigned int> ch_set;
