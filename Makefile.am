@@ -80,8 +80,8 @@ test_utsession_LDADD = $(AM_LDFLAGS) \
 # Example Listner
 # -----------------------------------------------------------------------------
 example_listener_SOURCES = example/simple_listener.cpp
-example_listener_LDADD = @BOOST_SYSTEM_LIB@
+example_listener_LDADD = $(top_builddir)/tinyxml/libti.la @BOOST_SYSTEM_LIB@
 # Example Initiator
 # -----------------------------------------------------------------------------
 example_initiator_SOURCES = example/simple_initiator.cpp
-example_initiator_LDADD = @BOOST_SYSTEM_LIB@
+example_initiator_LDADD = $(top_builddir)/tinyxml/libti.la @BOOST_SYSTEM_LIB@

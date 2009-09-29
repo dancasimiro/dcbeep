@@ -374,6 +374,7 @@ public:
 
 	virtual ~basic_solo_stream_initiator() {}
 
+	/// \note should I change this to async_connect and accept a handler?
 	void set_endpoint(const endpoint_type &ep)
 	{
 		using boost::bind;

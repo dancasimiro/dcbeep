@@ -2,40 +2,20 @@
 /// \brief Test the BEEP client
 ///
 /// UNCLASSIFIED
-#if 0
+#include "beep/transport-service/solo-tcp.hpp"
+#include "beep/session.hpp"
+
 #include <iostream>
 #include <string>
-#include <sstream>
 #include <vector>
-#include <list>
-#include <numeric>
-#include <deque>
 using namespace std;
 
 #include <boost/bind.hpp>
-#include <boost/function.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/asio.hpp>
-#include <boost/enable_shared_from_this.hpp>
-using boost::bind;
-using boost::shared_ptr;
-using namespace boost::asio;
-using namespace boost;
 
-#include "beep/beep.hpp"
-#include "beep/connection.hpp"
-#include "beep/tcp.hpp"
-#include "beep/initiator.hpp"
-#include "test_profile.hpp"
+using beep::transport_service::solo_tcp_initiator;
+typedef beep::basic_session<solo_tcp_initiator> session_type;
 
-typedef beep::tcptl                                     transport_layer;
-typedef beep::basic_session<transport_layer>            session;
-typedef beep::basic_initiator<session>                  initiator;
-
-static char a_global_buffer[4096];
-static test_profile testProfile;
-
-
+#if 0
 static beep::reply_code
 handle_new_channel(session &theSession, beep::channel &info, string &init)
 {
@@ -84,49 +64,66 @@ on_got_data(const beep::reply_code status,
 		cerr << "Failed to remove the channel." << endl;
 	}
 }
-
+#endif
 static void
-on_channel_created(const beep::reply_code error,
-				   session &mySession, const beep::channel &info)
+on_channel_created(const boost::system::error_code &error,
+				   const unsigned int channel,
+				   session_type &/*mySession*/)
 {
-	if (error == beep::success) {
-		cout << "The test channel is ready; read some data..." << endl;
-		mySession.async_read(info, buffer(a_global_buffer), on_got_data);
+	if (!error) {
+		cout << "The test channel (#" << channel
+			 << " is ready; read some data..." << endl;
+		//mySession.async_read(info, buffer(a_global_buffer), on_got_data);
 	} else { 
 		cerr << "Failed to create the channel: " << error << endl;
 	}
 }
 
-
 static void
-on_connect(const boost::system::error_code &error, session &theSession)
+on_session_is_ready(const boost::system::error_code &error,
+					const beep::identifier &id,
+					session_type &theSession)
 {
+	using boost::bind;
+	using boost::ref;
 	if (!error) {
+		vector<string> supported_profiles;
+		theSession.available_profiles(std::back_inserter(supported_profiles));
+
+		if (supported_profiles.empty()) {
+			cerr << "The listening session does not support any profiles!\n";
+			return;
+		}
 		const int chNum =
-			theSession.add_channel(testProfile.get_uri(), on_channel_created);
-		cout << "Requested a new channel (#" << chNum << ") with profile '"
-			 << testProfile.get_uri() << "'." << endl;
+			theSession.async_add_channel(supported_profiles.front(),
+										 bind(on_channel_created, _1, _2,
+											  ref(theSession)));
+		cout << "Requested a new channel (#" << chNum << ") in session " << id
+			 << " with profile '"
+			 << supported_profiles.front() << "'." << endl;
 	} else {
 		cerr << "The connection failed: " << error.message() << endl;
 	}
 }
-#endif
+
 int
-main(int argc, char **argv)
+main(int /*argc*/, char **/*argv*/)
 {
-#if 0
+	using boost::ref;
+	using boost::bind;
+	using namespace boost::asio;
+
 	try {
 		io_service service;
-		transport_layer tl(service);
-		initiator client(tl);
+		solo_tcp_initiator transport(service);
+		session_type client(transport);
 
-		client.next_layer().install(testProfile.get_uri(), handle_new_channel);
-		client.async_connect(ip::tcp::endpoint(ip::address::from_string("127.0.0.1"),
-											   12345), on_connect);
+		transport.install_network_handler(bind(on_session_is_ready, _1, _2, ref(client)));
+		transport.set_endpoint(ip::tcp::endpoint(ip::address::from_string("127.0.0.1"),
+												 12345));
 		service.run();
 	} catch (const std::exception &ex) {
 		cerr << "Fatal Error: " << ex.what() << endl;
 	}
-#endif
 	return 0;
 }
