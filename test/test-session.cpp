@@ -52,7 +52,6 @@ public:
 		, last_error()
 		, is_connected(false)
 		, have_frame(false)
-		, session_channel(0)
 	{
 	}
 
@@ -63,7 +62,6 @@ public:
 		using namespace boost::asio::ip;
 		using boost::bind;
 
-		session_channel = 0;
 		start_time = boost::posix_time::second_clock::local_time();
 		buffer.consume(buffer.size());
 		is_connected = false;
@@ -109,7 +107,6 @@ public:
 	boost::system::error_code           last_error;
 	bool                                is_connected;
 	bool                                have_frame;
-	unsigned int                        session_channel;
 
 	void run_event_loop_until_connect()
 	{
@@ -143,17 +140,6 @@ public:
 		}
 	}
 
-	void run_event_loop_until_channel_ready()
-	{
-		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
-		service.reset();
-		while (!last_error && !session_channel && (current_time - start_time) < boost::posix_time::seconds(5)) {
-			service.poll();
-			current_time = boost::posix_time::second_clock::local_time();
-			service.reset();
-		}
-	}
-
 	void handle_transport_service_connect(const boost::system::error_code &error)
 	{
 		last_error = error;
@@ -180,15 +166,6 @@ public:
 			have_frame = true;
 		}
 	}
-
-	void handle_channel_ready(const boost::system::error_code &error,
-							  unsigned int channel)
-	{
-		last_error = error;
-		if (!error) {
-			session_channel = channel;
-		}
-	}
 };
 
 TEST_F(SessionInitiator, SendsGreeting)
@@ -212,51 +189,97 @@ TEST_F(SessionInitiator, SendsGreeting)
 	EXPECT_EQ(myFrame, recvFrame);
 }
 
-TEST_F(SessionInitiator, StartChannel)
+class SessionChannelInitiator : public SessionInitiator {
+public:
+	SessionChannelInitiator()
+		: SessionInitiator()
+		, session_channel(0)
+	{
+	}
+	virtual ~SessionChannelInitiator() {}
+
+	virtual void SetUp()
+	{
+		using boost::bind;
+
+		SessionInitiator::SetUp();
+
+		session_channel = 0;
+
+		std::vector<std::string> supported_profiles;
+		EXPECT_EQ(1u, initiator.available_profiles(std::back_inserter(supported_profiles)));
+		ASSERT_EQ(1u, supported_profiles.size());
+		ASSERT_EQ("casimiro.daniel/beep/test", supported_profiles.front());
+
+		const unsigned int channel =
+			initiator.async_add_channel("casimiro.daniel/beep/test",
+										bind(&SessionChannelInitiator::handle_channel_ready, this,
+											 _1, _2));
+		EXPECT_EQ(1u, channel);
+
+		EXPECT_NO_THROW(run_event_loop_until_frame_received()); // Get the start message
+		EXPECT_FALSE(last_error);
+
+		std::istream stream(&buffer);
+		beep::frame recvFrame;
+		EXPECT_TRUE(stream >> recvFrame);
+
+		std::ostringstream content_strm;
+		content_strm << "Content-Type: application/beep+xml\r\n\r\n" // 38
+					 << "<start number=\"1\" serverName=\""
+					 << initiator.id() << "\">"
+					 <<	"<profile uri=\"casimiro.daniel/beep/test\" />"
+					 << "</start>";
+
+		beep::frame myFrame;
+		myFrame.set_header(beep::frame::msg());
+		myFrame.set_channel(0);
+		myFrame.set_message(1);
+		myFrame.set_more(false);
+		myFrame.set_sequence(50);
+		myFrame.set_payload(content_strm.str());
+		EXPECT_EQ(myFrame, recvFrame);
+
+		const std::string ok_message =
+			"RPY 0 1 . 0 44\r\n"
+			"Content-Type: application/beep+xml\r\n\r\n" // 38
+			"<ok />" // 6
+			"END\r\n";
+		boost::asio::write(socket, boost::asio::buffer(ok_message));
+		ASSERT_NO_THROW(run_event_loop_until_channel_ready());
+	}
+
+	virtual void TearDown()
+	{
+		SessionInitiator::TearDown();
+	}
+
+	unsigned int session_channel;
+
+	void handle_channel_ready(const boost::system::error_code &error,
+							  unsigned int channel)
+	{
+		last_error = error;
+		if (!error) {
+			session_channel = channel;
+		}
+	}
+
+	void run_event_loop_until_channel_ready()
+	{
+		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
+		service.reset();
+		while (!last_error && !session_channel && (current_time - start_time) < boost::posix_time::seconds(5)) {
+			service.poll();
+			current_time = boost::posix_time::second_clock::local_time();
+			service.reset();
+		}
+	}
+};
+
+TEST_F(SessionChannelInitiator, StartChannel)
 {
-	using boost::bind;
-	std::vector<std::string> supported_profiles;
-	EXPECT_EQ(1u, initiator.available_profiles(std::back_inserter(supported_profiles)));
-	ASSERT_EQ(1u, supported_profiles.size());
-	ASSERT_EQ("casimiro.daniel/beep/test", supported_profiles.front());
-
-	const unsigned int channel =
-		initiator.async_add_channel("casimiro.daniel/beep/test",
-									bind(&SessionInitiator::handle_channel_ready, this,
-										 _1, _2));
-	EXPECT_EQ(1u, channel);
-
-	EXPECT_NO_THROW(run_event_loop_until_frame_received()); // Get the start message
-	EXPECT_FALSE(last_error);
-
-	std::istream stream(&buffer);
-	beep::frame recvFrame;
-	EXPECT_TRUE(stream >> recvFrame);
-
-	std::ostringstream content_strm;
-	content_strm << "Content-Type: application/beep+xml\r\n\r\n" // 38
-				 << "<start number=\"1\" serverName=\""
-				 << initiator.id() << "\">"
-				 <<	"<profile uri=\"casimiro.daniel/beep/test\" />"
-				 << "</start>";
-
-	beep::frame myFrame;
-	myFrame.set_header(beep::frame::msg());
-	myFrame.set_channel(0);
-	myFrame.set_message(1);
-	myFrame.set_more(false);
-	myFrame.set_sequence(50);
-	myFrame.set_payload(content_strm.str());
-	EXPECT_EQ(myFrame, recvFrame);
-
-	const std::string ok_message =
-		"RPY 0 1 . 0 44\r\n"
-		"Content-Type: application/beep+xml\r\n\r\n" // 38
-		"<ok />" // 6
-		"END\r\n";
-	boost::asio::write(socket, boost::asio::buffer(ok_message));
-	EXPECT_NO_THROW(run_event_loop_until_channel_ready());
-	EXPECT_EQ(channel, session_channel);
+	EXPECT_EQ(1u, session_channel);
 }
 
 int
