@@ -206,17 +206,9 @@ private:
 
 	void start()
 	{
-		using std::vector;
-		using std::back_inserter;
-
 		message greeting;
 		chman_.get_greeting_message(profiles_.begin(), profiles_.end(), greeting);
-
-		vector<frame> frames;
-		make_frames(greeting,
-					chman_.get_tuning_channel(),
-					back_inserter(frames));
-		transport_.send_frames(frames.begin(), frames.end());
+		send_tuning_message(greeting);
 	}
 private:
 	typedef typename transport_service::signal_connection   signal_connection_t;
