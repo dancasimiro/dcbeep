@@ -246,15 +246,14 @@ private:
 	}
 };
 
-template <class AcceptorT>
-class acceptor_impl : public boost::enable_shared_from_this<acceptor_impl<AcceptorT> > {
+template <class StreamT>
+class acceptor_impl : public boost::enable_shared_from_this<acceptor_impl<StreamT> > {
 public:
-	typedef AcceptorT               acceptor_type;
-	typedef boost::asio::io_service service_type;
-	typedef service_type&           service_reference;
-
-	typedef typename acceptor_type::protocol_type protocol_type;
-	typedef typename protocol_type::socket        stream_type;
+	typedef StreamT                               stream_type;
+	typedef typename stream_type::protocol_type   protocol_type;
+	typedef typename protocol_type::acceptor      acceptor_type;
+	typedef boost::asio::io_service               service_type;
+	typedef service_type&                         service_reference;
 	typedef solo_stream_service_impl<stream_type> connection_type;
 	typedef boost::shared_ptr<connection_type>    connection_pointer;
 	typedef typename protocol_type::endpoint      endpoint_type;
@@ -532,7 +531,7 @@ public:
 private:
 	typedef typename super_type::impl_type       impl_type;
 	typedef typename super_type::pimpl_type      pimpl_type;
-	typedef detail::acceptor_impl<acceptor_type> listener_type;
+	typedef detail::acceptor_impl<stream_type>   listener_type;
 	typedef boost::shared_ptr<listener_type>     listener_pimpl;
 
 	typedef typename listener_type::signal_connection_t signal_connection_t;
