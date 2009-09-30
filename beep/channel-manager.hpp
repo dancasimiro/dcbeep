@@ -281,6 +281,50 @@ private:
 
 };     // class XmlGreetingVisitor
 
+class XmlStartVisitor : public TiXmlVisitor {
+public:
+	XmlStartVisitor(start &s) : start_(s) {}
+	virtual ~XmlStartVisitor() {}
+
+	virtual bool VisitEnter(const TiXmlDocument &doc)
+	{
+		if (const TiXmlElement *element = doc.RootElement()) {
+			return ("start" == element->ValueStr());
+		}
+		return false;
+	}
+
+	virtual bool VisitEnter(const TiXmlElement &element, const TiXmlAttribute *attribute)
+	{
+		if ("profile" == element.ValueStr()) {
+			for (; attribute; attribute = attribute->Next()) {
+				if (std::string("uri") == attribute->Name()) {
+					beep::profile myProfile;
+					myProfile.set_uri(attribute->ValueStr());
+					if (element.GetText()) {
+						beep::message msg;
+						/// \todo parse the text for real
+						msg.set_content(element.GetText());
+					}
+					start_.push_back_profile(myProfile);
+				}
+			}
+		} else if ("start" == element.ValueStr()) {
+			for (; attribute; attribute = attribute->Next()) {
+				if (std::string("number") == attribute->Name()) {
+					start_.set_number(attribute->IntValue());
+				} else if (std::string("serverName") == attribute->Name()) {
+					start_.set_server_name(attribute->ValueStr());
+				}
+			}
+		}
+		return true;
+	}
+private:
+	start &start_;
+
+};     // class XmlGreetingVisitor
+
 class XmlCloseVisitor : public TiXmlVisitor {
 public:
 	XmlCloseVisitor(close &c) : close_(c) {}
@@ -377,6 +421,20 @@ operator<<(ostream &strm, const beep::cmp::start &start)
 			assert(result);
 		}
 		strm << root;
+	}
+	return strm;
+}
+
+istream&
+operator>>(istream &strm, beep::cmp::start &start)
+{
+	if (strm) {
+		TiXmlDocument doc;
+		strm >> doc;
+		beep::cmp::XmlStartVisitor visitor(start);
+		if (!doc.Accept(&visitor)) {
+			strm.setstate(ios::badbit);
+		}
 	}
 	return strm;
 }
@@ -513,6 +571,73 @@ public:
 		strm << start;
 		msg.set_content(strm.str());
 		return number;
+	}
+
+	/// \return Accepted channel number, zero indicates an error
+	template <typename FwdIterator>
+	unsigned int accept_start(const message &start_msg,
+							  FwdIterator first_profile,
+							  const FwdIterator last_profile,
+							  profile &acceptedProfile,
+							  message &response)
+	{
+		using std::istringstream;
+		using std::ostringstream;
+		using std::find;
+		using std::copy;
+		using std::ostream_iterator;
+		using std::iterator_traits;
+
+		unsigned int channel = 0;
+		cmp::start start;
+		istringstream strm(start_msg.content());
+		ostringstream ostrm;
+		response.set_mime(mime::beep_xml());
+		if (strm >> start) {
+			channel = start.get_number();
+			bool match_profile = false;
+			if (chnum_.insert(channel).second) {
+				typedef cmp::start::profile_const_iterator const_iterator;
+				for (const_iterator i = start.profiles_begin(); i != start.profiles_end() && !match_profile; ++i) {
+					if (find(first_profile, last_profile, *i) != last_profile) {
+						acceptedProfile = *i;
+						match_profile = true;
+					}
+				}
+				if (match_profile) {
+					response.set_type(message::RPY);
+					cmp::ok ok;
+					ostrm << ok;
+				} else {
+					chnum_.erase(channel);
+					channel = 0;
+					response.set_type(message::ERR);
+					ostringstream estrm;
+					estrm << "The specified profile(s) are not supported. "
+						"This listener supports the following profiles: ";
+					typedef typename iterator_traits<FwdIterator>::value_type value_type;
+					copy(first_profile, last_profile, ostream_iterator<value_type>(estrm, ", "));
+					cmp::error error(reply_code::requested_action_not_accepted,
+									 estrm.str());
+					ostrm << error;
+				}
+			} else {
+				response.set_type(message::ERR);
+				ostringstream estrm;
+				estrm << "The requested channel (" << channel
+					  << ") is already in use.";
+				cmp::error error(reply_code::requested_action_not_accepted,
+								 estrm.str());
+				ostrm << error;
+			}
+		} else {
+			response.set_type(message::ERR);
+			cmp::error error(reply_code::general_syntax_error,
+							 "The 'start' message could not be decoded.");
+			ostrm << error;
+		}
+		response.set_content(ostrm.str());
+		return channel;
 	}
 
 	bool close_channel(const message &close_msg, message &response)

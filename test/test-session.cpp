@@ -381,6 +381,8 @@ public:
 		: TimedSessionBase()
 		, transport(service)
 		, listener(transport)
+		, session_channel(0)
+		, user_message()
 	{
 	}
 
@@ -390,6 +392,8 @@ public:
 
 	transport_type                      transport;
 	beep::basic_session<transport_type> listener;
+	unsigned int                        session_channel;
+	beep::message                       user_message;
 
 	virtual void SetUp()
 	{
@@ -398,9 +402,14 @@ public:
 
 		TimedSessionBase::SetUp();
 
+		session_channel = 0;
+		user_message = beep::message();
+
 		beep::profile myProfile;
 		myProfile.set_uri("casimiro.daniel/test-profile");
-		listener.install_profile(myProfile);
+		listener.install_profile(myProfile,
+								 bind(&SessionListener::handle_new_test_channel,
+									  this, _1, _2));
 
 		ip::tcp::endpoint ep(ip::address::from_string("127.0.0.1"), 9999);
 		transport.set_endpoint(ep);
@@ -422,7 +431,22 @@ public:
 		last_error = error;
 		if (!error) {
 			is_connected = true;
+
+			/// send the greeting
+			const std::string greeting =
+				"RPY 0 0 . 0 50\r\n"
+				"Content-Type: application/beep+xml\r\n\r\n" // 38
+				"<greeting />"
+				"END\r\n";
+			boost::asio::write(socket, boost::asio::buffer(greeting));
 		}
+	}
+
+	void handle_new_test_channel(const unsigned int channel,
+								 const beep::message &init)
+	{
+		session_channel = channel;
+		user_message = init;
 	}
 };
 
@@ -447,6 +471,127 @@ TEST_F(SessionListener, SendsGreeting)
 						"</greeting>"
 						);
 	EXPECT_EQ(myFrame, recvFrame);
+}
+
+class SessionChannelListener : public SessionListener {
+public:
+	SessionChannelListener()
+		: SessionListener()
+		, user_read(false)
+	{
+	}
+
+	virtual ~SessionChannelListener() {}
+
+	bool          user_read;
+
+	virtual void SetUp()
+	{
+		SessionListener::SetUp();
+
+		user_read = false;
+
+		std::string start_channel_payload =
+			"MSG 0 1 . 0 110\r\n"
+			"Content-Type: application/beep+xml\r\n\r\n"       // 38
+			"<start number=\"1\">"                             // 18
+			"<profile uri=\"casimiro.daniel/test-profile\" />" // 46
+			"</start>"                                         // 8
+			"END\r\n";
+		boost::asio::write(socket, boost::asio::buffer(start_channel_payload));
+		// wait for the response
+		EXPECT_NO_THROW(run_event_loop_until_frame_received());
+	}
+
+	virtual void TearDown()
+	{
+		SessionListener::TearDown();
+	}
+
+	void run_event_loop_until_user_read()
+	{
+		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
+		service.reset();
+		user_read = false;
+		while (!last_error && !user_read && (current_time - start_time) < boost::posix_time::seconds(5)) {
+			service.poll();
+			current_time = boost::posix_time::second_clock::local_time();
+			service.reset();
+		}
+	}
+
+	void handle_user_read(const boost::system::error_code &error,
+						  const beep::message &msg,
+						  const unsigned int channel)
+	{
+		last_error = error;
+		if (!error) {
+			user_read = true;
+			session_channel = channel;
+			user_message = msg;
+		}
+	}
+};
+
+TEST_F(SessionChannelListener, StartChannel)
+{
+	std::istream stream(&buffer);
+	beep::frame recvFrame;
+	EXPECT_TRUE(stream >> recvFrame);
+
+	beep::frame okFrame;
+	okFrame.set_header(beep::frame::rpy());
+	okFrame.set_channel(0);
+	okFrame.set_message(1);
+	okFrame.set_more(false);
+	okFrame.set_sequence(105);
+	okFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n<ok />");
+	EXPECT_EQ(okFrame, recvFrame);
+	
+	EXPECT_EQ(1u, session_channel);
+}
+
+TEST_F(SessionChannelListener, PeerClosesChannel)
+{
+	const std::string close_message =
+		"MSG 0 2 . 0 71\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<close number='1' code='200' />\r\n"
+		"END\r\n";
+	boost::asio::write(socket, boost::asio::buffer(close_message));
+
+	EXPECT_NO_THROW(run_event_loop_until_frame_received()); // Get the ok message
+
+	std::istream stream(&buffer);
+	beep::frame recvFrame;
+	EXPECT_TRUE(stream >> recvFrame);
+
+	beep::frame okFrame;
+	okFrame.set_header(beep::frame::rpy());
+	okFrame.set_channel(0);
+	okFrame.set_message(2);
+	okFrame.set_more(false);
+	okFrame.set_sequence(149);
+	okFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n<ok />");
+	EXPECT_EQ(okFrame, recvFrame);
+}
+
+TEST_F(SessionChannelListener, AsyncRead)
+{
+	using boost::bind;
+	listener.async_read(session_channel,
+						bind(&SessionChannelListener::handle_user_read,
+							 this,
+							 _1, _2, _3));
+	const std::string payload =
+		"MSG 1 0 . 0 12\r\nTest PayloadEND\r\n";
+	boost::asio::write(socket, boost::asio::buffer(payload));
+	EXPECT_NO_THROW(run_event_loop_until_user_read());
+
+	EXPECT_EQ(1u, session_channel);
+	beep::message expected;
+	expected.set_content("Test Payload");
+	EXPECT_EQ(expected, user_message);
 }
 
 int

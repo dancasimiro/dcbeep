@@ -470,6 +470,14 @@ public:
 	{
 	}
 
+	basic_solo_stream_listener(service_reference svc, const endpoint_type &ep)
+		: super_type()
+		, service_(svc)
+		, pimpl_(new listener_type(svc))
+	{
+		this->set_endpoint(ep);
+	}
+
 	void set_endpoint(const endpoint_type &ep)
 	{
 		pimpl_->accept_from(ep);

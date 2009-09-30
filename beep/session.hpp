@@ -7,7 +7,6 @@
 
 #include <vector>
 #include <iterator>
-#include <map>
 #include <stdexcept>
 
 #include <boost/noncopyable.hpp>
@@ -29,6 +28,17 @@ namespace beep {
 template <class U> class basic_session;
 
 namespace detail {
+
+struct profile_uri_matcher : public std::unary_function<bool, profile> {
+	profile_uri_matcher(const std::string &u) : uri(u) {}
+
+	bool operator()(const profile &p) const
+	{
+		return p.uri() == uri;
+	}
+
+	const std::string uri;
+};
 
 template <typename FunctionT>
 class basic_event_handler {
@@ -94,6 +104,40 @@ public:
 	}
 };     // class handler_user_events
 
+/// store a "new profile" handler with the profile
+class wrapped_profile : public profile {
+public:
+	typedef boost::function<void (const unsigned int, const message&)> function_type;
+
+	wrapped_profile()
+		: profile()
+		, handler_()
+	{
+	}
+
+	wrapped_profile(const profile &p)
+		: profile(p)
+		, handler_()
+	{
+	}
+
+	wrapped_profile(const profile &p, function_type func)
+		: profile(p)
+		, handler_(func)
+	{
+	}
+	virtual ~wrapped_profile() {}
+
+	void execute(const unsigned int channel, const message &init)
+	{
+		if (handler_) {
+			handler_(channel, init);
+		}
+	}
+private:
+	function_type handler_;
+};     // class wrapped_profile
+
 }      // namespace detail
 
 /// \brief BEEP session management
@@ -132,11 +176,10 @@ public:
 		netchng_.disconnect();
 	}
 
-	//template <class Handler>
-	/// \todo install a handler that is invoked when a peer starts a channel with this profile
-	void install_profile(const profile &p)
+	template <class Handler>
+	void install_profile(const profile &p, Handler handler)
 	{
-		profiles_[p.uri()] = p;
+		profiles_.push_back(detail::wrapped_profile(p, handler));
 	}
 
 	const identifier &id() const { return id_; }
@@ -180,8 +223,8 @@ public:
 		}
 	}
 private:
-	typedef typename transport_service::signal_connection   signal_connection_t;
-	typedef std::map<std::string, profile>                  profile_container;
+	typedef typename transport_service::signal_connection signal_connection_t;
+	typedef std::vector<detail::wrapped_profile>          profile_container;
 	transport_service_reference   transport_;
 	identifier                    id_;
 	signal_connection_t           netchng_;
@@ -230,15 +273,19 @@ private:
 	void handle_tuning_frame(const frame &frm, const message &msg)
 	{
 		using std::back_inserter;
-		using std::vector;
 		if (msg.get_type() == message::RPY && cmp::is_greeting_message(msg)) {
-			vector<profile> new_profs;
-			chman_.get_profiles(msg, back_inserter(new_profs));
-			typedef vector<profile>::const_iterator iterator;
-			for (iterator i = new_profs.begin(); i != new_profs.end(); ++i) {
-				profiles_[i->uri()] = *i;
-			}
+			chman_.get_profiles(msg, back_inserter(profiles_));
 		} else if (msg.get_type() == message::MSG && cmp::is_start_message(msg)) {
+			message response;
+			profile acceptedProfile;
+			if (const unsigned int channel =
+				chman_.accept_start(msg, profiles_.begin(), profiles_.end(),
+									acceptedProfile, response)) {
+				detail::wrapped_profile &myProfile =
+					get_profile(acceptedProfile.uri());
+				myProfile.execute(channel, acceptedProfile.initial_message());
+			}
+			send_tuning_message(response);
 		} else if (msg.get_type() == message::MSG && cmp::is_close_message(msg)) {
 			message response;
 			if (chman_.close_channel(msg, response)) {
@@ -268,13 +315,26 @@ private:
 		send_tuning_message(greeting);
 	}
 
-	const profile &get_profile(const std::string &uri) const
+	detail::wrapped_profile &get_profile(const std::string &uri)
 	{
-		profile_container::const_iterator i = profiles_.find(uri);
+		profile_container::iterator i =
+			find_if(profiles_.begin(), profiles_.end(),
+					detail::profile_uri_matcher(uri));
 		if (i == profiles_.end()) {
 			throw std::runtime_error("Invalid profile!");
 		}
-		return i->second;
+		return *i;
+	}
+
+	const detail::wrapped_profile &get_profile(const std::string &uri) const
+	{
+		profile_container::const_iterator i =
+			find_if(profiles_.begin(), profiles_.end(),
+					detail::profile_uri_matcher(uri));
+		if (i == profiles_.end()) {
+			throw std::runtime_error("Invalid profile!");
+		}
+		return *i;
 	}
 
 	/// \return the used message number

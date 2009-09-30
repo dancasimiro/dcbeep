@@ -5,6 +5,7 @@
 #ifndef BEEP_PROFILE_HEAD
 #define BEEP_PROFILE_HEAD 1
 
+#include <istream>
 #include <string>
 #include "message.hpp"
 
@@ -19,6 +20,8 @@ public:
 	{
 	}
 
+	virtual ~profile() {}
+
 	const std::string &get_uri() const { return uri_; }
 	const std::string &uri() const { return uri_; }
 	void set_uri(const std::string &u) { uri_ = u; }
@@ -28,10 +31,32 @@ public:
 		initialization_ = m;
 		has_initiailizer_ = true;
 	}
+
+	bool has_initialization_message() const { return has_initiailizer_; }
+	const message &initial_message() const { return initialization_; }
 private:
 	std::string uri_;
 	message     initialization_;
 	bool        has_initiailizer_;
 };     // class profile
+
+bool operator==(const profile &lhs, const profile &rhs)
+{
+	return lhs.uri() == rhs.uri();
+}
+
 }      // namespace beep
+
+namespace std {
+
+ostream&
+operator<<(ostream &strm, const beep::profile &profile)
+{
+	if (strm) {
+		strm << profile.uri();
+	}
+	return strm;
+}
+
+}	   // namespace std
 #endif // BEEP_PROFILE_HEAD
