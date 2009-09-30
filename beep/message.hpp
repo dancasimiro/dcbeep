@@ -46,18 +46,18 @@ public:
 	typedef std::size_t size_type;
 
 	enum keyword {
-		MSG,
-		RPY,
-		ERR,
-		ANS,
-		NUL,
+		msg,
+		rpy,
+		err,
+		ans,
+		nul,
 	};
 
 	message()
 		: mime_()
 		, content_()
 		, payload_()
-		, type_(MSG)
+		, type_(msg)
 	{
 	}
 

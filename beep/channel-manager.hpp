@@ -527,7 +527,7 @@ public:
 		using std::ostringstream;
 
 		greeting_msg.set_mime(mime::beep_xml());
-		greeting_msg.set_type(message::RPY);
+		greeting_msg.set_type(message::rpy);
 		cmp::greeting g_protocol(first_profile, last_profile);
 		ostringstream strm;
 		if (strm << g_protocol) {
@@ -562,7 +562,7 @@ public:
 			}
 		}
 		msg.set_mime(mime::beep_xml());
-		msg.set_type(message::MSG);
+		msg.set_type(message::msg);
 		cmp::start start;
 		start.set_number(number);
 		start.set_server_name(name);
@@ -579,7 +579,7 @@ public:
 		using std::ostringstream;
 		msg.set_mime(mime::beep_xml());
 		if (chnum_.erase(number)) {
-			msg.set_type(message::MSG);
+			msg.set_type(message::msg);
 			cmp::close close;
 			close.set_number(number);
 			close.set_code(rc);
@@ -623,13 +623,13 @@ public:
 					}
 				}
 				if (match_profile) {
-					response.set_type(message::RPY);
+					response.set_type(message::rpy);
 					cmp::ok ok;
 					ostrm << ok;
 				} else {
 					chnum_.erase(channel);
 					channel = 0;
-					response.set_type(message::ERR);
+					response.set_type(message::err);
 					ostringstream estrm;
 					estrm << "The specified profile(s) are not supported. "
 						"This listener supports the following profiles: ";
@@ -640,7 +640,7 @@ public:
 					ostrm << error;
 				}
 			} else {
-				response.set_type(message::ERR);
+				response.set_type(message::err);
 				ostringstream estrm;
 				estrm << "The requested channel (" << channel
 					  << ") is already in use.";
@@ -649,7 +649,7 @@ public:
 				ostrm << error;
 			}
 		} else {
-			response.set_type(message::ERR);
+			response.set_type(message::err);
 			cmp::error error(reply_code::general_syntax_error,
 							 "The 'start' message could not be decoded.");
 			ostrm << error;
@@ -669,11 +669,11 @@ public:
 		ostringstream ostrm;
 		response.set_mime(mime::beep_xml());
 		if (is_ok = strm >> close) {
-			response.set_type(message::RPY);
+			response.set_type(message::rpy);
 			cmp::ok ok;
 			ostrm << ok;
 		} else {
-			response.set_type(message::ERR);
+			response.set_type(message::err);
 			cmp::error error(reply_code::general_syntax_error,
 							 "The 'close' message could not be decoded.");
 			ostrm << error;

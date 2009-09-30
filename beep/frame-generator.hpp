@@ -20,19 +20,19 @@ make_frames(const message &msg, channel &chan, OutputIterator out)
 {
 	frame myFrame;
 	switch (msg.get_type()) {
-	case message::MSG:
+	case message::msg:
 		myFrame.set_header(frame::msg());
 		break;
-	case message::RPY:
+	case message::rpy:
 		myFrame.set_header(frame::rpy());
 		break;
-	case message::ANS:
+	case message::ans:
 		myFrame.set_header(frame::ans());
 		break;
-	case message::ERR:
+	case message::err:
 		myFrame.set_header(frame::err());
 		break;
-	case message::NUL:
+	case message::nul:
 		myFrame.set_header(frame::nul());
 		break;
 	default:

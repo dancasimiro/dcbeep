@@ -338,10 +338,10 @@ private:
 	void handle_tuning_frame(const frame &frm, const message &msg)
 	{
 		using std::back_inserter;
-		if (msg.get_type() == message::RPY && cmp::is_greeting_message(msg)) {
+		if (msg.get_type() == message::rpy && cmp::is_greeting_message(msg)) {
 			chman_.get_profiles(msg, back_inserter(profiles_));
 			session_signal_(boost::system::error_code());
-		} else if (msg.get_type() == message::MSG && cmp::is_start_message(msg)) {
+		} else if (msg.get_type() == message::msg && cmp::is_start_message(msg)) {
 			message response;
 			profile acceptedProfile;
 			if (const unsigned int chnum =
@@ -353,16 +353,16 @@ private:
 				myProfile.execute(chnum, acceptedProfile.initial_message());
 			}
 			send_tuning_message(response);
-		} else if (msg.get_type() == message::MSG && cmp::is_close_message(msg)) {
+		} else if (msg.get_type() == message::msg && cmp::is_close_message(msg)) {
 			message response;
 			if (chman_.close_channel(msg, response)) {
 				/// \todo notify the client that its channel was closed...
 			}
 			send_tuning_message(response);
-		} else if (msg.get_type() == message::RPY && cmp::is_ok_message(msg)) {
+		} else if (msg.get_type() == message::rpy && cmp::is_ok_message(msg)) {
 			boost::system::error_code message_error;
 			tuning_handler_.execute(frm.message(), message_error);
-		} else if (msg.get_type() == message::RPY && cmp::is_error_message(msg)) {
+		} else if (msg.get_type() == message::rpy && cmp::is_error_message(msg)) {
 		} else {
 			/// \todo handle other frame types
 			assert(false);
