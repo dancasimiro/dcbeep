@@ -303,6 +303,16 @@ public:
 		}
 	}
 
+	void handle_initiator_write(const boost::system::error_code &error,
+								const unsigned int channel)
+	{
+		last_error = error;
+		if (!error) {
+			user_read = true;
+			session_channel = channel;
+		}
+	}
+
 	void run_event_loop_until_channel_ready()
 	{
 		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
@@ -373,6 +383,34 @@ TEST_F(SessionChannelInitiator, AsyncRead)
 	beep::message expected;
 	expected.set_content("Test Payload");
 	EXPECT_EQ(expected, user_message);
+}
+
+TEST_F(SessionChannelInitiator, AsyncWrite)
+{
+	using boost::bind;
+	beep::message msg;
+	msg.set_content("Test Payload");
+
+	initiator.async_write(session_channel, msg, 
+						  bind(&SessionChannelInitiator::handle_initiator_write,
+							   this, _1, _2));
+	ASSERT_NO_THROW(run_event_loop_until_frame_received());
+	EXPECT_TRUE(user_read);
+	EXPECT_FALSE(last_error);
+	EXPECT_EQ(1u, session_channel);
+
+	std::istream stream(&buffer);
+	beep::frame recvFrame;
+	EXPECT_TRUE(stream >> recvFrame);
+
+	beep::frame expectedFrame;
+	expectedFrame.set_header(beep::frame::msg());
+	expectedFrame.set_channel(session_channel);
+	expectedFrame.set_message(0);
+	expectedFrame.set_more(false);
+	expectedFrame.set_sequence(0);
+	expectedFrame.set_payload("Content-Type: application/octet-stream\r\n\r\nTest Payload");
+	EXPECT_EQ(expectedFrame, recvFrame);
 }
 
 class SessionListener : public TimedSessionBase {
@@ -531,6 +569,16 @@ public:
 			user_message = msg;
 		}
 	}
+
+	void handle_listener_write(const boost::system::error_code &error,
+							   const unsigned int channel)
+	{
+		last_error = error;
+		if (!error) {
+			user_read = true;
+			session_channel = channel;
+		}
+	}
 };
 
 TEST_F(SessionChannelListener, StartChannel)
@@ -592,6 +640,34 @@ TEST_F(SessionChannelListener, AsyncRead)
 	beep::message expected;
 	expected.set_content("Test Payload");
 	EXPECT_EQ(expected, user_message);
+}
+
+TEST_F(SessionChannelListener, AsyncWrite)
+{
+	using boost::bind;
+	beep::message msg;
+	msg.set_content("Test Payload");
+
+	listener.async_write(session_channel, msg, 
+						 bind(&SessionChannelListener::handle_listener_write,
+							  this, _1, _2));
+	ASSERT_NO_THROW(run_event_loop_until_frame_received());
+	EXPECT_TRUE(user_read);
+	EXPECT_FALSE(last_error);
+	EXPECT_EQ(1u, session_channel);
+
+	std::istream stream(&buffer);
+	beep::frame recvFrame;
+	EXPECT_TRUE(stream >> recvFrame);
+
+	beep::frame expectedFrame;
+	expectedFrame.set_header(beep::frame::msg());
+	expectedFrame.set_channel(session_channel);
+	expectedFrame.set_message(0);
+	expectedFrame.set_more(false);
+	expectedFrame.set_sequence(0);
+	expectedFrame.set_payload("Content-Type: application/octet-stream\r\n\r\nTest Payload");
+	EXPECT_EQ(expectedFrame, recvFrame);
 }
 
 int

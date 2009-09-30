@@ -31,6 +31,7 @@ namespace detail {
 
 struct profile_uri_matcher : public std::unary_function<bool, profile> {
 	profile_uri_matcher(const std::string &u) : uri(u) {}
+	virtual ~profile_uri_matcher() {}
 
 	bool operator()(const profile &p) const
 	{
@@ -38,6 +39,18 @@ struct profile_uri_matcher : public std::unary_function<bool, profile> {
 	}
 
 	const std::string uri;
+};
+
+struct channel_number_matcher : public std::unary_function<bool, channel> {
+	channel_number_matcher(const unsigned c) : chnum_(c) {}
+	virtual ~channel_number_matcher() {}
+
+	bool operator()(const channel &c) const
+	{
+		return c.number() == chnum_;
+	}
+
+	const unsigned int chnum_;
 };
 
 template <typename FunctionT>
@@ -161,6 +174,7 @@ public:
 		, frmsig_()
 		, chman_()
 		, profiles_()
+		, channels_()
 		, tuning_handler_()
 		, user_handler_()
 	{
@@ -210,6 +224,7 @@ public:
 								 strm.str(), prof, start);
 		const unsigned int msgno = send_tuning_message(start);
 		tuning_handler_.add(msgno, bind(handler, _1, ch, prof));
+		channels_.push_back(channel(ch));
 		return ch;
 	}
 
@@ -222,9 +237,27 @@ public:
 			throw std::runtime_error("the selected channel is not in use.");
 		}
 	}
+
+	template <class Handler>
+	void async_write(const unsigned int channel, const message &msg,
+					 Handler handler)
+	{
+		if (chman_.channel_in_use(channel)) {
+			send_message(msg, get_channel(channel));
+			/// send_message serializes the message into the write stream.
+			/// It will be written to the peer later...
+			/// In any case, tell the client that the memory for message
+			/// can be freed.
+			handler(boost::system::error_code(), channel);
+		} else {
+			throw std::runtime_error("the selected channel is not in use.");
+		}
+	}
 private:
 	typedef typename transport_service::signal_connection signal_connection_t;
 	typedef std::vector<detail::wrapped_profile>          profile_container;
+	typedef std::vector<channel>                          channel_container;
+
 	transport_service_reference   transport_;
 	identifier                    id_;
 	signal_connection_t           netchng_;
@@ -232,6 +265,7 @@ private:
 
 	channel_manager               chman_;
 	profile_container             profiles_;
+	channel_container             channels_;
 
 	detail::handler_tuning_events tuning_handler_;
 	detail::handler_user_events   user_handler_;
@@ -278,12 +312,13 @@ private:
 		} else if (msg.get_type() == message::MSG && cmp::is_start_message(msg)) {
 			message response;
 			profile acceptedProfile;
-			if (const unsigned int channel =
+			if (const unsigned int chnum =
 				chman_.accept_start(msg, profiles_.begin(), profiles_.end(),
 									acceptedProfile, response)) {
+				channels_.push_back(channel(chnum));
 				detail::wrapped_profile &myProfile =
 					get_profile(acceptedProfile.uri());
-				myProfile.execute(channel, acceptedProfile.initial_message());
+				myProfile.execute(chnum, acceptedProfile.initial_message());
 			}
 			send_tuning_message(response);
 		} else if (msg.get_type() == message::MSG && cmp::is_close_message(msg)) {
@@ -315,8 +350,33 @@ private:
 		send_tuning_message(greeting);
 	}
 
+	channel &get_channel(const unsigned int chnum)
+	{
+		using std::find_if;
+		channel_container::iterator i =
+			find_if(channels_.begin(), channels_.end(),
+					detail::channel_number_matcher(chnum));
+		if (i == channels_.end()) {
+			throw std::runtime_error("Invalid channel!");
+		}
+		return *i;
+	}
+
+	const channel &get_channel(const unsigned int chnum) const
+	{
+		using std::find_if;
+		channel_container::const_iterator i =
+			find_if(channels_.begin(), channels_.end(),
+					detail::channel_number_matcher(chnum));
+		if (i == channels_.end()) {
+			throw std::runtime_error("Invalid channel!");
+		}
+		return *i;
+	}
+
 	detail::wrapped_profile &get_profile(const std::string &uri)
 	{
+		using std::find_if;
 		profile_container::iterator i =
 			find_if(profiles_.begin(), profiles_.end(),
 					detail::profile_uri_matcher(uri));
@@ -328,6 +388,7 @@ private:
 
 	const detail::wrapped_profile &get_profile(const std::string &uri) const
 	{
+		using std::find_if;
 		profile_container::const_iterator i =
 			find_if(profiles_.begin(), profiles_.end(),
 					detail::profile_uri_matcher(uri));
@@ -338,16 +399,21 @@ private:
 	}
 
 	/// \return the used message number
-	unsigned int send_tuning_message(const message &msg)
+	unsigned int send_message(const message &msg, channel& chan)
 	{
 		using std::vector;
 		using std::back_inserter;
 
 		vector<frame> frames;
-		make_frames(msg, chman_.get_tuning_channel(), back_inserter(frames));
+		make_frames(msg, chan, back_inserter(frames));
 		assert(!frames.empty());
 		transport_.send_frames(frames.begin(), frames.end());
 		return frames.front().message();
+	}
+
+	unsigned int send_tuning_message(const message &msg)
+	{
+		return send_message(msg, chman_.get_tuning_channel());
 	}
 };     // class basic_session
 
