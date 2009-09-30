@@ -26,26 +26,31 @@ handle_channel_data(const boost::system::error_code &error,
 		cerr << "error on channel #" << channel << ": " << error << endl;
 	}
 }
-#if 0
+
 static void
-on_sent_channel_init(const beep::reply_code error,
-					 session &theSession, const beep::channel &info,
-					 size_t bytes_transferred)
+on_sent_channel_init(const boost::system::error_code &error,
+					 const unsigned int channel)
 {
-	cout << "The channel #" << info.number()
-		 << " initialization message was transmitted." << endl;
+	if (!error) {
+		cout << "The channel #" << channel
+			 << " initialization message was transmitted." << endl;
+	} else {
+		cerr << "could not send any data: " << error << endl;
+	}
 }
-#endif
+
 static void
 handle_new_channel(const unsigned int channel,
-				   const beep::message &/*init*/,
+				   const beep::message &init,
 				   session_type &theSession)
 {
 	cout << "a new channel (#" << channel
 		 << ") has been created with profile 'http://test/profile/usage'."
 		 << endl;
-	//testProfile.initialize(msg);
-	//theSession.async_send(info, msg, on_sent_channel_init);
+	cout << "The peer sent " << init << " as initialization." << endl;
+	beep::message msg;
+	msg.set_content("new-channel-payload");
+	theSession.async_write(channel, msg, on_sent_channel_init);
 	theSession.async_read(channel, handle_channel_data);
 }
 
@@ -57,7 +62,8 @@ main(int /*argc*/, char **/*argv*/)
 	using boost::bind;
 	try {
 		io_service service;
-		solo_tcp_listener transport(service, ip::tcp::endpoint(ip::tcp::v4(), 12345));
+		//solo_tcp_listener transport(service, ip::tcp::endpoint(ip::tcp::v4(), 12345));
+		solo_tcp_listener transport(service);
 		session_type session(transport);
 
 		beep::profile myProfile;
@@ -68,6 +74,8 @@ main(int /*argc*/, char **/*argv*/)
 
 		session.install_profile(myProfile,
 								bind(handle_new_channel, _1, _2, ref(session)));
+
+		transport.set_endpoint(ip::tcp::endpoint(ip::tcp::v4(), 12345));
 		service.run();
 	} catch (const exception &ex) {
 		cerr << "Fatal Error: " << ex.what() << endl;

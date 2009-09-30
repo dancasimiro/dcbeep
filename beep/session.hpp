@@ -13,6 +13,7 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/signals2.hpp>
 
 #include "role.hpp"
 #include "frame.hpp"
@@ -167,6 +168,9 @@ public:
 	typedef basic_session<transport_service> base_type;
 	typedef std::size_t                      size_type;
 
+	typedef boost::signals2::connection      signal_connection;
+	typedef boost::signals2::signal<void (const boost::system::error_code&)> session_signal_t;
+
 	basic_session(transport_service_reference ts)
 		: transport_(ts)
 		, id_()
@@ -177,6 +181,7 @@ public:
 		, channels_()
 		, tuning_handler_()
 		, user_handler_()
+		, session_signal_()
 	{
 		using boost::bind;
 		netchng_ =
@@ -194,6 +199,11 @@ public:
 	void install_profile(const profile &p, Handler handler)
 	{
 		profiles_.push_back(detail::wrapped_profile(p, handler));
+	}
+
+	signal_connection install_session_handler(const session_signal_t::slot_type slot)
+	{
+		return session_signal_.connect(slot);
 	}
 
 	const identifier &id() const { return id_; }
@@ -270,6 +280,8 @@ private:
 	detail::handler_tuning_events tuning_handler_;
 	detail::handler_user_events   user_handler_;
 
+	session_signal_t              session_signal_;
+
 	void handle_network_change(const boost::system::error_code &error,
 							   const identifier &id)
 	{
@@ -309,6 +321,7 @@ private:
 		using std::back_inserter;
 		if (msg.get_type() == message::RPY && cmp::is_greeting_message(msg)) {
 			chman_.get_profiles(msg, back_inserter(profiles_));
+			session_signal_(boost::system::error_code());
 		} else if (msg.get_type() == message::MSG && cmp::is_start_message(msg)) {
 			message response;
 			profile acceptedProfile;

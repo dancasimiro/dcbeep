@@ -68,20 +68,29 @@ on_got_data(const boost::system::error_code &error,
 static void
 on_channel_created(const boost::system::error_code &error,
 				   const unsigned int channel,
-				   session_type &mySession)
+				   session_type &/*mySession*/)
 {
 	if (!error) {
 		cout << "The test channel (#" << channel
-			 << " is ready; read some data..." << endl;
-		mySession.async_read(channel, on_got_data);
+			 << ") was accepted and is ready!" << endl;
 	} else { 
 		cerr << "Failed to create the channel: " << error << endl;
 	}
 }
 
 static void
-on_session_is_ready(const boost::system::error_code &error,
+on_network_is_ready(const boost::system::error_code &error,
 					const beep::identifier &id,
+					session_type &/*theSession*/)
+{
+	if (error) {
+		cerr << "The " << id << " connection failed on: " << error << endl;
+		/// \todo close the session
+	}
+}
+
+static void
+on_session_is_ready(const boost::system::error_code &error,
 					session_type &theSession)
 {
 	using boost::bind;
@@ -92,17 +101,22 @@ on_session_is_ready(const boost::system::error_code &error,
 
 		if (supported_profiles.empty()) {
 			cerr << "The listening session does not support any profiles!\n";
+			/// \todo close the session.
 			return;
 		}
-		const int chNum =
+		if (const int chNum =
 			theSession.async_add_channel(supported_profiles.front(),
 										 bind(on_channel_created, _1, _2,
-											  ref(theSession)));
-		cout << "Requested a new channel (#" << chNum << ") in session " << id
-			 << " with profile '"
-			 << supported_profiles.front() << "'." << endl;
+											  ref(theSession)))) {
+			// associate a handler for new data on this channel
+			theSession.async_read(chNum, on_got_data);
+			cout << "Requested a new channel (#" << chNum << ") in session "
+				 << theSession.id()
+				 << " with profile '"
+				 << supported_profiles.front() << "'." << endl;
+		}
 	} else {
-		cerr << "The connection failed: " << error.message() << endl;
+		cerr << "The BEEP session was not initialized.\n";
 	}
 }
 
@@ -118,9 +132,10 @@ main(int /*argc*/, char **/*argv*/)
 		solo_tcp_initiator transport(service);
 		session_type client(transport);
 
-		transport.install_network_handler(bind(on_session_is_ready, _1, _2, ref(client)));
+		transport.install_network_handler(bind(on_network_is_ready, _1, _2, ref(client)));
 		transport.set_endpoint(ip::tcp::endpoint(ip::address::from_string("127.0.0.1"),
 												 12345));
+		client.install_session_handler(bind(on_session_is_ready, _1, ref(client)));
 		service.run();
 	} catch (const std::exception &ex) {
 		cerr << "Fatal Error: " << ex.what() << endl;
