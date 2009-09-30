@@ -246,6 +246,52 @@ private:
 	}
 };
 
+template <class AcceptorT>
+class acceptor_impl : public boost::enable_shared_from_this<acceptor_impl<AcceptorT> > {
+public:
+	typedef AcceptorT               acceptor_type;
+	typedef boost::asio::io_service service_type;
+	typedef service_type&           service_reference;
+
+	typedef typename acceptor_type::protocol_type protocol_type;
+	typedef typename protocol_type::socket        stream_type;
+	typedef solo_stream_service_impl<stream_type> connection_type;
+	typedef boost::shared_ptr<connection_type>    connection_pointer;
+	typedef typename protocol_type::endpoint      endpoint_type;
+
+	acceptor_impl(const service_reference svc)
+		: acceptor_(svc)
+	{
+	}
+
+	void accept_from(const endpoint_type &ep)
+	{
+		acceptor_.open(ep.protocol());
+		acceptor_.set_option(typename stream_type::reuse_address(true));
+		acceptor_.bind(ep);
+		acceptor_.listen(5);
+	}
+
+	void async_accept(const connection_pointer ptr, const identifier &id)
+	{
+		using boost::bind;
+		acceptor_.async_accept(ptr->get_stream(),
+							   bind(&acceptor_impl::handle_accept,
+									this->shared_from_this(),
+									boost::asio::placeholders::error,
+									ptr, id));
+	}
+private:
+	acceptor_type acceptor_;
+
+	void handle_accept(const boost::system::error_code &error,
+					   const connection_pointer ptr,
+					   const identifier &id)
+	{
+		ptr->start(error, id);
+	}
+};
+
 }      // namespace detail
 
 class bad_session_error : public std::runtime_error {
@@ -409,17 +455,41 @@ class basic_solo_stream_listener : public basic_solo_stream<StreamT, listening_r
 public:
 	typedef StreamT                             stream_type;
 	typedef stream_type&                        stream_reference;
-	typedef typename stream_type::service_type  service_type;
+	typedef boost::asio::io_service             service_type;
 	typedef service_type&                       service_reference;
 	typedef typename stream_type::protocol_type protocol_type;
 	typedef typename protocol_type::acceptor    acceptor_type;
+	typedef typename stream_type::endpoint_type endpoint_type;
+
+	typedef basic_solo_stream<stream_type, listening_role> super_type;
 
 	basic_solo_stream_listener(service_reference service)
-		: basic_solo_stream<stream_type, listening_role>()
+		: super_type()
+		, service_(service)
+		, pimpl_(new listener_type(service))
 	{
 	}
+
+	void set_endpoint(const endpoint_type &ep)
+	{
+		pimpl_->accept_from(ep);
+		do_add_connection();
+	}
 private:
-	//acceptor_type           acceptor_;
+	typedef typename super_type::impl_type       impl_type;
+	typedef typename super_type::pimpl_type      pimpl_type;
+	typedef detail::acceptor_impl<acceptor_type> listener_type;
+	typedef boost::shared_ptr<listener_type>     listener_pimpl;
+
+	const service_reference service_;
+	listener_pimpl          pimpl_;
+
+	void do_add_connection()
+	{
+		pimpl_type next(new impl_type(service_));
+		const identifier id = this->add_connection(next);
+		pimpl_->async_accept(next, id);
+	}
 };     // class basic_solo_stream_listener
 }      // namespace transport_service
 }      // namespace beep

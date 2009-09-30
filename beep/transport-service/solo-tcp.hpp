@@ -13,6 +13,7 @@ namespace transport_service {
 
 /// \note These services use plaintext transfer
 typedef basic_solo_stream_initiator<boost::asio::ip::tcp::socket> solo_tcp_initiator;
+typedef basic_solo_stream_listener<boost::asio::ip::tcp::socket>  solo_tcp_listener;
 
 /// \todo implement services that support "Transport Security" (TLS).
 
