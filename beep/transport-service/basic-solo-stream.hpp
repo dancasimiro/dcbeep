@@ -323,6 +323,15 @@ public:
 
 	virtual ~basic_solo_stream() {}
 
+	void close()
+	{
+		typedef typename container_type::iterator iterator;
+		for (iterator i = connections_.begin(); i != connections_.end(); ++i) {
+			i->second->get_stream().close();
+		}
+		connections_.clear();
+	}
+
 	/// \brief Get notified when a new network session is established
 	signal_connection install_network_handler(const network_signal_t::slot_type slot)
 	{

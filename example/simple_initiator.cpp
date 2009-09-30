@@ -15,34 +15,17 @@ using namespace std;
 using beep::transport_service::solo_tcp_initiator;
 typedef beep::basic_session<solo_tcp_initiator> session_type;
 
-#if 0
-static beep::reply_code
-handle_new_channel(session &theSession, beep::channel &info, string &init)
-{
-	cout << "a new channel (#" << info.number()
-		 << ") has been created with profile '" << info.profile() << "'."
-		 << endl;
-	return beep::success;
-}
-
-static void
-on_session_stopped(const beep::reply_code status,
-				   session &theSession, const beep::channel &info)
-{
-	cout << "The session was stopped." << endl;
-}
-#endif
 static void
 on_channel_closed(const boost::system::error_code &error,
 				  const unsigned int channel,
-				  session_type &/*theSession*/)
+				  session_type &theSession)
 {
 	if (!error) {
 		cout << "The test channel (#" << channel << ") was closed." << endl;
 	} else {
 		cerr << "Failed to remove the channel." << endl;
 	}
-	//theSession.stop(on_session_stopped);
+	beep::shutdown_session(theSession);
 }
 
 static void

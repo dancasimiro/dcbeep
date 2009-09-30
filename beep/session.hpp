@@ -171,6 +171,8 @@ public:
 	typedef boost::signals2::connection      signal_connection;
 	typedef boost::signals2::signal<void (const boost::system::error_code&)> session_signal_t;
 
+	template <typename U> friend void shutdown_session(basic_session<U>&);
+
 	basic_session(transport_service_reference ts)
 		: transport_(ts)
 		, id_()
@@ -247,7 +249,9 @@ public:
 			chman_.close_channel(channel, rc, close);
 			const unsigned int msgno = send_tuning_message(close);
 			tuning_handler_.add(msgno, bind(handler, _1, channel));
-			remove_channel(channel);
+			if (channel != chman_.get_tuning_channel().number()) {
+				remove_channel(channel);
+			}
 		} else {
 			throw std::runtime_error("the selected channel is not in use.");
 		}
@@ -455,7 +459,26 @@ private:
 	{
 		return send_message(msg, chman_.get_tuning_channel());
 	}
+
+	void close_transport(const boost::system::error_code &error)
+	{
+		if (!error) {
+			frmsig_.disconnect();
+			netchng_.disconnect();
+			transport_.close();
+		}
+	}
 };     // class basic_session
+
+template <typename TransportServiceT>
+void shutdown_session(basic_session<TransportServiceT> &session)
+{
+	using boost::bind;
+	typedef basic_session<TransportServiceT> session_type;
+	session.async_close_channel(0, reply_code::success,
+								bind(&session_type::close_transport,
+									 &session, _1));
+}
 
 }      // namespace beep
 #endif // BEEP_SESSION_HEAD
