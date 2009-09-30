@@ -20,6 +20,13 @@ public:
 	{
 	}
 
+	profile(const std::string &uri)
+		: uri_(uri)
+		, initialization_()
+		, has_initiailizer_(false)
+	{
+	}
+
 	virtual ~profile() {}
 
 	const std::string &get_uri() const { return uri_; }
