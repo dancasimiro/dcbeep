@@ -509,6 +509,8 @@ public:
 
 	virtual void TearDown()
 	{
+		beep::shutdown_session(listener);
+		transport.close();
 		TimedSessionBase::TearDown();
 	}
 

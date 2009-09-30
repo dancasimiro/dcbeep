@@ -259,9 +259,25 @@ public:
 	typedef boost::shared_ptr<connection_type>    connection_pointer;
 	typedef typename protocol_type::endpoint      endpoint_type;
 
+	typedef boost::signals2::connection           signal_connection_t;
+	typedef boost::signals2::signal<void (const boost::system::error_code&,
+										  const connection_pointer,
+										  const identifier&)> accept_signal_t;
+
 	acceptor_impl(const service_reference svc)
 		: acceptor_(svc)
+		, signal_()
 	{
+	}
+
+	signal_connection_t subscribe(const typename accept_signal_t::slot_type slot)
+	{
+		return signal_.connect(slot);
+	}
+
+	void close()
+	{
+		acceptor_.close();
 	}
 
 	void accept_from(const endpoint_type &ep)
@@ -282,13 +298,14 @@ public:
 									ptr, id));
 	}
 private:
-	acceptor_type acceptor_;
+	acceptor_type   acceptor_;
+	accept_signal_t signal_;
 
 	void handle_accept(const boost::system::error_code &error,
 					   const connection_pointer ptr,
 					   const identifier &id)
 	{
-		ptr->start(error, id);
+		signal_(error, ptr, id);
 	}
 };
 
@@ -323,7 +340,7 @@ public:
 
 	virtual ~basic_solo_stream() {}
 
-	void close()
+	virtual void close()
 	{
 		typedef typename container_type::iterator iterator;
 		for (iterator i = connections_.begin(); i != connections_.end(); ++i) {
@@ -476,7 +493,12 @@ public:
 		: super_type()
 		, service_(service)
 		, pimpl_(new listener_type(service))
+		, conn_()
 	{
+		using boost::bind;
+		conn_ =
+			pimpl_->subscribe(bind(&basic_solo_stream_listener::handle_accept,
+								   this, _1, _2, _3));
 	}
 
 	basic_solo_stream_listener(service_reference svc, const endpoint_type &ep)
@@ -484,7 +506,22 @@ public:
 		, service_(svc)
 		, pimpl_(new listener_type(svc))
 	{
+		using boost::bind;
+		conn_ =
+			pimpl_->subscribe(bind(&basic_solo_stream_listener::handle_accept,
+								   this, _1, _2, _3));
 		this->set_endpoint(ep);
+	}
+
+	virtual ~basic_solo_stream_listener()
+	{
+		conn_.disconnect();
+	}
+
+	virtual void close()
+	{
+		pimpl_->close();
+		super_type::close();
 	}
 
 	void set_endpoint(const endpoint_type &ep)
@@ -498,14 +535,29 @@ private:
 	typedef detail::acceptor_impl<acceptor_type> listener_type;
 	typedef boost::shared_ptr<listener_type>     listener_pimpl;
 
+	typedef typename listener_type::signal_connection_t signal_connection_t;
+
 	const service_reference service_;
 	listener_pimpl          pimpl_;
+	signal_connection_t     conn_;
 
 	void do_add_connection()
 	{
 		pimpl_type next(new impl_type(service_));
 		const identifier id = this->add_connection(next);
 		pimpl_->async_accept(next, id);
+	}
+
+	void handle_accept(const boost::system::error_code &error, 
+					   const pimpl_type next, const identifier &id)
+	{
+		std::cerr << "handle_accept called with error: " << error << std::endl;
+		if (!error) {
+			next->start(error, id);
+			do_add_connection();
+		} else {
+			this->remove_connection(id);
+		}
 	}
 };     // class basic_solo_stream_listener
 }      // namespace transport_service
