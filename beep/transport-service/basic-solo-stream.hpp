@@ -291,7 +291,7 @@ public:
 	void async_accept(const connection_pointer ptr, const identifier &id)
 	{
 		using boost::bind;
-		acceptor_.async_accept(ptr->get_stream(),
+		acceptor_.async_accept(ptr->get_stream().lowest_layer(),
 							   bind(&acceptor_impl::handle_accept,
 									this->shared_from_this(),
 									boost::asio::placeholders::error,
