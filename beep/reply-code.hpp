@@ -26,6 +26,8 @@ enum reply_code_type {
 	transaction_failed                           = 554, ///< \note e.g., policy violation
 };
 
+typedef reply_code_type rc_enum;
+
 }      // namespace reply_code
 }      // namespace beep
 #endif // BEEP_REPLY_CODE_HEAD

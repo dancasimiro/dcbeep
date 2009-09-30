@@ -313,6 +313,15 @@ public:
 		}
 	}
 
+	void handle_channel_close(const boost::system::error_code &error,
+							  const unsigned int channel)
+	{
+		last_error = error;
+		if (!error) {
+			session_channel = channel;
+		}
+	}
+
 	void run_event_loop_until_channel_ready()
 	{
 		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
@@ -365,6 +374,45 @@ TEST_F(SessionChannelInitiator, PeerClosesChannel)
 	okFrame.set_sequence(207);
 	okFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n<ok />");
 	EXPECT_EQ(okFrame, recvFrame);
+}
+
+TEST_F(SessionChannelInitiator, ClosesChannel)
+{
+	using boost::bind;
+	ASSERT_EQ(1u, session_channel);
+	initiator.async_close_channel(session_channel,
+								  beep::reply_code::success,
+								  bind(&SessionChannelInitiator::handle_channel_close,
+									   this,
+									   _1, _2));
+	EXPECT_NO_THROW(run_event_loop_until_frame_received()); // Get the ok message
+
+	EXPECT_FALSE(last_error);
+	session_channel = 0;
+	std::istream stream(&buffer);
+	beep::frame recvFrame;
+	EXPECT_TRUE(stream >> recvFrame);
+
+	beep::frame closeFrame;
+	closeFrame.set_header(beep::frame::msg());
+	closeFrame.set_channel(0);
+	closeFrame.set_message(2);
+	closeFrame.set_more(false);
+	closeFrame.set_sequence(207);
+	closeFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n<close number=\"1\" code=\"200\" />");
+	EXPECT_EQ(closeFrame, recvFrame);
+
+	// The message number in ok_message must match the closeFrame
+	const std::string ok_message =
+		"RPY 0 2 . 0 44\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<ok />" // 6
+		"END\r\n";
+	boost::asio::write(socket, boost::asio::buffer(ok_message));
+
+	ASSERT_NO_THROW(run_event_loop_until_channel_ready());
+	EXPECT_EQ(1u, session_channel);
+	EXPECT_FALSE(last_error);
 }
 
 TEST_F(SessionChannelInitiator, AsyncRead)
@@ -558,6 +606,17 @@ public:
 		}
 	}
 
+	void run_event_loop_until_channel_ready()
+	{
+		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
+		service.reset();
+		while (!last_error && !session_channel && (current_time - start_time) < boost::posix_time::seconds(5)) {
+			service.poll();
+			current_time = boost::posix_time::second_clock::local_time();
+			service.reset();
+		}
+	}
+
 	void handle_user_read(const boost::system::error_code &error,
 						  const beep::message &msg,
 						  const unsigned int channel)
@@ -576,6 +635,15 @@ public:
 		last_error = error;
 		if (!error) {
 			user_read = true;
+			session_channel = channel;
+		}
+	}
+
+	void handle_channel_close(const boost::system::error_code &error,
+							  const unsigned int channel)
+	{
+		last_error = error;
+		if (!error) {
 			session_channel = channel;
 		}
 	}
@@ -622,6 +690,45 @@ TEST_F(SessionChannelListener, PeerClosesChannel)
 	okFrame.set_sequence(149);
 	okFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n<ok />");
 	EXPECT_EQ(okFrame, recvFrame);
+}
+
+TEST_F(SessionChannelListener, ClosesChannel)
+{
+	using boost::bind;
+	ASSERT_EQ(1u, session_channel);
+	listener.async_close_channel(session_channel,
+								 beep::reply_code::success,
+								 bind(&SessionChannelListener::handle_channel_close,
+									  this,
+									  _1, _2));
+	EXPECT_NO_THROW(run_event_loop_until_frame_received()); // Get the ok message
+
+	EXPECT_FALSE(last_error);
+	session_channel = 0;
+	std::istream stream(&buffer);
+	beep::frame recvFrame;
+	EXPECT_TRUE(stream >> recvFrame);
+
+	beep::frame closeFrame;
+	closeFrame.set_header(beep::frame::msg());
+	closeFrame.set_channel(0);
+	closeFrame.set_message(2);
+	closeFrame.set_more(false);
+	closeFrame.set_sequence(149);
+	closeFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n<close number=\"1\" code=\"200\" />");
+	EXPECT_EQ(closeFrame, recvFrame);
+
+	// The message number in ok_message must match the closeFrame
+	const std::string ok_message =
+		"RPY 0 2 . 0 44\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<ok />" // 6
+		"END\r\n";
+	boost::asio::write(socket, boost::asio::buffer(ok_message));
+
+	ASSERT_NO_THROW(run_event_loop_until_channel_ready());
+	EXPECT_EQ(1u, session_channel);
+	EXPECT_FALSE(last_error);
 }
 
 TEST_F(SessionChannelListener, AsyncRead)

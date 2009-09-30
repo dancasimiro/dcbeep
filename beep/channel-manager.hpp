@@ -573,6 +573,24 @@ public:
 		return number;
 	}
 
+	void close_channel(const unsigned int number, const reply_code::rc_enum rc,
+					   message &msg)
+	{
+		using std::ostringstream;
+		msg.set_mime(mime::beep_xml());
+		if (chnum_.erase(number)) {
+			msg.set_type(message::MSG);
+			cmp::close close;
+			close.set_number(number);
+			close.set_code(rc);
+			ostringstream strm;
+			strm << close;
+			msg.set_content(strm.str());
+		} else {
+			throw std::runtime_error("The requested channel was not in use.");
+		}
+	}
+
 	/// \return Accepted channel number, zero indicates an error
 	template <typename FwdIterator>
 	unsigned int accept_start(const message &start_msg,

@@ -239,6 +239,21 @@ public:
 	}
 
 	template <class Handler>
+	void async_close_channel(const unsigned int channel,
+							 const reply_code::rc_enum rc, Handler handler)
+	{
+		if (chman_.channel_in_use(channel)) {
+			message close;
+			chman_.close_channel(channel, rc, close);
+			const unsigned int msgno = send_tuning_message(close);
+			tuning_handler_.add(msgno, bind(handler, _1, channel));
+			remove_channel(channel);
+		} else {
+			throw std::runtime_error("the selected channel is not in use.");
+		}
+	}
+
+	template <class Handler>
 	void async_read(const unsigned int channel, Handler handler)
 	{
 		if (chman_.channel_in_use(channel)) {
@@ -385,6 +400,18 @@ private:
 			throw std::runtime_error("Invalid channel!");
 		}
 		return *i;
+	}
+
+	void remove_channel(const unsigned int chnum)
+	{
+		using std::find_if;
+		channel_container::iterator i =
+			find_if(channels_.begin(), channels_.end(),
+					detail::channel_number_matcher(chnum));
+		if (i == channels_.end()) {
+			throw std::runtime_error("Invalid channel!");
+		}
+		channels_.erase(i);
 	}
 
 	detail::wrapped_profile &get_profile(const std::string &uri)

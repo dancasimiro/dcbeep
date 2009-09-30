@@ -31,20 +31,28 @@ on_session_stopped(const beep::reply_code status,
 {
 	cout << "The session was stopped." << endl;
 }
-
-static void
-on_channel_closed(const beep::reply_code status,
-				  session &theSession, const beep::channel &info)
-{
-	cout << "The test channel was closed." << endl;
-	theSession.stop(on_session_stopped);
-}
 #endif
+static void
+on_channel_closed(const boost::system::error_code &error,
+				  const unsigned int channel,
+				  session_type &/*theSession*/)
+{
+	if (!error) {
+		cout << "The test channel (#" << channel << ") was closed." << endl;
+	} else {
+		cerr << "Failed to remove the channel." << endl;
+	}
+	//theSession.stop(on_session_stopped);
+}
+
 static void
 on_got_data(const boost::system::error_code &error,
 			const beep::message &msg,
-			const unsigned int channel)
+			const unsigned int channel,
+			session_type &theSession)
 {
+	using boost::bind;
+	using boost::ref;
 	if (!error) {
 		cout << "The initiator got " << msg.payload_size()
 			 << " bytes of application data on channel " << channel
@@ -58,11 +66,9 @@ on_got_data(const boost::system::error_code &error,
 	} else {
 		cerr << "Error receiving application data: " << error << "\n";
 	}
-#if 0
-	if (!theSession.remove_channel(theChannel, on_channel_closed)) {
-		cerr << "Failed to remove the channel." << endl;
-	}
-#endif
+	theSession.async_close_channel(channel, beep::reply_code::success,
+								   bind(on_channel_closed, _1, _2,
+										ref(theSession)));
 }
 
 static void
@@ -109,7 +115,7 @@ on_session_is_ready(const boost::system::error_code &error,
 										 bind(on_channel_created, _1, _2,
 											  ref(theSession)))) {
 			// associate a handler for new data on this channel
-			theSession.async_read(chNum, on_got_data);
+			theSession.async_read(chNum, bind(on_got_data, _1, _2, _3, ref(theSession)));
 			cout << "Requested a new channel (#" << chNum << ") in session "
 				 << theSession.id()
 				 << " with profile '"
