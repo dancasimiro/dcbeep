@@ -16,9 +16,9 @@ TEST(ChannelManager, Greeting)
 	beep::message greeting;
 	beep::profile tls;
 	tls.set_uri("http://iana.org/beep/TLS");
-	chman.get_greeting_message(&tls, &tls + 1, greeting);
+	chman.greeting_message(&tls, &tls + 1, greeting);
 	std::vector<beep::frame> frames;
-	EXPECT_EQ(1, beep::make_frames(greeting, chman.get_tuning_channel(),
+	EXPECT_EQ(1, beep::make_frames(greeting, chman.tuning_channel(),
 								   std::back_inserter(frames)));
 	ASSERT_EQ(1u, frames.size());
 
@@ -33,10 +33,10 @@ TEST(ChannelManager, Greeting)
 	strm << frames[0];
 	EXPECT_EQ(encoded_out, strm.str());
 
-	EXPECT_EQ(0u, chman.get_tuning_channel().number());
-	EXPECT_EQ(1u, chman.get_tuning_channel().message_number());
-	EXPECT_EQ(101u, chman.get_tuning_channel().sequence_number());
-	EXPECT_EQ(0u, chman.get_tuning_channel().answer_number());
+	EXPECT_EQ(0u, chman.tuning_channel().number());
+	EXPECT_EQ(1u, chman.tuning_channel().message_number());
+	EXPECT_EQ(101u, chman.tuning_channel().sequence_number());
+	EXPECT_EQ(0u, chman.tuning_channel().answer_number());
 }
 
 class TimedSessionBase : public testing::Test {

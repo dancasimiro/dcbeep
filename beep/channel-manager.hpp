@@ -143,10 +143,10 @@ public:
 	{
 	}
 
-	unsigned int get_number() const { return channel_; }
+	unsigned int number() const { return channel_; }
 	void set_number(const unsigned int c) { channel_ = c; }
 
-	const std::string &get_server_name() const { return server_; }
+	const std::string &server_name() const { return server_; }
 	void set_server_name(const std::string &n) { server_ = n; }
 
 	profile_const_iterator profiles_begin() const { return profiles_.begin(); }
@@ -405,9 +405,9 @@ operator<<(ostream &strm, const beep::cmp::start &start)
 {
 	if (strm) {
 		TiXmlElement root("start");
-		root.SetAttribute("number", start.get_number());
-		if (!start.get_server_name().empty()) {
-			root.SetAttribute("serverName", start.get_server_name());
+		root.SetAttribute("number", start.number());
+		if (!start.server_name().empty()) {
+			root.SetAttribute("serverName", start.server_name());
 		}
 		typedef beep::cmp::start::profile_const_iterator iterator;
 		for(iterator i = start.profiles_begin(); i != start.profiles_end(); ++i) {
@@ -502,11 +502,11 @@ public:
 		chnum_.insert(0u);
 	}
 
-	const channel &get_tuning_channel() const { return zero_; }
-	channel &get_tuning_channel() { return zero_; }
+	const channel &tuning_channel() const { return zero_; }
+	channel &tuning_channel() { return zero_; }
 
 	template <typename OutputIterator>
-	void get_profiles(const message &greeting_msg, OutputIterator out)
+	void copy_profiles(const message &greeting_msg, OutputIterator out)
 	{
 		using std::istringstream;
 		using std::transform;
@@ -522,8 +522,8 @@ public:
 
 	template <typename FwdIterator>
 	void
-	get_greeting_message(const FwdIterator first_profile, const FwdIterator last_profile,
-						 message &greeting_msg) const
+	greeting_message(const FwdIterator first_profile, const FwdIterator last_profile,
+					 message &greeting_msg) const
 	{
 		using std::ostringstream;
 
@@ -613,7 +613,7 @@ public:
 		ostringstream ostrm;
 		response.set_mime(mime::beep_xml());
 		if (strm >> start) {
-			channel = start.get_number();
+			channel = start.number();
 			bool match_profile = false;
 			if (chnum_.insert(channel).second) {
 				typedef cmp::start::profile_const_iterator const_iterator;

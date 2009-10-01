@@ -249,7 +249,7 @@ public:
 			chman_.close_channel(channel, rc, close);
 			const unsigned int msgno = send_tuning_message(close);
 			tuning_handler_.add(msgno, bind(handler, _1, channel));
-			if (channel != chman_.get_tuning_channel().number()) {
+			if (channel != chman_.tuning_channel().number()) {
 				remove_channel(channel);
 			}
 		} else {
@@ -324,7 +324,7 @@ private:
 			/// \todo handle messages that broken into multiple frames.
 			message msg; // todo make message from frame
 			make_message(&frm, &frm + 1, msg);
-			if (frm.channel() == chman_.get_tuning_channel().number()) {
+			if (frm.channel() == chman_.tuning_channel().number()) {
 				handle_tuning_frame(frm, msg);
 			} else {
 				handle_user_frame(frm, msg);
@@ -339,7 +339,7 @@ private:
 	{
 		using std::back_inserter;
 		if (msg.get_type() == message::rpy && cmp::is_greeting_message(msg)) {
-			chman_.get_profiles(msg, back_inserter(profiles_));
+			chman_.copy_profiles(msg, back_inserter(profiles_));
 			session_signal_(boost::system::error_code());
 		} else if (msg.get_type() == message::msg && cmp::is_start_message(msg)) {
 			message response;
@@ -378,7 +378,7 @@ private:
 	void start()
 	{
 		message greeting;
-		chman_.get_greeting_message(profiles_.begin(), profiles_.end(), greeting);
+		chman_.greeting_message(profiles_.begin(), profiles_.end(), greeting);
 		send_tuning_message(greeting);
 	}
 
@@ -457,7 +457,7 @@ private:
 
 	unsigned int send_tuning_message(const message &msg)
 	{
-		return send_message(msg, chman_.get_tuning_channel());
+		return send_message(msg, chman_.tuning_channel());
 	}
 
 	void close_transport(const boost::system::error_code &error)
