@@ -21,6 +21,7 @@
 #include "message.hpp"
 #include "channel.hpp"
 #include "profile.hpp"
+#include "profile-stream.hpp"
 #include "reply-code.hpp"
 
 #include "tinyxml.h"

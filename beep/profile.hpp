@@ -5,7 +5,6 @@
 #ifndef BEEP_PROFILE_HEAD
 #define BEEP_PROFILE_HEAD 1
 
-#include <istream>
 #include <string>
 #include "message.hpp"
 
@@ -53,17 +52,4 @@ bool operator==(const profile &lhs, const profile &rhs)
 }
 
 }      // namespace beep
-
-namespace std {
-
-ostream&
-operator<<(ostream &strm, const beep::profile &profile)
-{
-	if (strm) {
-		strm << profile.uri();
-	}
-	return strm;
-}
-
-}	   // namespace std
 #endif // BEEP_PROFILE_HEAD
