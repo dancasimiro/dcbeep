@@ -13,6 +13,7 @@
 
 namespace std {
 
+inline
 istream&
 operator>>(istream &strm, beep::mime &mm)
 {
@@ -31,6 +32,7 @@ operator>>(istream &strm, beep::mime &mm)
 	return strm;
 }
 
+inline
 ostream&
 operator<<(ostream &strm, const beep::mime &mm)
 {
@@ -44,6 +46,7 @@ operator<<(ostream &strm, const beep::mime &mm)
 	return strm;
 }
 
+inline
 istream&
 operator>>(istream &strm, beep::message &msg)
 {
@@ -64,6 +67,7 @@ operator>>(istream &strm, beep::message &msg)
 	return strm;
 }
 
+inline
 ostream&
 operator<<(ostream &strm, const beep::message &msg)
 {

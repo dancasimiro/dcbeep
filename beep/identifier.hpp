@@ -76,6 +76,7 @@ private:
 }      // namespace beep
 
 namespace std {
+inline
 ostream& operator<<(ostream &os, const beep::identifier &ident)
 {
 	if (os) {
@@ -91,6 +92,7 @@ ostream& operator<<(ostream &os, const beep::identifier &ident)
 	return os;
 }
 
+inline
 istream& operator>>(istream &is, beep::identifier &ident)
 {
 	if (is) {

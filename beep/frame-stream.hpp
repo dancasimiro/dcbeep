@@ -12,6 +12,7 @@
 
 namespace std {
 
+inline
 ostream&
 operator<<(ostream &stream, const beep::frame &aFrame)
 {
@@ -36,6 +37,7 @@ operator<<(ostream &stream, const beep::frame &aFrame)
 	return stream;
 }
 
+inline
 istream&
 operator>>(istream &stream, beep::frame &aFrame)
 {

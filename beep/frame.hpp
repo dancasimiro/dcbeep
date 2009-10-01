@@ -117,6 +117,7 @@ private:
 	char         continuation_;
 };     // class frame
 
+inline
 bool operator==(const frame &lhs, const frame &rhs)
 {
 	return lhs.header() == rhs.header() &&
