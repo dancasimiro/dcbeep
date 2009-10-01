@@ -39,10 +39,10 @@ TEST(Channel, UpdateProperties)
 	msg.set_content("Test");
 	ch.update(msg);
 
-	EXPECT_EQ(0u, ch.get_number());
-	EXPECT_EQ(1u, ch.get_message_number());
-	EXPECT_EQ(46u, ch.get_sequence_number());
-	EXPECT_EQ(0u, ch.get_answer_number());
+	EXPECT_EQ(0u, ch.number());
+	EXPECT_EQ(1u, ch.message_number());
+	EXPECT_EQ(46u, ch.sequence_number());
+	EXPECT_EQ(0u, ch.answer_number());
 }
 
 TEST(FrameGenerator, GetFrames)
@@ -73,10 +73,10 @@ TEST(FrameGenerator, GetFrames)
 	strm << frames[0];
 	EXPECT_EQ(encoded_out, strm.str());
 
-	EXPECT_EQ(0u, ch.get_number());
-	EXPECT_EQ(1u, ch.get_message_number());
-	EXPECT_EQ(120u, ch.get_sequence_number());
-	EXPECT_EQ(0u, ch.get_answer_number());
+	EXPECT_EQ(0u, ch.number());
+	EXPECT_EQ(1u, ch.message_number());
+	EXPECT_EQ(120u, ch.sequence_number());
+	EXPECT_EQ(0u, ch.answer_number());
 }
 
 int

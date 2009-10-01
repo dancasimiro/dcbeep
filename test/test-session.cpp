@@ -33,10 +33,10 @@ TEST(ChannelManager, Greeting)
 	strm << frames[0];
 	EXPECT_EQ(encoded_out, strm.str());
 
-	EXPECT_EQ(0u, chman.get_tuning_channel().get_number());
-	EXPECT_EQ(1u, chman.get_tuning_channel().get_message_number());
-	EXPECT_EQ(101u, chman.get_tuning_channel().get_sequence_number());
-	EXPECT_EQ(0u, chman.get_tuning_channel().get_answer_number());
+	EXPECT_EQ(0u, chman.get_tuning_channel().number());
+	EXPECT_EQ(1u, chman.get_tuning_channel().message_number());
+	EXPECT_EQ(101u, chman.get_tuning_channel().sequence_number());
+	EXPECT_EQ(0u, chman.get_tuning_channel().answer_number());
 }
 
 class TimedSessionBase : public testing::Test {
