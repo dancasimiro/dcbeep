@@ -153,19 +153,76 @@ enum frame_syntax_errors {
 	trailer_expected,
 };
 
-BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> unknown_header(unknown_header_type);
-BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_space(missing_space);
-BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_crlf(missing_crlf);
+template <typename ErrorT>
+struct frame_assertions {
+	typedef BOOST_SPIRIT_CLASSIC_NS::assertion<ErrorT> assertion_type;
 
-BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_channel(invalid_channel_number);
-BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_message(invalid_message_number);
-BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_more(invalid_more_character);
-BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_sequence(invalid_sequence_number);
-BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_size(invalid_size_number);
-BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_answer(invalid_answer_number);
+	static const assertion_type &unknown_header()
+	{
+		static const assertion_type a(unknown_header_type);
+		return a;
+	}
 
-BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_payload(payload_size_mismatch);
-BOOST_SPIRIT_CLASSIC_NS::assertion<frame_syntax_errors> expect_trailer(trailer_expected);
+	static const assertion_type &expect_space()
+	{
+		static const assertion_type a(missing_space);
+		return a;
+	}
+
+	static const assertion_type &expect_crlf()
+	{
+		static const assertion_type a(missing_crlf);
+		return a;
+	}
+
+	static const assertion_type &expect_channel()
+	{
+		static const assertion_type a(invalid_channel_number);
+		return a;
+	}
+
+	static const assertion_type &expect_message()
+	{
+		static const assertion_type a(invalid_message_number);
+		return a;
+	}
+
+	static const assertion_type &expect_more()
+	{
+		static const assertion_type a(invalid_more_character);
+		return a;
+	}
+
+	static const assertion_type &expect_sequence()
+	{
+		static const assertion_type a(invalid_sequence_number);
+		return a;
+	}
+
+	static const assertion_type &expect_size()
+	{
+		static const assertion_type a(invalid_size_number);
+		return a;
+	}
+
+	static const assertion_type &expect_answer()
+	{
+		static const assertion_type a(invalid_answer_number);
+		return a;
+	}
+
+	static const assertion_type &expect_payload()
+	{
+		static const assertion_type a(payload_size_mismatch);
+		return a;
+	}
+
+	static const assertion_type &expect_trailer()
+	{
+		static const assertion_type a(trailer_expected);
+		return a;
+	}
+};
 
 // Set Frame Header Actor
 struct set_frame_header_actor {
@@ -326,19 +383,20 @@ struct frame_syntax : public BOOST_SPIRIT_CLASSIC_NS::grammar<frame_syntax> {
 		{
 			using namespace BOOST_SPIRIT_CLASSIC_NS;
 			using boost::ref;
+			typedef frame_assertions<frame_syntax_errors> assert_type;
 
-			sp = expect_space(ch_p(' '));
-			crlf = expect_crlf(str_p("\r\n"));
+			sp = assert_type::expect_space()(ch_p(' '));
+			crlf = assert_type::expect_crlf()(str_p("\r\n"));
 
 			// The channel number ("channel") must be a non-negative integer (in the 
 			// range 0..2147483647).
-			channel = expect_channel(limit_d(0u, 2147483647u)[uint_p[set_frame_channel_a(self.f)]]);
+			channel = assert_type::expect_channel()(limit_d(0u, 2147483647u)[uint_p[set_frame_channel_a(self.f)]]);
 
 			// The message number ("msgno") must be a non-negative integer (in the 
 			// range 0..2147483647) and have a different value than all other "MSG" 
 			// messages on the same channel for which a reply has not been 
 			// completely received. 
-			msgno = expect_message(limit_d(0u, 2147483647u)[uint_p[set_frame_message_a(self.f)]]);
+			msgno = assert_type::expect_message()(limit_d(0u, 2147483647u)[uint_p[set_frame_message_a(self.f)]]);
 
 			// The continuation indicator ("more", one of: decimal code 42, "*", or 
 			// decimal code 46, ".") specifies whether this is the final frame of 
@@ -346,14 +404,14 @@ struct frame_syntax : public BOOST_SPIRIT_CLASSIC_NS::grammar<frame_syntax> {
 			//   intermediate ("*"): at least one other frame follows for the 
 			//   message; or, 
 			//  complete ("."): this frame completes the message. 
-			more = expect_more(ch_p('*')[set_frame_continuation_a(self.f)] |
-							   ch_p('.')[set_frame_continuation_a(self.f)]);
+			more = assert_type::expect_more()(ch_p('*')[set_frame_continuation_a(self.f)] |
+											  ch_p('.')[set_frame_continuation_a(self.f)]);
 
 			// The sequence number ("seqno") must be a non-negative integer (in the 
 			// range 0..4294967295) and specifies the sequence number of the first 
 			// octet in the payload, for the associated channel (c.f., Section 
 			// 2.2.1.2).
-			seqno = expect_sequence(limit_d(0u, 4294967295u)[uint_p[set_frame_sequence_a(self.f)]]);
+			seqno = assert_type::expect_sequence()(limit_d(0u, 4294967295u)[uint_p[set_frame_sequence_a(self.f)]]);
 
 			// The payload size ("size") must be a non-negative integer (in the 
 			// range 0..2147483647) and specifies the exact number of octets in the 
@@ -365,12 +423,12 @@ struct frame_syntax : public BOOST_SPIRIT_CLASSIC_NS::grammar<frame_syntax> {
 			//  S: END 
 			//  S: RPY 0 1 . 307 0 
 			//  S: END
-			size = expect_size(limit_d(0u, 2147483647u)[uint_p[assign_a(self.payload_size)]]);
+			size = assert_type::expect_size()(limit_d(0u, 2147483647u)[uint_p[assign_a(self.payload_size)]]);
 
 			// The answer number ("ansno") must be a non-negative integer (in the 
 			// range 0..4294967295) and must have a different value than all other 
 			// answers in progress for the message being replied to. 
-			ansno = expect_answer(limit_d(0u, 4294967295u)[uint_p[set_frame_answer_a(self.f)]]);
+			ansno = assert_type::expect_answer()(limit_d(0u, 4294967295u)[uint_p[set_frame_answer_a(self.f)]]);
 
 			common =
 				channel >> sp >>
@@ -401,7 +459,9 @@ struct frame_syntax : public BOOST_SPIRIT_CLASSIC_NS::grammar<frame_syntax> {
 
 			payload = repeat_p(ref(self.payload_size))[anychar_p][set_frame_payload_a(self.f)];
 			trailer = str_p("END\r\n");
-			top = unknown_header(supported_frame) >> expect_payload(payload) >> expect_trailer(trailer);
+			top = assert_type::unknown_header()(supported_frame)
+				>> assert_type::expect_payload()(payload)
+				>> assert_type::expect_trailer()(trailer);
 
             BOOST_SPIRIT_DEBUG_RULE(sp);
             BOOST_SPIRIT_DEBUG_RULE(crlf);
