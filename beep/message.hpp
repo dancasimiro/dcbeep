@@ -94,12 +94,12 @@ private:
 	}
 };     // class message
 
-bool operator==(const message &lhs, const message &rhs)
+inline bool operator==(const message &lhs, const message &rhs)
 {
 	return lhs.payload() == rhs.payload();
 }
 
-bool operator==(const mime &lhs, const mime &rhs)
+inline bool operator==(const mime &lhs, const mime &rhs)
 {
 	return lhs.content_type() == rhs.content_type();
 }
