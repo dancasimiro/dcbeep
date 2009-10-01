@@ -282,7 +282,7 @@ public:
 	void accept_from(const endpoint_type &ep)
 	{
 		acceptor_.open(ep.protocol());
-		acceptor_.set_option(typename stream_type::reuse_address(true));
+		acceptor_.set_option(typename stream_type::lowest_layer_type::reuse_address(true));
 		acceptor_.bind(ep);
 		acceptor_.listen(5);
 	}
