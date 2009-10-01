@@ -412,7 +412,7 @@ operator<<(ostream &strm, const beep::cmp::start &start)
 		typedef beep::cmp::start::profile_const_iterator iterator;
 		for(iterator i = start.profiles_begin(); i != start.profiles_end(); ++i) {
 			TiXmlElement aProfile("profile");
-			aProfile.SetAttribute("uri", i->get_uri());
+			aProfile.SetAttribute("uri", i->uri());
 			/// \todo Set the profile "encoding"
 			/// \todo Set the profile initialization content
 			TiXmlNode *result = root.InsertEndChild(aProfile);

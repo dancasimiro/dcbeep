@@ -28,7 +28,6 @@ public:
 
 	virtual ~profile() {}
 
-	const std::string &get_uri() const { return uri_; }
 	const std::string &uri() const { return uri_; }
 	void set_uri(const std::string &u) { uri_ = u; }
 
