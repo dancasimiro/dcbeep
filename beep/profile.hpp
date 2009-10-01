@@ -45,7 +45,7 @@ private:
 	bool        has_initiailizer_;
 };     // class profile
 
-bool operator==(const profile &lhs, const profile &rhs)
+inline bool operator==(const profile &lhs, const profile &rhs)
 {
 	return lhs.uri() == rhs.uri();
 }
