@@ -550,7 +550,6 @@ private:
 	void handle_accept(const boost::system::error_code &error, 
 					   const pimpl_type next, const identifier &id)
 	{
-		std::cerr << "handle_accept called with error: " << error << std::endl;
 		if (!error) {
 			next->start(error, id);
 			do_add_connection();
