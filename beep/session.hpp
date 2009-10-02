@@ -176,7 +176,6 @@ public:
 	basic_session(transport_service_reference ts)
 		: transport_(ts)
 		, id_()
-		, netchng_()
 		, frmsig_()
 		, chman_()
 		, profiles_()
@@ -185,16 +184,25 @@ public:
 		, user_handler_()
 		, session_signal_()
 	{
-		using boost::bind;
-		netchng_ =
-			transport_.install_network_handler(bind(&basic_session::handle_network_change,
-													this, _1, _2));
+	}
+
+	basic_session(transport_service_reference ts, const identifier &id)
+		: transport_(ts)
+		, id_(id)
+		, frmsig_()
+		, chman_()
+		, profiles_()
+		, channels_()
+		, tuning_handler_()
+		, user_handler_()
+		, session_signal_()
+	{
+		this->set_id(id);
 	}
 
 	~basic_session()
 	{
 		frmsig_.disconnect();
-		netchng_.disconnect();
 	}
 
 	template <class Handler>
@@ -209,6 +217,19 @@ public:
 	}
 
 	const identifier &id() const { return id_; }
+
+	/// Set the new identifier and associate this session with the transport
+	void set_id(const identifier &id)
+	{
+		using boost::bind;
+		frmsig_.disconnect();
+		id_ = id;
+		frmsig_ =
+			transport_.subscribe(id,
+								 bind(&basic_session::handle_frame,
+									  this, _1, _2));
+		start();
+	}
 
 	template <typename OutputIterator>
 	size_type available_profiles(OutputIterator out)
@@ -289,7 +310,6 @@ private:
 
 	transport_service_reference   transport_;
 	identifier                    id_;
-	signal_connection_t           netchng_;
 	signal_connection_t           frmsig_;
 
 	channel_manager               chman_;
@@ -300,23 +320,6 @@ private:
 	detail::handler_user_events   user_handler_;
 
 	session_signal_t              session_signal_;
-
-	void handle_network_change(const boost::system::error_code &error,
-							   const identifier &id)
-	{
-		if (!error) {
-			id_ = id;
-			frmsig_ =
-				transport_.subscribe(id,
-									 bind(&basic_session::handle_frame,
-										  this, _1, _2));
-			start();
-		} else {
-			// try to re-establish???
-			// report error?
-			// throw system_error?
-		}
-	}
 
 	void handle_frame(const boost::system::error_code &error, const frame &frm)
 	{
@@ -464,7 +467,6 @@ private:
 	{
 		if (!error) {
 			frmsig_.disconnect();
-			netchng_.disconnect();
 			transport_.close();
 		}
 	}

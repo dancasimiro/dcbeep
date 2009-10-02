@@ -128,6 +128,7 @@ public:
 		, acceptor(service)
 		, transport(service)
 		, initiator(transport)
+		, netchng()
 	{
 	}
 
@@ -139,6 +140,9 @@ public:
 		using boost::bind;
 
 		TimedSessionBase::SetUp();
+
+		netchng = transport.install_network_handler(bind(&SessionInitiator::handle_transport_connect,
+														 this, _1, _2));
 
 		tcp::endpoint ep(address::from_string("127.0.0.1"), 9999);
 		acceptor.open(ep.protocol());
@@ -159,6 +163,7 @@ public:
 
 	virtual void TearDown()
 	{
+		netchng.disconnect();
 		boost::system::error_code error;
 		acceptor.close(error);
 		TimedSessionBase::TearDown();
@@ -169,7 +174,9 @@ public:
 	boost::asio::ip::tcp::acceptor      acceptor;
 	transport_type                      transport;
 	beep::basic_session<transport_type> initiator;
+	boost::signals2::connection         netchng;
 
+private:
 	void handle_transport_service_connect(const boost::system::error_code &error)
 	{
 		last_error = error;
@@ -185,6 +192,15 @@ public:
 				"</greeting>\r\n"
 				"END\r\n";
 			boost::asio::write(socket, boost::asio::buffer(greeting));
+		}
+	}
+
+	void handle_transport_connect(const boost::system::error_code &error,
+								  const beep::identifier &id)
+	{
+		last_error = error;
+		if (!error) {
+			initiator.set_id(id);
 		}
 	}
 };
@@ -467,6 +483,7 @@ public:
 		: TimedSessionBase()
 		, transport(service)
 		, listener(transport)
+		, netchng()
 		, session_channel(0)
 		, user_message()
 	{
@@ -478,6 +495,7 @@ public:
 
 	transport_type                      transport;
 	beep::basic_session<transport_type> listener;
+	boost::signals2::connection         netchng;
 	unsigned int                        session_channel;
 	beep::message                       user_message;
 
@@ -490,6 +508,9 @@ public:
 
 		session_channel = 0;
 		user_message = beep::message();
+
+		netchng = transport.install_network_handler(bind(&SessionListener::handle_transport_connect,
+														 this, _1, _2));
 
 		beep::profile myProfile;
 		myProfile.set_uri("casimiro.daniel/test-profile");
@@ -509,6 +530,7 @@ public:
 
 	virtual void TearDown()
 	{
+		netchng.disconnect();
 		beep::shutdown_session(listener);
 		transport.close();
 		TimedSessionBase::TearDown();
@@ -527,6 +549,15 @@ public:
 				"<greeting />"
 				"END\r\n";
 			boost::asio::write(socket, boost::asio::buffer(greeting));
+		}
+	}
+
+	void handle_transport_connect(const boost::system::error_code &error,
+								  const beep::identifier &id)
+	{
+		last_error = error;
+		if (!error) {
+			listener.set_id(id);
 		}
 	}
 

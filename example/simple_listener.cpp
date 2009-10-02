@@ -54,6 +54,15 @@ handle_new_channel(const unsigned int channel,
 	theSession.async_read(channel, handle_channel_data);
 }
 
+static void handle_new_connection(const boost::system::error_code &error,
+								  const beep::identifier &id,
+								  session_type &session)
+{
+	if (!error) {
+		session.set_id(id);
+	}
+}
+
 int
 main(int /*argc*/, char **/*argv*/)
 {
@@ -65,6 +74,9 @@ main(int /*argc*/, char **/*argv*/)
 		//solo_tcp_listener transport(service, ip::tcp::endpoint(ip::tcp::v4(), 12345));
 		solo_tcp_listener transport(service);
 		session_type session(transport);
+
+		transport.install_network_handler(bind(handle_new_connection,
+											   _1, _2, ref(session)));
 
 		beep::profile myProfile;
 		myProfile.set_uri("http://test/profile/usage");

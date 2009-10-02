@@ -70,9 +70,11 @@ on_channel_created(const boost::system::error_code &error,
 static void
 on_network_is_ready(const boost::system::error_code &error,
 					const beep::identifier &id,
-					session_type &/*theSession*/)
+					session_type &theSession)
 {
-	if (error) {
+	if (!error) {
+		theSession.set_id(id);
+	} else {
 		cerr << "The " << id << " connection failed on: " << error << endl;
 		/// \todo close the session
 	}
