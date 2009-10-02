@@ -393,6 +393,7 @@ private:
 			boost::system::error_code message_error;
 			tuning_handler_.execute(frm.message(), message_error);
 		} else if (msg.get_type() == message::rpy && cmp::is_error_message(msg)) {
+		} else if (msg.get_type() == message::err) {
 		} else {
 			/// \todo handle other frame types
 			assert(false);
