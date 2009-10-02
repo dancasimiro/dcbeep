@@ -458,11 +458,12 @@ public:
 		}
 		swap(current_, next);
 		id_ = this->add_connection(current_);
-		current_->get_stream().async_connect(ep,
-											 bind(&impl_type::start,
-												  current_,
-												  placeholders::error,
-												  id_));
+		current_->get_stream().lowest_layer()
+			.async_connect(ep,
+						   bind(&impl_type::start,
+								current_,
+								placeholders::error,
+								id_));
 	}
 private:
 	typedef typename super_type::impl_type  impl_type;
