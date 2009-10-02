@@ -106,14 +106,14 @@ public:
 };     // class handler_tuning_events
 
 class handler_user_events
-	: public basic_event_handler<boost::function<void (const error_code&, const message&, unsigned)> > {
+	: public basic_event_handler<boost::function<void (const error_code&, const message&)> > {
 public:
 	virtual ~handler_user_events() {}
 
 	void execute(const key_type channel, const error_code &error, const message &msg)
 	{
 		iterator i = get_callback(channel);
-		i->second(error, msg, channel);
+		i->second(error, msg);
 		remove_callback(i);
 	}
 };     // class handler_user_events
@@ -281,8 +281,9 @@ public:
 	template <class Handler>
 	void async_read(const unsigned int channel, Handler handler)
 	{
+		using boost::bind;
 		if (chman_.channel_in_use(channel)) {
-			user_handler_.add(channel, handler);
+			user_handler_.add(channel, bind(handler, _1, _2, channel));
 		} else {
 			throw std::runtime_error("the selected channel is not in use.");
 		}
