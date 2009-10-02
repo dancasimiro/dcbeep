@@ -342,12 +342,22 @@ private:
 	{
 		if (!error) {
 			/// \todo handle messages that broken into multiple frames.
-			message msg; // todo make message from frame
-			make_message(&frm, &frm + 1, msg);
-			if (frm.channel() == chman_.tuning_channel().number()) {
-				handle_tuning_frame(frm, msg);
-			} else {
-				handle_user_frame(frm, msg);
+			try {
+				message msg;
+				make_message(&frm, &frm + 1, msg);
+				if (frm.channel() == chman_.tuning_channel().number()) {
+					handle_tuning_frame(frm, msg);
+				} else {
+					handle_user_frame(frm, msg);
+				}
+			} catch (const std::exception &ex) {
+				/// \todo handle the error condition!
+				/// \todo Check if this is the right error condition.
+				///       Maybe I should close the channel?
+				message msg;
+				msg.set_type(message::err);
+				/// \todo set the proper error content
+				send_tuning_message(msg);
 			}
 		} else {
 			/// \todo handle the error condition!
