@@ -48,6 +48,7 @@ const std::string &operator()(const std::pair<const std::string, profile> &in) c
 }
 };
 
+inline
 profile uri_to_profile(const std::string &uri)
 {
 	profile p;
@@ -55,6 +56,7 @@ profile uri_to_profile(const std::string &uri)
 	return p;
 }
 
+inline
 bool message_has_element_named(const message &msg, const std::string &name)
 {
 	bool is = false;
@@ -74,26 +76,31 @@ bool message_has_element_named(const message &msg, const std::string &name)
 
 }      // namespace detail
 
+inline
 bool is_greeting_message(const message &msg)
 {
 	return detail::message_has_element_named(msg, "greeting");
 }
 
+inline
 bool is_start_message(const message &msg)
 {
 	return detail::message_has_element_named(msg, "start");
 }
 
+inline
 bool is_close_message(const message &msg)
 {
 	return detail::message_has_element_named(msg, "close");
 }
 
+inline
 bool is_ok_message(const message &msg)
 {
 	return detail::message_has_element_named(msg, "ok");
 }
 
+inline
 bool is_error_message(const message &msg)
 {
 	return detail::message_has_element_named(msg, "error");
@@ -363,6 +370,7 @@ private:
 namespace std {
 
 // for now, always use tinyxml to encode the greeting
+inline
 ostream&
 operator<<(ostream &strm, const beep::cmp::greeting &protocol)
 {
@@ -386,6 +394,7 @@ operator<<(ostream &strm, const beep::cmp::greeting &protocol)
 	return strm;
 }
 
+inline
 istream&
 operator>>(istream &strm, beep::cmp::greeting &protocol)
 {
@@ -400,6 +409,7 @@ operator>>(istream &strm, beep::cmp::greeting &protocol)
 	return strm;
 }
 
+inline
 ostream&
 operator<<(ostream &strm, const beep::cmp::start &start)
 {
@@ -426,6 +436,7 @@ operator<<(ostream &strm, const beep::cmp::start &start)
 	return strm;
 }
 
+inline
 istream&
 operator>>(istream &strm, beep::cmp::start &start)
 {
@@ -440,6 +451,7 @@ operator>>(istream &strm, beep::cmp::start &start)
 	return strm;
 }
 
+inline
 ostream&
 operator<<(ostream &strm, const beep::cmp::close &close)
 {
@@ -452,6 +464,7 @@ operator<<(ostream &strm, const beep::cmp::close &close)
 	return strm;
 }
 
+inline
 istream&
 operator>>(istream &strm, beep::cmp::close &close)
 {
@@ -466,6 +479,7 @@ operator>>(istream &strm, beep::cmp::close &close)
 	return strm;
 }
 
+inline
 ostream&
 operator<<(ostream &strm, const beep::cmp::ok&)
 {
@@ -475,6 +489,7 @@ operator<<(ostream &strm, const beep::cmp::ok&)
 	return strm;
 }
 
+inline
 ostream&
 operator<<(ostream &strm, const beep::cmp::error &error)
 {
