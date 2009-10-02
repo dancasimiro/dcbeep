@@ -68,7 +68,6 @@ public:
 	{
 		callbacks_[num] = cb;
 	}
-
 protected:
 	typedef std::map<key_type, function_type>     callback_container;
 	typedef typename callback_container::iterator iterator;
@@ -77,7 +76,10 @@ protected:
 	{
 		const iterator i = callbacks_.find(num);
 		if (i == callbacks_.end()) {
-			throw std::runtime_error("Invalid callback number");
+			using std::ostringstream;
+			ostringstream strm;
+			strm << num << " is an invalid " << descr() << " callback number.";
+			throw std::runtime_error(strm.str());
 		}
 		return i;
 	}
@@ -88,6 +90,8 @@ protected:
 	}
 private:
 	callback_container callbacks_;
+
+	virtual const std::string &descr() const = 0;
 };
 
 typedef boost::system::error_code error_code;
@@ -103,6 +107,12 @@ public:
 		i->second(error);
 		remove_callback(i);
 	}
+private:
+	virtual const std::string &descr() const
+	{
+		static const std::string d("tuning");
+		return d;
+	}
 };     // class handler_tuning_events
 
 class handler_user_events
@@ -115,6 +125,12 @@ public:
 		iterator i = get_callback(channel);
 		i->second(error, msg);
 		remove_callback(i);
+	}
+private:
+	virtual const std::string &descr() const
+	{
+		static const std::string d("user");
+		return d;
 	}
 };     // class handler_user_events
 
