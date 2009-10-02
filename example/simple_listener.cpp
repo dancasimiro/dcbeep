@@ -28,18 +28,6 @@ handle_channel_data(const boost::system::error_code &error,
 }
 
 static void
-on_sent_channel_init(const boost::system::error_code &error,
-					 const unsigned int channel)
-{
-	if (!error) {
-		cout << "The channel #" << channel
-			 << " initialization message was transmitted." << endl;
-	} else {
-		cerr << "could not send any data: " << error << endl;
-	}
-}
-
-static void
 handle_new_channel(const unsigned int channel,
 				   const beep::message &init,
 				   session_type &theSession)
@@ -50,7 +38,7 @@ handle_new_channel(const unsigned int channel,
 	cout << "The peer sent " << init << " as initialization." << endl;
 	beep::message msg;
 	msg.set_content("new-channel-payload");
-	theSession.async_write(channel, msg, on_sent_channel_init);
+	theSession.send(channel, msg);
 	theSession.async_read(channel, handle_channel_data);
 }
 

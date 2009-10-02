@@ -302,17 +302,10 @@ public:
 		}
 	}
 
-	template <class Handler>
-	void async_write(const unsigned int channel, const message &msg,
-					 Handler handler)
+	void send(const unsigned int channel, const message &msg)
 	{
 		if (chman_.channel_in_use(channel)) {
 			send_message(msg, get_channel(channel));
-			/// send_message serializes the message into the write stream.
-			/// It will be written to the peer later...
-			/// In any case, tell the client that the memory for message
-			/// can be freed.
-			handler(boost::system::error_code(), channel);
 		} else {
 			throw std::runtime_error("the selected channel is not in use.");
 		}

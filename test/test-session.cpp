@@ -319,16 +319,6 @@ public:
 		}
 	}
 
-	void handle_initiator_write(const boost::system::error_code &error,
-								const unsigned int channel)
-	{
-		last_error = error;
-		if (!error) {
-			user_read = true;
-			session_channel = channel;
-		}
-	}
-
 	void handle_channel_close(const boost::system::error_code &error,
 							  const unsigned int channel)
 	{
@@ -455,11 +445,8 @@ TEST_F(SessionChannelInitiator, AsyncWrite)
 	beep::message msg;
 	msg.set_content("Test Payload");
 
-	initiator.async_write(session_channel, msg, 
-						  bind(&SessionChannelInitiator::handle_initiator_write,
-							   this, _1, _2));
+	initiator.send(session_channel, msg);
 	ASSERT_NO_THROW(run_event_loop_until_frame_received());
-	EXPECT_TRUE(user_read);
 	EXPECT_FALSE(last_error);
 	EXPECT_EQ(1u, session_channel);
 
@@ -662,16 +649,6 @@ public:
 		}
 	}
 
-	void handle_listener_write(const boost::system::error_code &error,
-							   const unsigned int channel)
-	{
-		last_error = error;
-		if (!error) {
-			user_read = true;
-			session_channel = channel;
-		}
-	}
-
 	void handle_channel_close(const boost::system::error_code &error,
 							  const unsigned int channel)
 	{
@@ -788,11 +765,8 @@ TEST_F(SessionChannelListener, AsyncWrite)
 	beep::message msg;
 	msg.set_content("Test Payload");
 
-	listener.async_write(session_channel, msg, 
-						 bind(&SessionChannelListener::handle_listener_write,
-							  this, _1, _2));
+	listener.send(session_channel, msg);
 	ASSERT_NO_THROW(run_event_loop_until_frame_received());
-	EXPECT_TRUE(user_read);
 	EXPECT_FALSE(last_error);
 	EXPECT_EQ(1u, session_channel);
 
