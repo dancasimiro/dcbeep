@@ -25,9 +25,6 @@
 #include "profile.hpp"
 
 namespace beep {
-
-template <class U> class basic_session;
-
 namespace detail {
 
 struct profile_uri_matcher : public std::unary_function<bool, profile> {
