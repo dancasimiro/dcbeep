@@ -51,18 +51,39 @@ istream&
 operator>>(istream &strm, beep::message &msg)
 {
 	if (strm) {
-		string line;
-		string final_content;
-		while (getline(strm, line)) {
-			istringstream lstrm(line);
-			beep::mime myMime;
-			if (lstrm >> myMime) {
-				msg.set_mime(myMime);
-			} else {
-				final_content += line;
+		string line, mime_content;
+		bool read_all_mime = false;
+		bool missing_mime = false;
+		// Try to read a MIME header from the input stream
+		while (!read_all_mime && getline(strm, line)) {
+			mime_content += line;
+			if (line == "\r") {
+				read_all_mime = true;
+				istringstream lstrm(mime_content);
+				beep::mime myMime;
+				if (lstrm >> myMime) {
+					msg.set_mime(myMime);
+				} else {
+					missing_mime = true;
+				}
 			}
 		}
-		msg.set_content(final_content);
+		// Try to recover if there was no MIME found.
+		/// Try to set the message content to to the original value
+		if ((!read_all_mime && strm.eof()) || missing_mime) {
+			msg.set_content(mime_content);
+			strm.setstate(ios::goodbit);
+		} else if (strm) {
+			/// Set the message content to the rest of the stream.
+			vector<char> buffer(8192, '\0');
+			streamsize total = 0;
+			while (streamsize n = strm.readsome(&buffer[total], buffer.size() - total)) {
+				total += n;
+				buffer.resize(buffer.size() * 2, '\0');
+			}
+			buffer.resize(total);
+			msg.set_content(std::string(buffer.begin(), buffer.end()));
+		}
 	}
 	return strm;
 }

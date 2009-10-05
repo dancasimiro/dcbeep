@@ -437,6 +437,7 @@ TEST_F(SessionChannelInitiator, AsyncRead)
 	beep::message expected;
 	expected.set_content("Test Payload");
 	EXPECT_EQ(expected, user_message);
+	EXPECT_EQ(expected.content(), user_message.content());
 }
 
 TEST_F(SessionChannelInitiator, AsyncWrite)

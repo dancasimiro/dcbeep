@@ -12,6 +12,7 @@
 #include "beep/frame.hpp"
 #include "beep/frame-generator.hpp"
 #include "beep/frame-stream.hpp"
+#include "beep/message-stream.hpp"
 
 TEST(Message, ContentSetting)
 {
@@ -30,6 +31,43 @@ TEST(Message, ChangeMIME)
 	msg.set_mime(mime);
 	EXPECT_EQ("Content-Type: application/beep+xml\r\n\r\nTest", msg.payload());
 	EXPECT_EQ(42u, msg.payload_size());
+}
+
+TEST(Message, TextStreamInsertion)
+{
+	std::istringstream stream("Content-Type: application/beep+xml\r\n\r\nTest-Content");
+	beep::message msg;
+	EXPECT_TRUE(stream >> msg);
+	EXPECT_EQ("Content-Type: application/beep+xml", msg.get_mime().content_type());
+	EXPECT_EQ("Test-Content", msg.content());
+}
+
+TEST(Message, TextStreamInsertionWithMissingMIME)
+{
+	std::istringstream stream("Test-Content");
+	beep::message msg;
+	EXPECT_FALSE(stream >> msg);
+	EXPECT_TRUE(stream.eof());
+	EXPECT_EQ("Content-Type: application/octet-stream", msg.get_mime().content_type());
+	EXPECT_EQ("Test-Content", msg.content());
+}
+
+TEST(Message, BinaryStreamInsertion)
+{
+	const int aNumber = 9;
+	std::ostringstream ostream;
+	ostream << "content-type: application/octet-stream\r\n\r\n";
+	EXPECT_TRUE(ostream.write(reinterpret_cast<const char*>(&aNumber), sizeof(int)));
+
+	std::istringstream stream(ostream.str());
+	beep::message msg;
+	EXPECT_TRUE(stream >> msg);
+
+	EXPECT_EQ("Content-Type: application/octet-stream", msg.get_mime().content_type());
+	std::istringstream is(msg.content());
+	int myNumber;
+	EXPECT_TRUE(is.read(reinterpret_cast<char*>(&myNumber), sizeof(int)));
+	EXPECT_EQ(9, myNumber);
 }
 
 TEST(Channel, UpdateProperties)
