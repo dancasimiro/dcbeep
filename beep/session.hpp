@@ -368,15 +368,20 @@ private:
 		} else if (msg.get_type() == message::msg && cmp::is_start_message(msg)) {
 			message response;
 			profile acceptedProfile;
+			// send_tuning_message is in both branches because I want to send
+			// "OK" message before I execute the profile handler and
+			// _possibly_ send channel data.
 			if (const unsigned int chnum =
 				chman_.accept_start(msg, profiles_.begin(), profiles_.end(),
 									acceptedProfile, response)) {
 				channels_.push_back(channel(chnum));
+				send_tuning_message(response);
 				detail::wrapped_profile &myProfile =
 					get_profile(acceptedProfile.uri());
 				myProfile.execute(chnum, acceptedProfile.initial_message());
+			} else {
+				send_tuning_message(response);
 			}
-			send_tuning_message(response);
 		} else if (msg.get_type() == message::msg && cmp::is_close_message(msg)) {
 			message response;
 			if (chman_.close_channel(msg, response)) {
