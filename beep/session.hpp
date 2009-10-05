@@ -346,7 +346,11 @@ private:
 				///       Maybe I should close the channel?
 				message msg;
 				msg.set_type(message::err);
-				/// \todo set the proper error content
+				cmp::error myError(reply_code::requested_action_aborted,
+								   ex.what());
+				std::ostringstream strm;
+				strm << myError;
+				msg.set_content(strm.str());
 				send_tuning_message(msg);
 			}
 		} else {
