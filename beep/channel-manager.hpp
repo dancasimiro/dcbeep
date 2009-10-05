@@ -728,6 +728,8 @@ private:
 			number = *chnum_.rbegin();
 			if (!number) {
 				number = get_first_number(r);
+			} else {
+				number += 2;
 			}
 		}
 		return number;
