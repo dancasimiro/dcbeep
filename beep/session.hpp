@@ -8,6 +8,7 @@
 #include <vector>
 #include <iterator>
 #include <stdexcept>
+#include <cassert>
 
 #include <boost/noncopyable.hpp>
 #include <boost/bind.hpp>
@@ -63,6 +64,7 @@ public:
 
 	void add(const key_type num, function_type cb)
 	{
+		assert(callbacks_.find(num) == callbacks_.end());
 		callbacks_[num] = cb;
 	}
 protected:
@@ -100,9 +102,13 @@ public:
 
 	void execute(const key_type num, const error_code &error)
 	{
-		iterator i = get_callback(num);
-		i->second(error);
+		const iterator i = get_callback(num);
+		/// copy the callback and then remove it from the list
+		/// The callback may add a new callback for this channel.
+		const function_type cb = i->second;
 		remove_callback(i);
+		/// Now, invoke the callback
+		cb(error);
 	}
 private:
 	virtual const std::string &descr() const
@@ -119,9 +125,12 @@ public:
 
 	void execute(const key_type channel, const error_code &error, const message &msg)
 	{
-		iterator i = get_callback(channel);
-		i->second(error, msg);
+		const iterator i = get_callback(channel);
+		/// copy the callback and then remove it from the list
+		/// The callback may add a new callback for this channel.
+		const function_type cb = i->second;
 		remove_callback(i);
+		cb(error, msg);
 	}
 private:
 	virtual const std::string &descr() const
