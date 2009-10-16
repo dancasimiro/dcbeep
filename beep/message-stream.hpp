@@ -79,10 +79,12 @@ operator>>(istream &strm, beep::message &msg)
 			streamsize total = 0;
 			while (streamsize n = strm.readsome(&buffer[total], buffer.size() - total)) {
 				total += n;
-				buffer.resize(buffer.size() * 2, '\0');
+				if (total == buffer.size()) {
+					buffer.resize(buffer.size() * 2, '\0');
+				}
 			}
 			buffer.resize(total);
-			msg.set_content(std::string(buffer.begin(), buffer.end()));
+			msg.set_content(string(buffer.begin(), buffer.end()));
 		}
 	}
 	return strm;
