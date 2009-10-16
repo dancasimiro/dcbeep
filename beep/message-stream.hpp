@@ -75,7 +75,7 @@ operator>>(istream &strm, beep::message &msg)
 			strm.setstate(ios::goodbit);
 		} else if (strm) {
 			/// Set the message content to the rest of the stream.
-			vector<char> buffer(8192, '\0');
+			vector<char> buffer(4096, '\0');
 			streamsize total = 0;
 			while (streamsize n = strm.readsome(&buffer[total], buffer.size() - total)) {
 				total += n;
