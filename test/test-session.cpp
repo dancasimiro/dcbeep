@@ -39,6 +39,44 @@ TEST(ChannelManager, Greeting)
 	EXPECT_EQ(0u, chman.tuning_channel().answer_number());
 }
 
+TEST(ChannelManager, GreetingWithMultipleProfiles)
+{
+	beep::channel_manager chman;
+	beep::message greeting;
+	std::vector<beep::profile> myProfiles;
+	{
+		beep::profile tls;
+		tls.set_uri("http://iana.org/beep/TLS");
+		myProfiles.push_back(tls);
+
+		beep::profile tla;
+		tla.set_uri("http://iana.org/beep/TLA");
+		myProfiles.push_back(tla);
+	}
+		
+	chman.greeting_message(myProfiles.begin(), myProfiles.end(), greeting);
+	std::vector<beep::frame> frames;
+	EXPECT_EQ(1, beep::make_frames(greeting, chman.tuning_channel(),
+								   std::back_inserter(frames)));
+	ASSERT_EQ(1u, frames.size());
+
+	const std::string encoded_out =
+		"RPY 0 0 . 0 143\r\n"
+		"Content-Type: application/beep+xml\r\n"
+		"\r\n"
+		"<greeting><profile uri=\"http://iana.org/beep/TLS\" /><profile uri=\"http://iana.org/beep/TLA\" /></greeting>"
+		"END\r\n"
+		;
+	std::ostringstream strm;
+	strm << frames[0];
+	EXPECT_EQ(encoded_out, strm.str());
+
+	EXPECT_EQ(0u, chman.tuning_channel().number());
+	EXPECT_EQ(1u, chman.tuning_channel().message_number());
+	EXPECT_EQ(143u, chman.tuning_channel().sequence_number());
+	EXPECT_EQ(0u, chman.tuning_channel().answer_number());
+}
+
 class TimedSessionBase : public testing::Test {
 public:
 	TimedSessionBase()
