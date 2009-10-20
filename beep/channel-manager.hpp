@@ -260,6 +260,55 @@ private:
 	std::string                 descr_;
 };
 
+class XmlErrorVisitor : public TiXmlVisitor {
+public:
+	XmlErrorVisitor(error &e) : error_(e) {}
+	virtual ~XmlErrorVisitor() {}
+
+	virtual bool VisitEnter(const TiXmlDocument &doc)
+	{
+		if (const TiXmlElement *element = doc.RootElement()) {
+			return ("error" == element->ValueStr());
+		}
+		return false;
+	}
+
+	virtual bool VisitEnter(const TiXmlElement &element, const TiXmlAttribute *attribute)
+	{
+		using std::istringstream;
+		using namespace beep::reply_code;
+		if ("error" == element.ValueStr()) {
+			for (; attribute; attribute = attribute->Next()) {
+				if (std::string("code") == attribute->Name()) {
+					const int raw_rc = attribute->IntValue();
+					assert(raw_rc == success ||
+						   raw_rc == service_not_available ||
+						   raw_rc == requested_action_not_taken ||
+						   raw_rc == requested_action_aborted ||
+						   raw_rc == temporary_authentication_failure ||
+						   raw_rc == general_syntax_error ||
+						   raw_rc == syntax_error_in_parameters ||
+						   raw_rc == parameter_not_implemented ||
+						   raw_rc == authentication_required ||
+						   raw_rc == authentication_mechanism_insufficient ||
+						   raw_rc == authentication_failure ||
+						   raw_rc == action_not_authorized_for_user ||
+						   raw_rc == authentication_mechanism_requires_encryption ||
+						   raw_rc == requested_action_not_accepted ||
+						   raw_rc == parameter_invalid ||
+						   raw_rc == transaction_failed);
+					error_.set_code(static_cast<rc_enum>(raw_rc));
+				}
+			}
+			error_.set_description(element.GetText());
+		}
+		return true;
+	}
+private:
+	error &error_;
+
+};     // class XmlErrorVisitor
+
 class XmlGreetingVisitor : public TiXmlVisitor {
 public:
 	XmlGreetingVisitor(greeting &g) : greeting_(g) {}
@@ -503,9 +552,45 @@ operator<<(ostream &strm, const beep::cmp::error &error)
 	return strm;
 }
 
+inline
+istream&
+operator>>(istream &strm, beep::cmp::error &error)
+{
+	if (strm) {
+		TiXmlDocument doc;
+		strm >> doc;
+		beep::cmp::XmlErrorVisitor visitor(error);
+		if (!doc.Accept(&visitor)) {
+			strm.setstate(ios::badbit);
+		}
+	}
+	return strm;
+}
+
 }      // namespace std
 
 namespace beep {
+
+boost::system::system_error
+make_error(const message &msg)
+{
+	using std::runtime_error;
+	using std::istringstream;
+	using boost::system::error_code;
+	using boost::system::system_error;
+
+	if (msg.get_type() != message::err) {
+		throw runtime_error("An error code cannot be created from the given message.");
+	}
+	cmp::error myError;
+	istringstream strm(msg.content());
+	if (strm >> myError) {
+		const error_code ec(myError.code(), beep::beep_category);
+		return system_error(ec, myError.description());
+	} else {
+		throw runtime_error("could not decode the error message.");
+	}
+}
 
 class channel_manager {
 public:
