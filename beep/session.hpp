@@ -400,10 +400,14 @@ private:
 		} else if (msg.get_type() == message::rpy && cmp::is_ok_message(msg)) {
 			boost::system::error_code message_error;
 			tuning_handler_.execute(frm.message(), message_error);
-		} else if (msg.get_type() == message::rpy && cmp::is_error_message(msg)) {
 		} else if (msg.get_type() == message::err) {
+			const boost::system::system_error error = make_error(msg);
+			/// \todo log the error description (error.what())
+			/// \todo should I throw the system_error error here?
+			tuning_handler_.execute(frm.channel(), error.code());
 		} else {
 			/// \todo handle other frame types
+			std::cerr << "there was an unexpected message type:  " << msg.get_type() << std::endl;
 			assert(false);
 		}
 	}
