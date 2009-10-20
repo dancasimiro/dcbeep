@@ -363,8 +363,8 @@ private:
 				send_tuning_message(msg);
 			}
 		} else {
-			/// \todo handle the error condition!
 			frmsig_.disconnect();
+			session_signal_(error);
 		}
 	}
 
