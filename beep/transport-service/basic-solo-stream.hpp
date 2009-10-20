@@ -147,6 +147,13 @@ public:
 
 	void start(const boost::system::error_code &error, const identifier &id)
 	{
+		/// Reset all of the streambuf objects
+		fwsb_->consume(fwsb_->size());
+		bwsb_->consume(bwsb_->size());
+		rsb_.consume(rsb_.size());
+		assert(fwsb_->size() == 0);
+		assert(bwsb_->size() == 0);
+		assert(rsb_.size() == 0);
 		net_changed_(boost::system::error_code(), id);
 		if (!error) {
 			do_start_read();
