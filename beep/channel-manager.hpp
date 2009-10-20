@@ -571,6 +571,7 @@ operator>>(istream &strm, beep::cmp::error &error)
 
 namespace beep {
 
+inline
 boost::system::system_error
 make_error(const message &msg)
 {
