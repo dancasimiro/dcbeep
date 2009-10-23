@@ -79,7 +79,7 @@ operator>>(istream &strm, beep::message &msg)
 			streamsize total = 0;
 			while (streamsize n = strm.readsome(&buffer[total], buffer.size() - total)) {
 				total += n;
-				if (total == buffer.size()) {
+				if (static_cast<vector<char>::size_type>(total) == buffer.size()) {
 					buffer.resize(buffer.size() * 2, '\0');
 				}
 			}
