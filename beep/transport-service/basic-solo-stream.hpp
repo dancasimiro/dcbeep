@@ -154,7 +154,7 @@ public:
 		assert(fwsb_->size() == 0);
 		assert(bwsb_->size() == 0);
 		assert(rsb_.size() == 0);
-		net_changed_(boost::system::error_code(), id);
+		net_changed_(error, id);
 		if (!error) {
 			do_start_read();
 		}
