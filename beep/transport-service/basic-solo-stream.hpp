@@ -194,7 +194,7 @@ private:
 
 	void do_send_if_possible()
 	{
-		if (fwsb_->size() == 0 && stream_.lowest_layer().is_open()) {
+		if (fwsb_->size() == 0 && stream_.lowest_layer().is_open() && bwsb_->size() > 0) {
 			do_send();
 		}
 	}
