@@ -176,10 +176,14 @@ private:
 
 	void set_error(const boost::system::error_code &error)
 	{
-		stream_.close();
+		boost::system::error_code close_error;
+		stream_.close(close_error);
 		fwsb_->consume(fwsb_->size());
 		bwsb_->consume(bwsb_->size());
 		signal_frame_(error, beep::frame());
+		if (close_error) {
+			signal_frame_(close_error, beep::frame());
+		}
 	}
 
 	void serialize_frame(const frame &frame)
