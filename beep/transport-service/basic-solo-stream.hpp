@@ -267,8 +267,7 @@ public:
 
 	typedef boost::signals2::connection           signal_connection_t;
 	typedef boost::signals2::signal<void (const boost::system::error_code&,
-										  const connection_pointer,
-										  const identifier&)> accept_signal_t;
+										  const connection_pointer)> accept_signal_t;
 
 	acceptor_impl(const service_reference svc)
 		: acceptor_(svc)
@@ -294,24 +293,23 @@ public:
 		acceptor_.listen(5);
 	}
 
-	void async_accept(const connection_pointer ptr, const identifier &id)
+	void async_accept(const connection_pointer ptr)
 	{
 		using boost::bind;
 		acceptor_.async_accept(ptr->get_stream().lowest_layer(),
 							   bind(&acceptor_impl::handle_accept,
 									this->shared_from_this(),
 									boost::asio::placeholders::error,
-									ptr, id));
+									ptr));
 	}
 private:
 	acceptor_type   acceptor_;
 	accept_signal_t signal_;
 
 	void handle_accept(const boost::system::error_code &error,
-					   const connection_pointer ptr,
-					   const identifier &id)
+					   const connection_pointer ptr)
 	{
-		signal_(error, ptr, id);
+		signal_(error, ptr);
 	}
 };
 
@@ -505,7 +503,7 @@ public:
 		using boost::bind;
 		conn_ =
 			pimpl_->subscribe(bind(&basic_solo_stream_listener::handle_accept,
-								   this, _1, _2, _3));
+								   this, _1, _2));
 	}
 
 	basic_solo_stream_listener(service_reference svc, const endpoint_type &ep)
@@ -516,7 +514,7 @@ public:
 		using boost::bind;
 		conn_ =
 			pimpl_->subscribe(bind(&basic_solo_stream_listener::handle_accept,
-								   this, _1, _2, _3));
+								   this, _1, _2));
 		this->set_endpoint(ep);
 	}
 
@@ -534,7 +532,7 @@ public:
 	void set_endpoint(const endpoint_type &ep)
 	{
 		pimpl_->accept_from(ep);
-		do_add_connection();
+		start_listening_connection();
 	}
 private:
 	typedef typename super_type::impl_type       impl_type;
@@ -548,21 +546,19 @@ private:
 	listener_pimpl          pimpl_;
 	signal_connection_t     conn_;
 
-	void do_add_connection()
+	void start_listening_connection()
 	{
 		pimpl_type next(new impl_type(service_));
-		const identifier id = this->add_connection(next);
-		pimpl_->async_accept(next, id);
+		pimpl_->async_accept(next);
 	}
 
-	void handle_accept(const boost::system::error_code &error, 
-					   const pimpl_type next, const identifier &id)
+	void handle_accept(const boost::system::error_code &error,
+					   const pimpl_type next)
 	{
 		if (!error) {
+			const identifier id = this->add_connection(next);
 			next->start(error, id);
-			do_add_connection();
-		} else {
-			this->remove_connection(id);
+			start_listening_connection();
 		}
 	}
 };     // class basic_solo_stream_listener
