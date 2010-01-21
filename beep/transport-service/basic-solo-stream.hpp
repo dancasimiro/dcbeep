@@ -31,24 +31,15 @@ struct asio_frame_parser
 {
 	typedef frame_parser<boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type> > parser_type;
 
-	static const parser_type &beep_grammar()
-	{
-		static parser_type g;
-		return g;
-	}
-
-	asio_frame_parser(frame &aFrameReference) : current_frame(aFrameReference) { }
-	asio_frame_parser(const asio_frame_parser &src) : current_frame(src.current_frame) { }
-
 	template <typename Iterator>
 	std::pair<Iterator, bool> operator()(Iterator begin, Iterator end) const
 	{
 		using std::make_pair;
 		using qi::parse;
-		const bool success = parse(begin, end, beep_grammar(), current_frame);
+		static parser_type g;
+		const bool success = parse(begin, end, g);
 		return make_pair(begin, success);
 	}
-	frame &current_frame;
 };
 }      // namespace beep
 	
@@ -94,8 +85,7 @@ public:
 		, wstrand_(service)
 		, signal_frame_()
 		, net_changed_()
-		, current_()
-		, matcher_(current_)
+		, matcher_()
 	{
 	}
 
@@ -157,7 +147,6 @@ private:
 	strand_type    wstrand_; // serialize write operations
 	frame_signal_t signal_frame_;
 	network_cb_t   net_changed_;
-	frame          current_;
 	matcher_type   matcher_;
 
 	void set_error(const boost::system::error_code &error)
@@ -231,11 +220,15 @@ private:
 	}
 
 	void handle_frame_read(const boost::system::error_code &error,
-						   std::size_t bytes_transferred)
+						   std::size_t /*bytes_transferred*/)
 	{
+		using std::istream;
 		if (!error || error == boost::asio::error::message_size) {
-			rsb_.consume(bytes_transferred);
-			signal_frame_(boost::system::error_code(), current_);
+			istream stream(&rsb_);
+			frame current;
+			stream >> current;
+			assert(stream);
+			signal_frame_(boost::system::error_code(), current);
 			do_start_read();
 		} else {
 			set_error(error);
