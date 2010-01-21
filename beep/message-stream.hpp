@@ -40,7 +40,7 @@ operator<<(ostream &strm, const beep::mime &mm)
 		if (mm == beep::mime::beep_xml()) {
 			strm << "BEEP+XML MIME";
 		} else {
-			strm << "Unknown MIME (" << mm.content_type() << ")";
+			strm << "Unknown MIME (" << mm.get_content_type() << ")";
 		}
 	}
 	return strm;

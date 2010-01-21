@@ -33,10 +33,10 @@ TEST(ChannelManager, Greeting)
 	strm << frames[0];
 	EXPECT_EQ(encoded_out, strm.str());
 
-	EXPECT_EQ(0u, chman.tuning_channel().number());
-	EXPECT_EQ(1u, chman.tuning_channel().message_number());
-	EXPECT_EQ(101u, chman.tuning_channel().sequence_number());
-	EXPECT_EQ(0u, chman.tuning_channel().answer_number());
+	EXPECT_EQ(0u, chman.tuning_channel().get_number());
+	EXPECT_EQ(1u, chman.tuning_channel().get_message_number());
+	EXPECT_EQ(101u, chman.tuning_channel().get_sequence_number());
+	EXPECT_EQ(0u, chman.tuning_channel().get_answer_number());
 }
 
 TEST(ChannelManager, GreetingWithMultipleProfiles)
@@ -71,10 +71,10 @@ TEST(ChannelManager, GreetingWithMultipleProfiles)
 	strm << frames[0];
 	EXPECT_EQ(encoded_out, strm.str());
 
-	EXPECT_EQ(0u, chman.tuning_channel().number());
-	EXPECT_EQ(1u, chman.tuning_channel().message_number());
-	EXPECT_EQ(143u, chman.tuning_channel().sequence_number());
-	EXPECT_EQ(0u, chman.tuning_channel().answer_number());
+	EXPECT_EQ(0u, chman.tuning_channel().get_number());
+	EXPECT_EQ(1u, chman.tuning_channel().get_message_number());
+	EXPECT_EQ(143u, chman.tuning_channel().get_sequence_number());
+	EXPECT_EQ(0u, chman.tuning_channel().get_answer_number());
 }
 
 class TimedSessionBase : public testing::Test {
@@ -475,7 +475,7 @@ TEST_F(SessionChannelInitiator, AsyncRead)
 	beep::message expected;
 	expected.set_content("Test Payload");
 	EXPECT_EQ(expected, user_message);
-	EXPECT_EQ(expected.content(), user_message.content());
+	EXPECT_EQ(expected.get_content(), user_message.get_content());
 }
 
 TEST_F(SessionChannelInitiator, AsyncWrite)

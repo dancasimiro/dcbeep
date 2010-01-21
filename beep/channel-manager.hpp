@@ -65,7 +65,7 @@ bool message_has_element_named(const message &msg, const std::string &name)
 	using std::istringstream;
 	using std::transform;
 
-	istringstream strm(msg.content());
+	istringstream strm(msg.get_content());
 	string line;
 	while (!is && getline(strm, line)) {
 		transform(line.begin(), line.end(), line.begin(), ::tolower);
@@ -584,7 +584,7 @@ make_error(const message &msg)
 		throw runtime_error("An error code cannot be created from the given message.");
 	}
 	cmp::error myError;
-	istringstream strm(msg.content());
+	istringstream strm(msg.get_content());
 	if (strm >> myError) {
 		const error_code ec(myError.code(), beep::beep_category);
 		return system_error(ec, myError.description());
@@ -612,7 +612,7 @@ public:
 		using std::istringstream;
 		using std::transform;
 
-		istringstream strm(greeting_msg.content());
+		istringstream strm(greeting_msg.get_content());
 		cmp::greeting g_protocol;
 		if (strm >> g_protocol) {
 			transform(g_protocol.begin(), g_protocol.end(), out, cmp::detail::uri_to_profile);
@@ -710,7 +710,7 @@ public:
 
 		unsigned int channel = 0;
 		cmp::start start;
-		istringstream strm(start_msg.content());
+		istringstream strm(start_msg.get_content());
 		ostringstream ostrm;
 		response.set_mime(mime::beep_xml());
 		if (strm >> start) {

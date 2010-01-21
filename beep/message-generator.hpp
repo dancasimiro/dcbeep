@@ -31,7 +31,7 @@ make_message(FwdIterator first, const FwdIterator last, message &out)
 	const frame lead = *first;
 	message::content_type content;
 	for (; first != last; ++first) {
-		content += first->payload();
+		content += first->get_payload();
 	}
 	istringstream strm(content);
 	strm >> out;

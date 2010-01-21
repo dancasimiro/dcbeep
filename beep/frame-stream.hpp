@@ -23,13 +23,14 @@ operator<<(ostream &stream, const beep::frame &aFrame)
 		const char more =
 			aFrame.more() ? frame::intermediate() : frame::complete();
 		stream << header << frame::separator()
-			   << aFrame.channel() << frame::separator()
-			   << aFrame.message() << frame::separator()
+			   << aFrame.get_channel() << frame::separator()
+			   << aFrame.get_message() << frame::separator()
 			   << more << frame::separator()
-			   << aFrame.sequence() << frame::separator()
-			   << payload.size();
+			   << aFrame.get_sequence() << frame::separator()
+			   << payload.size()
+			;
 		if (header == frame::ans()) {
-			stream << frame::separator() << aFrame.answer();
+			stream << frame::separator() << aFrame.get_answer();
 		}
 		stream << frame::terminator();
 		stream << payload << frame::sentinel();

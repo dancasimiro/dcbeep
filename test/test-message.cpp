@@ -18,8 +18,8 @@ TEST(Message, ContentSetting)
 {
 	beep::message msg;
 	msg.set_content("Test");
-	EXPECT_EQ("Content-Type: application/octet-stream\r\n\r\nTest", msg.payload());
-	EXPECT_EQ(46u, msg.payload_size());
+	EXPECT_EQ("Content-Type: application/octet-stream\r\n\r\nTest", msg.get_payload());
+	EXPECT_EQ(46u, msg.get_payload_size());
 }
 
 TEST(Message, ChangeMIME)
@@ -29,8 +29,8 @@ TEST(Message, ChangeMIME)
 	beep::message msg;
 	msg.set_content("Test");
 	msg.set_mime(mime);
-	EXPECT_EQ("Content-Type: application/beep+xml\r\n\r\nTest", msg.payload());
-	EXPECT_EQ(42u, msg.payload_size());
+	EXPECT_EQ("Content-Type: application/beep+xml\r\n\r\nTest", msg.get_payload());
+	EXPECT_EQ(42u, msg.get_payload_size());
 }
 
 TEST(Message, TextStreamInsertion)
@@ -38,8 +38,8 @@ TEST(Message, TextStreamInsertion)
 	std::istringstream stream("Content-Type: application/beep+xml\r\n\r\nTest-Content");
 	beep::message msg;
 	EXPECT_TRUE(stream >> msg);
-	EXPECT_EQ("Content-Type: application/beep+xml", msg.get_mime().content_type());
-	EXPECT_EQ("Test-Content", msg.content());
+	EXPECT_EQ("Content-Type: application/beep+xml", msg.get_mime().get_content_type());
+	EXPECT_EQ("Test-Content", msg.get_content());
 }
 
 TEST(Message, TextStreamInsertionWithMissingMIME)
@@ -48,8 +48,8 @@ TEST(Message, TextStreamInsertionWithMissingMIME)
 	beep::message msg;
 	EXPECT_FALSE(stream >> msg);
 	EXPECT_TRUE(stream.eof());
-	EXPECT_EQ("Content-Type: application/octet-stream", msg.get_mime().content_type());
-	EXPECT_EQ("Test-Content", msg.content());
+	EXPECT_EQ("Content-Type: application/octet-stream", msg.get_mime().get_content_type());
+	EXPECT_EQ("Test-Content", msg.get_content());
 }
 
 TEST(Message, BinaryStreamInsertion)
@@ -63,8 +63,8 @@ TEST(Message, BinaryStreamInsertion)
 	beep::message msg;
 	EXPECT_TRUE(stream >> msg);
 
-	EXPECT_EQ("Content-Type: application/octet-stream", msg.get_mime().content_type());
-	std::istringstream is(msg.content());
+	EXPECT_EQ("Content-Type: application/octet-stream", msg.get_mime().get_content_type());
+	std::istringstream is(msg.get_content());
 	int myNumber;
 	EXPECT_TRUE(is.read(reinterpret_cast<char*>(&myNumber), sizeof(int)));
 	EXPECT_EQ(9, myNumber);
@@ -77,10 +77,10 @@ TEST(Channel, UpdateProperties)
 	msg.set_content("Test");
 	ch.update(msg);
 
-	EXPECT_EQ(0u, ch.number());
-	EXPECT_EQ(1u, ch.message_number());
-	EXPECT_EQ(46u, ch.sequence_number());
-	EXPECT_EQ(0u, ch.answer_number());
+	EXPECT_EQ(0u, ch.get_number());
+	EXPECT_EQ(1u, ch.get_message_number());
+	EXPECT_EQ(46u, ch.get_sequence_number());
+	EXPECT_EQ(0u, ch.get_answer_number());
 }
 
 TEST(FrameGenerator, GetFrames)
@@ -111,10 +111,10 @@ TEST(FrameGenerator, GetFrames)
 	strm << frames[0];
 	EXPECT_EQ(encoded_out, strm.str());
 
-	EXPECT_EQ(0u, ch.number());
-	EXPECT_EQ(1u, ch.message_number());
-	EXPECT_EQ(120u, ch.sequence_number());
-	EXPECT_EQ(0u, ch.answer_number());
+	EXPECT_EQ(0u, ch.get_number());
+	EXPECT_EQ(1u, ch.get_message_number());
+	EXPECT_EQ(120u, ch.get_sequence_number());
+	EXPECT_EQ(0u, ch.get_answer_number());
 }
 
 int

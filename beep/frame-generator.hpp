@@ -38,12 +38,12 @@ make_frames(const message &msg, channel &chan, OutputIterator out)
 	default:
 		throw std::runtime_error("Unsupported frame header!");
 	}
-	myFrame.set_channel(chan.number());
-	myFrame.set_message(chan.message_number());
+	myFrame.set_channel(chan.get_number());
+	myFrame.set_message(chan.get_message_number());
 	myFrame.set_more(false);
-	myFrame.set_sequence(chan.sequence_number());
-	myFrame.set_payload(msg.payload());
-	myFrame.set_answer(chan.answer_number());
+	myFrame.set_sequence(chan.get_sequence_number());
+	myFrame.set_payload(msg.get_payload());
+	myFrame.set_answer(chan.get_answer_number());
 	*out++ = myFrame;
 	chan.update(msg);
 	return 1;

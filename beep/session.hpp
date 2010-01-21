@@ -46,7 +46,7 @@ struct channel_number_matcher : public std::unary_function<bool, channel> {
 
 	bool operator()(const channel &c) const
 	{
-		return c.number() == chnum_;
+		return c.get_number() == chnum_;
 	}
 
 	const unsigned int chnum_;
@@ -292,7 +292,7 @@ public:
 			chman_.close_channel(channel, rc, close);
 			const unsigned int msgno = send_tuning_message(close);
 			tuning_handler_.add(msgno, bind(handler, _1, channel));
-			if (channel != chman_.tuning_channel().number()) {
+			if (channel != chman_.tuning_channel().get_number()) {
 				remove_channel(channel);
 			}
 		} else {
@@ -344,7 +344,7 @@ private:
 			try {
 				message msg;
 				make_message(&frm, &frm + 1, msg);
-				if (frm.channel() == chman_.tuning_channel().number()) {
+				if (frm.get_channel() == chman_.tuning_channel().get_number()) {
 					handle_tuning_frame(frm, msg);
 				} else {
 					handle_user_frame(frm, msg);
@@ -415,7 +415,7 @@ private:
 	void handle_user_frame(const frame &frm, const message &msg)
 	{
 		boost::system::error_code error;
-		user_handler_.execute(frm.channel(), error, msg);
+		user_handler_.execute(frm.get_channel(), error, msg);
 	}
 
 	void start()

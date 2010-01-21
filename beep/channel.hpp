@@ -55,27 +55,27 @@ public:
 
 	/// The channel number ("channel") must be a non-negative integer (in the
 	/// range 0..2147483647).
-	unsigned int number() const { return num_; }
+	unsigned int get_number() const { return num_; }
 
 	void set_profile(const profile_type &p) { profile_ = p; }
-	const profile_type &profile() const { return profile_; }
+	const profile_type &get_profile() const { return profile_; }
 
 	/// The message number ("msgno") must be a non-negative integer (in the
 	/// range 0..2147483647) and have a different value than all other "MSG"
 	/// messages on the same channel for which a reply has not been
 	/// completely received.
-	unsigned int message_number() const { return msgno_; }
+	unsigned int get_message_number() const { return msgno_; }
 
 	/// The sequence number ("seqno") must be a non-negative integer (in the
 	/// range 0..4294967295) and specifies the sequence number of the first
 	/// octet in the payload, for the associated channel (c.f., Section
 	/// 2.2.1.2).
-	unsigned int sequence_number() const { return seqno_; }
+	unsigned int get_sequence_number() const { return seqno_; }
 
 	/// The answer number ("ansno") must be a non-negative integer (in the
 	/// range 0..4294967295) and must have a different value than all other
 	/// answers in progress for the message being replied to.
-	unsigned int answer_number() const { return ansno_; }
+	unsigned int get_answer_number() const { return ansno_; }
 
 	/// The frame payload consists of zero or more octets.
 	///
@@ -108,7 +108,7 @@ public:
 
 		// maximum value of seqno is < 4294967296
 		//seqno_ = (seqno_ + msg.payload_size()) % 4294967296ll;
-		seqno_ += msg.payload_size();
+		seqno_ += msg.get_payload_size();
 	}
 private:
 	unsigned int num_;

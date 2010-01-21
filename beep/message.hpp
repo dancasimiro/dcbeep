@@ -24,7 +24,7 @@ public:
 	{
 	}
 
-	const std::string &content_type() const { return type_; }
+	const std::string &get_content_type() const { return type_; }
 	void set_content_type(const std::string &ct)
 	{
 		type_ = std::string("Content-Type: ") + ct;
@@ -74,13 +74,13 @@ public:
 	}
 
 	const mime &get_mime() const { return mime_; }
-	const content_type &content() const { return content_; }
+	const content_type &get_content() const { return content_; }
 
-	const content_type &payload() const { return payload_; }
-	size_type payload_size() const { return payload_.size(); }
+	const content_type &get_payload() const { return payload_; }
+	size_type get_payload_size() const { return payload_.size(); }
 
-	void set_type(const keyword k) { type_ = k; }
-	keyword get_type() const { return type_; }
+	void set_type(const unsigned int t) { type_ = t; }
+	unsigned int get_type() const { return type_; }
 private:
 	mime         mime_;
 	content_type content_;
@@ -90,18 +90,18 @@ private:
 	void update_payload()
 	{
 		static const std::string sep = "\r\n\r\n";
-		payload_ = mime_.content_type() + sep + content_;
+		payload_ = mime_.get_content_type() + sep + content_;
 	}
 };     // class message
 
 inline bool operator==(const message &lhs, const message &rhs)
 {
-	return lhs.payload() == rhs.payload();
+	return lhs.get_payload() == rhs.get_payload();
 }
 
 inline bool operator==(const mime &lhs, const mime &rhs)
 {
-	return lhs.content_type() == rhs.content_type();
+	return lhs.get_content_type() == rhs.get_content_type();
 }
 
 }      // namespace beep
