@@ -253,7 +253,7 @@ TEST_F(SessionInitiator, SendsGreeting)
 	EXPECT_TRUE(stream >> recvFrame);
 	
 	beep::frame myFrame;
-	myFrame.set_header(beep::frame::rpy());
+	myFrame.set_type(beep::RPY);
 	myFrame.set_channel(0);
 	myFrame.set_message(0);
 	myFrame.set_more(false);
@@ -310,7 +310,7 @@ public:
 					 << "</start>";
 
 		beep::frame myFrame;
-		myFrame.set_header(beep::frame::msg());
+		myFrame.set_type(beep::MSG);
 		myFrame.set_channel(0);
 		myFrame.set_message(1);
 		myFrame.set_more(false);
@@ -411,7 +411,7 @@ TEST_F(SessionChannelInitiator, PeerClosesChannel)
 	EXPECT_TRUE(stream >> recvFrame);
 
 	beep::frame okFrame;
-	okFrame.set_header(beep::frame::rpy());
+	okFrame.set_type(beep::RPY);
 	okFrame.set_channel(0);
 	okFrame.set_message(2);
 	okFrame.set_more(false);
@@ -438,7 +438,7 @@ TEST_F(SessionChannelInitiator, ClosesChannel)
 	EXPECT_TRUE(stream >> recvFrame);
 
 	beep::frame closeFrame;
-	closeFrame.set_header(beep::frame::msg());
+	closeFrame.set_type(beep::MSG);
 	closeFrame.set_channel(0);
 	closeFrame.set_message(2);
 	closeFrame.set_more(false);
@@ -494,7 +494,7 @@ TEST_F(SessionChannelInitiator, AsyncWrite)
 	EXPECT_TRUE(stream >> recvFrame);
 
 	beep::frame expectedFrame;
-	expectedFrame.set_header(beep::frame::msg());
+	expectedFrame.set_type(beep::MSG);
 	expectedFrame.set_channel(session_channel);
 	expectedFrame.set_message(0);
 	expectedFrame.set_more(false);
@@ -605,7 +605,7 @@ TEST_F(SessionListener, SendsGreeting)
 	EXPECT_TRUE(stream >> recvFrame);
 	
 	beep::frame myFrame;
-	myFrame.set_header(beep::frame::rpy());
+	myFrame.set_type(beep::RPY);
 	myFrame.set_channel(0);
 	myFrame.set_message(0);
 	myFrame.set_more(false);
@@ -705,7 +705,7 @@ TEST_F(SessionChannelListener, StartChannel)
 	EXPECT_TRUE(stream >> recvFrame);
 
 	beep::frame okFrame;
-	okFrame.set_header(beep::frame::rpy());
+	okFrame.set_type(beep::RPY);
 	okFrame.set_channel(0);
 	okFrame.set_message(1);
 	okFrame.set_more(false);
@@ -732,7 +732,7 @@ TEST_F(SessionChannelListener, PeerClosesChannel)
 	EXPECT_TRUE(stream >> recvFrame);
 
 	beep::frame okFrame;
-	okFrame.set_header(beep::frame::rpy());
+	okFrame.set_type(beep::RPY);
 	okFrame.set_channel(0);
 	okFrame.set_message(2);
 	okFrame.set_more(false);
@@ -759,7 +759,7 @@ TEST_F(SessionChannelListener, ClosesChannel)
 	EXPECT_TRUE(stream >> recvFrame);
 
 	beep::frame closeFrame;
-	closeFrame.set_header(beep::frame::msg());
+	closeFrame.set_type(beep::MSG);
 	closeFrame.set_channel(0);
 	closeFrame.set_message(2);
 	closeFrame.set_more(false);
@@ -814,7 +814,7 @@ TEST_F(SessionChannelListener, AsyncWrite)
 	EXPECT_TRUE(stream >> recvFrame);
 
 	beep::frame expectedFrame;
-	expectedFrame.set_header(beep::frame::msg());
+	expectedFrame.set_type(beep::MSG);
 	expectedFrame.set_channel(session_channel);
 	expectedFrame.set_message(0);
 	expectedFrame.set_more(false);

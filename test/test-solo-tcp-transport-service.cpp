@@ -187,7 +187,7 @@ TEST_F(SingleTCPTransportServiceInitiator, SendsProperFrame)
 	using boost::bind;
 
 	beep::frame myFrame;
-	myFrame.set_header(beep::frame::msg());
+	myFrame.set_type(beep::MSG);
 	myFrame.set_channel(9);
 	myFrame.set_message(1);
 	myFrame.set_more(false);
@@ -214,7 +214,7 @@ TEST_F(SingleTCPTransportServiceInitiator, SendsMultipleFrames)
 
 	std::vector<beep::frame> multiple_frames;
 	beep::frame firstFrame;
-	firstFrame.set_header(beep::frame::msg());
+	firstFrame.set_type(beep::MSG);
 	firstFrame.set_channel(9);
 	firstFrame.set_message(1);
 	firstFrame.set_more(true);
@@ -226,7 +226,7 @@ TEST_F(SingleTCPTransportServiceInitiator, SendsMultipleFrames)
 	multiple_frames.push_back(firstFrame);
 
 	beep::frame secondFrame;
-	secondFrame.set_header(beep::frame::msg());
+	secondFrame.set_type(beep::MSG);
 	secondFrame.set_channel(9);
 	secondFrame.set_message(2);
 	secondFrame.set_more(false);
@@ -279,7 +279,7 @@ TEST_F(SingleTCPTransportServiceInitiator, ReceivesProperFrame)
 					 boost::asio::placeholders::bytes_transferred));
 
 	beep::frame expectedFrame;
-	expectedFrame.set_header(beep::frame::msg());
+	expectedFrame.set_type(beep::MSG);
 	expectedFrame.set_channel(9);
 	expectedFrame.set_message(1);
 	expectedFrame.set_more(false);
@@ -324,7 +324,7 @@ TEST_F(SingleTCPTransportServiceInitiator, ReceivesMultipleFrames)
 					 boost::asio::placeholders::bytes_transferred));
 
 	beep::frame expectedFrame;
-	expectedFrame.set_header(beep::frame::msg());
+	expectedFrame.set_type(beep::MSG);
 	expectedFrame.set_channel(9);
 	expectedFrame.set_message(1);
 	expectedFrame.set_more(false);
@@ -343,7 +343,7 @@ TEST_F(SingleTCPTransportServiceInitiator, ReceivesMultipleFrames)
 	last_frame = beep::frame();
 
 	beep::frame expectedFrame2;
-	expectedFrame2.set_header(beep::frame::msg());
+	expectedFrame2.set_type(beep::MSG);
 	expectedFrame2.set_channel(9);
 	expectedFrame2.set_message(2);
 	expectedFrame2.set_more(false);

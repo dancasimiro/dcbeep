@@ -45,19 +45,11 @@ public:
 	typedef std::string content_type;
 	typedef std::size_t size_type;
 
-	enum keyword {
-		msg,
-		rpy,
-		err,
-		ans,
-		nul,
-	};
-
 	message()
 		: mime_()
 		, content_()
 		, payload_()
-		, type_(msg)
+		, type_(0)
 	{
 	}
 
@@ -85,7 +77,7 @@ private:
 	mime         mime_;
 	content_type content_;
 	content_type payload_;
-	keyword      type_;
+	unsigned int type_;
 
 	void update_payload()
 	{

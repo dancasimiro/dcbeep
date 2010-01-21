@@ -354,7 +354,7 @@ private:
 				/// \todo Check if this is the right error condition.
 				///       Maybe I should close the channel?
 				message msg;
-				msg.set_type(message::err);
+				msg.set_type(ERR);
 				cmp::error myError(reply_code::requested_action_aborted,
 								   ex.what());
 				std::ostringstream strm;
@@ -371,10 +371,10 @@ private:
 	void handle_tuning_frame(const frame &frm, const message &msg)
 	{
 		using std::back_inserter;
-		if (msg.get_type() == message::rpy && cmp::is_greeting_message(msg)) {
+		if (msg.get_type() == RPY && cmp::is_greeting_message(msg)) {
 			chman_.copy_profiles(msg, back_inserter(profiles_));
 			session_signal_(boost::system::error_code());
-		} else if (msg.get_type() == message::msg && cmp::is_start_message(msg)) {
+		} else if (msg.get_type() == MSG && cmp::is_start_message(msg)) {
 			message response;
 			profile acceptedProfile;
 			// send_tuning_message is in both branches because I want to send
@@ -391,20 +391,20 @@ private:
 			} else {
 				send_tuning_message(response);
 			}
-		} else if (msg.get_type() == message::msg && cmp::is_close_message(msg)) {
+		} else if (msg.get_type() == MSG && cmp::is_close_message(msg)) {
 			message response;
 			if (chman_.close_channel(msg, response)) {
 				/// \todo notify the client that its channel was closed...
 			}
 			send_tuning_message(response);
-		} else if (msg.get_type() == message::rpy && cmp::is_ok_message(msg)) {
+		} else if (msg.get_type() == RPY && cmp::is_ok_message(msg)) {
 			boost::system::error_code message_error;
-			tuning_handler_.execute(frm.message(), message_error);
-		} else if (msg.get_type() == message::err) {
+			tuning_handler_.execute(frm.get_message(), message_error);
+		} else if (msg.get_type() == ERR) {
 			const boost::system::system_error error = make_error(msg);
 			/// \todo log the error description (error.what())
 			/// \todo should I throw the system_error error here?
-			tuning_handler_.execute(frm.message(), error.code());
+			tuning_handler_.execute(frm.get_message(), error.code());
 		} else {
 			/// \todo handle other frame types
 			std::cerr << "there was an unexpected message type:  " << msg.get_type() << std::endl;
@@ -495,7 +495,7 @@ private:
 		make_frames(msg, chan, back_inserter(frames));
 		assert(!frames.empty());
 		transport_.send_frames(frames.begin(), frames.end());
-		return frames.front().message();
+		return frames.front().get_message();
 	}
 
 	unsigned int send_tuning_message(const message &msg)

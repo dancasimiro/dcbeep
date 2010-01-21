@@ -5,307 +5,208 @@
 #include <gtest/gtest.h>
 
 #include <string>
-#include <boost/spirit/include/classic.hpp>
 #include "beep/frame.hpp"
 #include "beep/frame-stream.hpp"
 
-using namespace BOOST_SPIRIT_CLASSIC_NS;
+typedef std::string::const_iterator iterator_type;
+typedef beep::frame_parser<iterator_type> frame_parser;
+using beep::frame;
 
-TEST(SpaceParser, Valid)
+namespace std {
+
+std::ostream& operator<<(std::ostream &strm, const iterator_type &i)
 {
-	static const std::string content = " ";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame f;
-	beep::frame_syntax syntax(f, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.sp));
+	if (strm) {
+		strm << "string iterator at " << *i;
+	}
+	return strm;
 }
 
-TEST(CarriageReturnLineFeedParser, Valid)
-{
-	static const std::string content = "\r\n";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame f;
-	beep::frame_syntax syntax(f, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.crlf));
 }
 
 TEST(ChannelParser, Valid)
 {
-	static const std::string content = "10";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.channel));
-	EXPECT_EQ(10u, aFrame.channel());
+	static const std::string content = "MSG 10 2 . 3 0\r\nEND\r\n";
+
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	frame myFrame;
+	EXPECT_NO_THROW(EXPECT_TRUE(parse(iter, end, g, myFrame)));
+	EXPECT_EQ(10u, myFrame.get_channel());
+}
+
+TEST(ChannelParser, Negative)
+{
+	static const std::string content = "MSG -10 2 . 3 0\r\nEND\r\n";
+
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	frame myFrame;
+	EXPECT_NO_THROW(EXPECT_FALSE(parse(iter, end, g, myFrame)));
+	EXPECT_EQ(0, myFrame.get_channel());
+}
+
+TEST(ChannelParser, TooLarge)
+{
+	static const std::string content = "MSG 2147483648 2 . 3 0\r\nEND\r\n";
+
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	frame myFrame;
+	EXPECT_NO_THROW(EXPECT_FALSE(parse(iter, end, g, myFrame)));
+	EXPECT_EQ(2147483648u, myFrame.get_channel());
 }
 
 TEST(MessageNumberParser, Valid)
 {
-	static const std::string content = "3";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.msgno));
-	EXPECT_EQ(3u, aFrame.message());
-}
+	static const std::string content = "MSG 19 3 . 3 0\r\nEND\r\n";
 
-TEST(MoreParser, Valid)
-{
-	static const std::string content = ".";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.more));
-	EXPECT_FALSE(aFrame.more());
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	frame myFrame;
+	EXPECT_NO_THROW(EXPECT_TRUE(parse(iter, end, g, myFrame)));
+	EXPECT_EQ(3u, myFrame.get_message());
 }
 
 TEST(SequenceParser, Valid)
 {
-	static const std::string content = "6";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.seqno));
-	EXPECT_EQ(6u, aFrame.sequence());
+	static const std::string content = "MSG 19 3 . 6 0\r\nEND\r\n";
+
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	frame myFrame;
+	EXPECT_NO_THROW(EXPECT_TRUE(parse(iter, end, g, myFrame)));
+	EXPECT_EQ(6u, myFrame.get_sequence());
 }
 
 TEST(SizeParser, Valid)
 {
-	static const std::string content = "120";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t mySize = 0;
-	beep::frame f;
-	beep::frame_syntax syntax(f, mySize);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.size));
-	EXPECT_EQ(120u, mySize);
+	static const std::string content = "MSG 19 3 . 6 3\r\nABCEND\r\n";
+
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	frame myFrame;
+	EXPECT_NO_THROW(EXPECT_TRUE(parse(iter, end, g, myFrame)));
+	EXPECT_EQ(3u, myFrame.get_payload().size());
+	EXPECT_EQ("ABC", myFrame.get_payload());
 }
 
 TEST(AnswerParser, Valid)
 {
-	static const std::string content = "19";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.ansno));
-	EXPECT_EQ(19u, aFrame.answer());
-}
+	static const std::string content = "ANS 19 3 . 6 3 19\r\nABCEND\r\n";
 
-TEST(CommonParser, Valid)
-{
-	static const std::string content = "19 2 . 3 12\r\n";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.common));
-	EXPECT_EQ(19u, aFrame.channel());
-	EXPECT_EQ(2u, aFrame.message());
-	EXPECT_FALSE(aFrame.more());
-	EXPECT_EQ(3u, aFrame.sequence());
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	frame myFrame;
+	EXPECT_NO_THROW(EXPECT_TRUE(parse(iter, end, g, myFrame)));
+	EXPECT_EQ(beep::ANS, myFrame.get_type());
+	EXPECT_EQ(19u, myFrame.get_answer());
 }
 
 TEST(MessageFrameHeader, Valid)
 {
-	static const std::string content = "MSG 19 2 . 3 12\r\n";
-	typedef scanner<std::string::const_iterator> scanner_type;
+	static const std::string content = "MSG 19 2 . 3 0\r\nEND\r\n";
+
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	std::size_t payload_size = 0;
-	beep::frame_syntax syntax(aFrame, payload_size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.message_frame));
-	EXPECT_EQ("MSG", aFrame.header());
-	EXPECT_EQ(19u, aFrame.channel());
-	EXPECT_EQ(2u, aFrame.message());
-	EXPECT_FALSE(aFrame.more());
-	EXPECT_EQ(3u, aFrame.sequence());
+	EXPECT_NO_THROW(parse(iter, end, g, aFrame));
+	EXPECT_EQ(beep::MSG, aFrame.get_type());
+	EXPECT_EQ(19u, aFrame.get_channel());
+	EXPECT_EQ(2u, aFrame.get_message());
+	EXPECT_FALSE(aFrame.get_more());
+	EXPECT_EQ(3u, aFrame.get_sequence());
 }
 
 TEST(ReplyHeader, Valid)
 {
-	static const std::string content = "RPY 19 2 . 3 120\r\n";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
+	static const std::string content = "RPY 19 2 . 3 0\r\nEND\r\n";
+
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.reply_frame));
-	EXPECT_EQ("RPY", aFrame.header());
-	EXPECT_EQ(19u, aFrame.channel());
-	EXPECT_EQ(2u, aFrame.message());
-	EXPECT_FALSE(aFrame.more());
-	EXPECT_EQ(3u, aFrame.sequence());
+	EXPECT_NO_THROW(parse(iter, end, g, aFrame));
+	EXPECT_EQ(beep::RPY, aFrame.get_type());
+	EXPECT_EQ(19u, aFrame.get_channel());
+	EXPECT_EQ(2u, aFrame.get_message());
+	EXPECT_FALSE(aFrame.get_more());
+	EXPECT_EQ(3u, aFrame.get_sequence());
 }
 
 TEST(AnswerHeader, Valid)
 {
-	static const std::string content = "ANS 19 2 . 3 120 5\r\n";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
+	static const std::string content = "ANS 19 2 . 3 0 5\r\nEND\r\n";
+
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.answer_frame));
-	EXPECT_EQ("ANS", aFrame.header());
-	EXPECT_EQ(19u, aFrame.channel());
-	EXPECT_EQ(2u, aFrame.message());
-	EXPECT_FALSE(aFrame.more());
-	EXPECT_EQ(3u, aFrame.sequence());
-	EXPECT_EQ(5u, aFrame.answer());
+	EXPECT_NO_THROW(parse(iter, end, g, aFrame));
+	EXPECT_EQ(beep::ANS, aFrame.get_type());
+	EXPECT_EQ(19u, aFrame.get_channel());
+	EXPECT_EQ(2u, aFrame.get_message());
+	EXPECT_FALSE(aFrame.get_more());
+	EXPECT_EQ(3u, aFrame.get_sequence());
+	EXPECT_EQ(5u, aFrame.get_answer());
 }
 
 TEST(ErrorHeader, Valid)
 {
-	static const std::string content = "ERR 19 2 . 3 120\r\n";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
+	static const std::string content = "ERR 19 2 . 3 0\r\nEND\r\n";
+
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.error_frame));
-	EXPECT_EQ("ERR", aFrame.header());
-	EXPECT_EQ(19u, aFrame.channel());
-	EXPECT_EQ(2u, aFrame.message());
-	EXPECT_FALSE(aFrame.more());
-	EXPECT_EQ(3u, aFrame.sequence());
+	EXPECT_NO_THROW(parse(iter, end, g, aFrame));
+	EXPECT_EQ(beep::ERR, aFrame.get_type());
+	EXPECT_EQ(19u, aFrame.get_channel());
+	EXPECT_EQ(2u, aFrame.get_message());
+	EXPECT_FALSE(aFrame.get_more());
+	EXPECT_EQ(3u, aFrame.get_sequence());
 }
 
 TEST(NullHeader, Valid)
 {
-	static const std::string content = "NUL 19 2 . 3 120\r\n";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.null_frame));
-	EXPECT_EQ("NUL", aFrame.header());
-	EXPECT_EQ(19u, aFrame.channel());
-	EXPECT_EQ(2u, aFrame.message());
-	EXPECT_FALSE(aFrame.more());
-	EXPECT_EQ(3u, aFrame.sequence());
-}
+	static const std::string content = "NUL 19 2 . 3 0\r\nEND\r\n";
 
-TEST(MessageHeaderGenericRule, Valid)
-{
-	static const std::string content = "MSG 19 2 . 3 120\r\n";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.supported_frame));
-	EXPECT_EQ("MSG", aFrame.header());
-	EXPECT_EQ(19u, aFrame.channel());
-	EXPECT_EQ(2u, aFrame.message());
-	EXPECT_FALSE(aFrame.more());
-	EXPECT_EQ(3u, aFrame.sequence());
-}
-
-TEST(ReplyHeaderGenericRule, Valid)
-{
-	static const std::string content = "RPY 19 2 . 3 120\r\n";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.supported_frame));
-	EXPECT_EQ("RPY", aFrame.header());
-	EXPECT_EQ(19u, aFrame.channel());
-	EXPECT_EQ(2u, aFrame.message());
-	EXPECT_FALSE(aFrame.more());
-	EXPECT_EQ(3u, aFrame.sequence());
-}
-
-TEST(AnswerHeaderGenericRule, Valid)
-{
-	static const std::string content = "ANS 19 2 . 3 120 5\r\n";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.supported_frame));
-	EXPECT_EQ("ANS", aFrame.header());
-	EXPECT_EQ(19u, aFrame.channel());
-	EXPECT_EQ(2u, aFrame.message());
-	EXPECT_FALSE(aFrame.more());
-	EXPECT_EQ(3u, aFrame.sequence());
-	EXPECT_EQ(5u, aFrame.answer());
-}
-
-TEST(ErrorHeaderGenericRule, Valid)
-{
-	static const std::string content = "ERR 19 2 . 3 120\r\n";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.supported_frame));
-	EXPECT_EQ("ERR", aFrame.header());
-	EXPECT_EQ(19u, aFrame.channel());
-	EXPECT_EQ(2u, aFrame.message());
-	EXPECT_FALSE(aFrame.more());
-	EXPECT_EQ(3u, aFrame.sequence());
-}
-
-TEST(NullHeaderGenericRule, Valid)
-{
-	static const std::string content = "NUL 19 2 . 3 120\r\n";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.supported_frame));
-	EXPECT_EQ("NUL", aFrame.header());
-	EXPECT_EQ(19u, aFrame.channel());
-	EXPECT_EQ(2u, aFrame.message());
-	EXPECT_FALSE(aFrame.more());
-	EXPECT_EQ(3u, aFrame.sequence());
-}
-
-TEST(TrailerParse, Valid)
-{
-	static const std::string content = "END\r\n";
-	typedef scanner<std::string::const_iterator> scanner_type;
-	std::size_t size = 0;
-	beep::frame f;
-	beep::frame_syntax syntax(f, size);
-	beep::frame_syntax::definition<scanner_type> def(syntax);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), def.trailer));
+	EXPECT_NO_THROW(parse(iter, end, g, aFrame));
+	EXPECT_EQ(beep::NUL, aFrame.get_type());
+	EXPECT_EQ(19u, aFrame.get_channel());
+	EXPECT_EQ(2u, aFrame.get_message());
+	EXPECT_FALSE(aFrame.get_more());
+	EXPECT_EQ(3u, aFrame.get_sequence());
 }
 
 TEST(PayloadParse, Valid)
 {
 	static const std::string content = "MSG 19 2 . 3 12\r\nSome PayloadEND\r\n";
-	std::size_t size = 0;
+
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	beep::frame_syntax syntax(aFrame, size);
-	EXPECT_NO_THROW(parse(content.begin(), content.end(), syntax));
-	EXPECT_EQ("MSG", aFrame.header());
-	EXPECT_EQ(19u, aFrame.channel());
-	EXPECT_EQ(2u, aFrame.message());
-	EXPECT_FALSE(aFrame.more());
-	EXPECT_EQ(3u, aFrame.sequence());
-	EXPECT_EQ("Some Payload", aFrame.payload());
+
+	EXPECT_NO_THROW(parse(iter, end, g, aFrame));
+	EXPECT_EQ(beep::MSG, aFrame.get_type());
+	EXPECT_EQ(19u, aFrame.get_channel());
+	EXPECT_EQ(2u, aFrame.get_message());
+	EXPECT_FALSE(aFrame.get_more());
+	EXPECT_EQ(3u, aFrame.get_sequence());
+	EXPECT_EQ("Some Payload", aFrame.get_payload());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -324,46 +225,44 @@ protected:
 			"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 			"</start>\r\n" // 10
 			"END\r\n";
-		size = 0;
 		frm = beep::frame();
-		beep::frame_syntax syntax(frm, size);
-		const parse_info<std::string::const_iterator> pi =
-			parse(content.begin(), content.end(), syntax);
-		ASSERT_TRUE(pi.full);
-		EXPECT_TRUE(pi.stop == content.end());
+		frame_parser syntax;
+		std::string::const_iterator iter = content.begin();
+		std::string::const_iterator end = content.end();
+		EXPECT_NO_THROW(EXPECT_TRUE(parse(iter, end, syntax, frm)));
+		EXPECT_EQ(iter, end);
 	}
 
 	virtual void TearDown()
 	{
 	}
 
-	std::size_t size;
 	beep::frame frm;
 };
 
 TEST_F(FrameMessageTest, ParseKeyword)
 {
-	EXPECT_EQ(beep::frame::msg(), frm.header());
+	EXPECT_EQ(beep::MSG, frm.get_type());
 }
 
 TEST_F(FrameMessageTest, ParseChannelNumber)
 {
-	EXPECT_EQ(9U, frm.channel());
+	EXPECT_EQ(9U, frm.get_channel());
 }
 
 TEST_F(FrameMessageTest, ParseMessageNumber)
 {
-	EXPECT_EQ(1U, frm.message());
+	EXPECT_EQ(1U, frm.get_message());
 }
 
 TEST_F(FrameMessageTest, ParseMore)
 {
-	EXPECT_EQ(false, frm.more());
+	EXPECT_EQ(false, frm.get_more());
 }
 
 TEST_F(FrameMessageTest, ParseSequenceNumber)
 {
-	EXPECT_EQ(52U, frm.sequence());
+	EXPECT_EQ(52U, frm.get_sequence());
 }
 
 TEST_F(FrameMessageTest, ParsePayload)
@@ -374,7 +273,7 @@ TEST_F(FrameMessageTest, ParsePayload)
 			"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 			"</start>\r\n" // 10
 		;
-	EXPECT_EQ(payload, frm.payload());
+	EXPECT_EQ(payload, frm.get_payload());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -386,14 +285,12 @@ public:
 protected:
 	virtual void SetUp()
 	{
-		size = 0;
 		frm = beep::frame();
 	}
 
 	virtual void TearDown()
 	{
 	}
-	std::size_t size;
 	beep::frame frm;
 };
 
@@ -406,10 +303,11 @@ TEST_F(BadFrameMessageTest, InvalidParseKeyword)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	beep::frame_syntax syntax(frm, size);
-	typedef parser_error<beep::frame_syntax_errors, std::string::const_iterator> exception_type;
-	EXPECT_THROW(parse(content.begin(), content.end(), syntax),
-				 exception_type);
+	frame_parser syntax;
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	EXPECT_FALSE(parse(iter, end, syntax, frm));
+	EXPECT_EQ(content.begin(), iter);
 }
 
 TEST_F(BadFrameMessageTest, ParseCharacterChannelNumber)
@@ -421,10 +319,11 @@ TEST_F(BadFrameMessageTest, ParseCharacterChannelNumber)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	beep::frame_syntax syntax(frm, size);
-	typedef parser_error<beep::frame_syntax_errors, std::string::const_iterator> exception_type;
-	EXPECT_THROW(parse(content.begin(), content.end(), syntax),
-				 exception_type);
+	frame_parser syntax;
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	EXPECT_FALSE(parse(iter, end, syntax, frm));
+	EXPECT_EQ(content.begin(), iter);
 }
 
 TEST_F(BadFrameMessageTest, ParseStringChannelNumber)
@@ -436,10 +335,11 @@ TEST_F(BadFrameMessageTest, ParseStringChannelNumber)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	beep::frame_syntax syntax(frm, size);
-	typedef parser_error<beep::frame_syntax_errors, std::string::const_iterator> exception_type;
-	EXPECT_THROW(parse(content.begin(), content.end(), syntax),
-				 exception_type);
+	frame_parser syntax;
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	EXPECT_FALSE(parse(iter, end, syntax, frm));
+	EXPECT_EQ(content.begin(), iter);
 }
 
 TEST_F(BadFrameMessageTest, ParseNegativeChannelNumber)
@@ -451,10 +351,11 @@ TEST_F(BadFrameMessageTest, ParseNegativeChannelNumber)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	beep::frame_syntax syntax(frm, size);
-	typedef parser_error<beep::frame_syntax_errors, std::string::const_iterator> exception_type;
-	EXPECT_THROW(parse(content.begin(), content.end(), syntax),
-				 exception_type);
+	frame_parser syntax;
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	EXPECT_FALSE(parse(iter, end, syntax, frm));
+	EXPECT_EQ(content.begin(), iter);
 }
 
 TEST_F(BadFrameMessageTest, ParseHugeChannelNumber)
@@ -466,10 +367,11 @@ TEST_F(BadFrameMessageTest, ParseHugeChannelNumber)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	beep::frame_syntax syntax(frm, size);
-	typedef parser_error<beep::frame_syntax_errors, std::string::const_iterator> exception_type;
-	EXPECT_THROW(parse(content.begin(), content.end(), syntax),
-				 exception_type);
+	frame_parser syntax;
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	EXPECT_FALSE(parse(iter, end, syntax, frm));
+	EXPECT_EQ(content.begin(), iter);
 }
 
 TEST_F(BadFrameMessageTest, ParseChannelBoundaryNumber)
@@ -481,38 +383,86 @@ TEST_F(BadFrameMessageTest, ParseChannelBoundaryNumber)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	beep::frame_syntax syntax(frm, size);
-	const parse_info<std::string::const_iterator> pi =
-		parse(content.begin(), content.end(), syntax);
-	EXPECT_TRUE(pi.hit);
-	EXPECT_TRUE(pi.full);
-	EXPECT_TRUE(pi.stop == content.end());
+	frame_parser syntax;
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	EXPECT_TRUE(parse(iter, end, syntax, frm));
+	EXPECT_EQ(end, iter);
+	EXPECT_EQ(2147483647, frm.get_channel());
 }
 
 TEST_F(BadFrameMessageTest, ParseMessageNumber)
-{
-	//EXPECT_EQ(1U, frm.message());
+
+{	static const std::string content =
+		"MSG 2147483647 1 . 52 120\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		"END\r\n";
+	frame_parser syntax;
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	EXPECT_TRUE(parse(iter, end, syntax, frm));
+	EXPECT_EQ(end, iter);
+	EXPECT_EQ(1U, frm.get_message());
 }
 
 TEST_F(BadFrameMessageTest, ParseMore)
 {
-	//EXPECT_EQ(false, frm.more());
+	static const std::string content =
+		"MSG 2147483647 1 . 52 120\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		"END\r\n";
+	frame_parser syntax;
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	EXPECT_TRUE(parse(iter, end, syntax, frm));
+	EXPECT_EQ(end, iter);
+	EXPECT_EQ(false, frm.get_more());
 }
 
 TEST_F(BadFrameMessageTest, ParseSequenceNumber)
 {
-	//EXPECT_EQ(52U, frm.sequence());
+	static const std::string content =
+		"MSG 2147483647 1 . 52 120\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		"END\r\n";
+	frame_parser syntax;
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	EXPECT_TRUE(parse(iter, end, syntax, frm));
+	EXPECT_EQ(end, iter);
+	EXPECT_EQ(52U, frm.get_sequence());
 }
 
 TEST_F(BadFrameMessageTest, ParsePayload)
 {
+	static const std::string content =
+		"MSG 2147483647 1 . 52 120\r\n"
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		"END\r\n";
+	frame_parser syntax;
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	EXPECT_TRUE(parse(iter, end, syntax, frm));
+	EXPECT_EQ(end, iter);
 	const std::string payload =
 		"Content-Type: application/beep+xml\r\n\r\n" // 38
 			"<start number='1'>\r\n" // 20
 			"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 			"</start>\r\n" // 10
 		;
-	//EXPECT_EQ(payload, frm.payload());
+	EXPECT_EQ(payload, frm.get_payload());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -532,45 +482,45 @@ protected:
 			"   <profile uri='http://iana.org/beep/TLS' />\r\n"
 			"</greeting>\r\n"
 			"END\r\n";
-		size = 0;
 		frm = beep::frame();
-		beep::frame_syntax syntax(frm, size);
-		const parse_info<std::string::const_iterator> pi =
-			parse(content.begin(), content.end(), syntax);
-		ASSERT_TRUE(pi.full);
+
+		frame_parser syntax;
+		std::string::const_iterator iter = content.begin();
+		std::string::const_iterator end = content.end();
+		EXPECT_TRUE(parse(iter, end, syntax, frm));
+		EXPECT_EQ(end, iter);
 	}
 
 	virtual void TearDown()
 	{
 	}
 
-	std::size_t size;
 	beep::frame frm;
 };
 
 TEST_F(FrameReplyTest, ParseKeyword)
 {
-	EXPECT_EQ(beep::frame::rpy(), frm.header());
+	EXPECT_EQ(beep::RPY, frm.get_type());
 }
 
 TEST_F(FrameReplyTest, ParseChannelNumber)
 {
-	EXPECT_EQ(3U, frm.channel());
+	EXPECT_EQ(3U, frm.get_channel());
 }
 
 TEST_F(FrameReplyTest, ParseMessageNumber)
 {
-	EXPECT_EQ(2U, frm.message());
+	EXPECT_EQ(2U, frm.get_message());
 }
 
 TEST_F(FrameReplyTest, ParseMore)
 {
-	EXPECT_EQ(false, frm.more());
+	EXPECT_EQ(false, frm.get_more());
 }
 
 TEST_F(FrameReplyTest, ParseSequenceNumber)
 {
-	EXPECT_EQ(7U, frm.sequence());
+	EXPECT_EQ(7U, frm.get_sequence());
 }
 
 TEST_F(FrameReplyTest, ParsePayload)
@@ -582,7 +532,7 @@ TEST_F(FrameReplyTest, ParsePayload)
 		"   <profile uri='http://iana.org/beep/TLS' />\r\n"
 		"</greeting>\r\n"
 		;
-	EXPECT_EQ(payload, frm.payload());
+	EXPECT_EQ(payload, frm.get_payload());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -598,45 +548,45 @@ protected:
 			"ANS 1 0 . 40 10 1\r\n"
 			"dan is 1\r\n"
 			"END\r\n";
-		size = 0;
 		frm = beep::frame();
-		beep::frame_syntax syntax(frm, size);
-		const parse_info<std::string::const_iterator> pi =
-			parse(content.begin(), content.end(), syntax);
-		ASSERT_TRUE(pi.full);
+
+		frame_parser syntax;
+		std::string::const_iterator iter = content.begin();
+		std::string::const_iterator end = content.end();
+		EXPECT_TRUE(parse(iter, end, syntax, frm));
+		EXPECT_EQ(end, iter);
 	}
 
 	virtual void TearDown()
 	{
 	}
 
-	std::size_t size;
 	beep::frame frm;
 };
 
 TEST_F(FrameAnswerTest, ParseKeyword)
 {
-	EXPECT_EQ(beep::frame::ans(), frm.header());
+	EXPECT_EQ(beep::ANS, frm.get_type());
 }
 
 TEST_F(FrameAnswerTest, ParseChannelNumber)
 {
-	EXPECT_EQ(1U, frm.channel());
+	EXPECT_EQ(1U, frm.get_channel());
 }
 
 TEST_F(FrameAnswerTest, ParseMessageNumber)
 {
-	EXPECT_EQ(0U, frm.message());
+	EXPECT_EQ(0U, frm.get_message());
 }
 
 TEST_F(FrameAnswerTest, ParseMore)
 {
-	EXPECT_EQ(false, frm.more());
+	EXPECT_EQ(false, frm.get_more());
 }
 
 TEST_F(FrameAnswerTest, ParseSequenceNumber)
 {
-	EXPECT_EQ(40U, frm.sequence());
+	EXPECT_EQ(40U, frm.get_sequence());
 }
 
 TEST_F(FrameAnswerTest, ParsePayload)
@@ -644,12 +594,12 @@ TEST_F(FrameAnswerTest, ParsePayload)
 	const std::string payload =
 		"dan is 1\r\n"
 		;
-	EXPECT_EQ(payload, frm.payload());
+	EXPECT_EQ(payload, frm.get_payload());
 }
 
 TEST_F(FrameAnswerTest, ParseAnswerNumber)
 {
-	EXPECT_EQ(1u, frm.answer());
+	EXPECT_EQ(1u, frm.get_answer());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -667,45 +617,45 @@ protected:
 			"\r\n"
 			"<error code='550'>still working</error>\r\n"
 			"END\r\n";
-		size = 0;
 		frm = beep::frame();
-		beep::frame_syntax syntax(frm, size);
-		const parse_info<std::string::const_iterator> pi =
-			parse(content.begin(), content.end(), syntax);
-		ASSERT_TRUE(pi.full);
+
+		frame_parser syntax;
+		std::string::const_iterator iter = content.begin();
+		std::string::const_iterator end = content.end();
+		EXPECT_TRUE(parse(iter, end, syntax, frm));
+		EXPECT_EQ(end, iter);
 	}
 
 	virtual void TearDown()
 	{
 	}
 
-	std::size_t size;
 	beep::frame frm;
 };
 
 TEST_F(FrameErrorTest, ParseKeyword)
 {
-	EXPECT_EQ(beep::frame::err(), frm.header());
+	EXPECT_EQ(beep::ERR, frm.get_type());
 }
 
 TEST_F(FrameErrorTest, ParseChannelNumber)
 {
-	EXPECT_EQ(0U, frm.channel());
+	EXPECT_EQ(0U, frm.get_channel());
 }
 
 TEST_F(FrameErrorTest, ParseMessageNumber)
 {
-	EXPECT_EQ(2U, frm.message());
+	EXPECT_EQ(2U, frm.get_message());
 }
 
 TEST_F(FrameErrorTest, ParseMore)
 {
-	EXPECT_EQ(false, frm.more());
+	EXPECT_EQ(false, frm.get_more());
 }
 
 TEST_F(FrameErrorTest, ParseSequenceNumber)
 {
-	EXPECT_EQ(392U, frm.sequence());
+	EXPECT_EQ(392U, frm.get_sequence());
 }
 
 TEST_F(FrameErrorTest, ParsePayload)
@@ -715,7 +665,7 @@ TEST_F(FrameErrorTest, ParsePayload)
 		"\r\n"
 		"<error code='550'>still working</error>\r\n"
 		;
-	EXPECT_EQ(payload, frm.payload());
+	EXPECT_EQ(payload, frm.get_payload());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -730,51 +680,51 @@ protected:
 		static const std::string content =
 			"NUL 0 2 . 392 0\r\n"
 			"END\r\n";
-		size = 0;
 		frm = beep::frame();
-		beep::frame_syntax syntax(frm, size);
-		const parse_info<std::string::const_iterator> pi =
-			parse(content.begin(), content.end(), syntax);
-		ASSERT_TRUE(pi.full);
+
+		frame_parser syntax;
+		std::string::const_iterator iter = content.begin();
+		std::string::const_iterator end = content.end();
+		EXPECT_TRUE(parse(iter, end, syntax, frm));
+		EXPECT_EQ(end, iter);
 	}
 
 	virtual void TearDown()
 	{
 	}
 
-	std::size_t size;
 	beep::frame frm;
 };
 
 TEST_F(FrameNullTest, ParseKeyword)
 {
-	EXPECT_EQ(beep::frame::nul(), frm.header());
+	EXPECT_EQ(beep::NUL, frm.get_type());
 }
 
 TEST_F(FrameNullTest, ParseChannelNumber)
 {
-	EXPECT_EQ(0U, frm.channel());
+	EXPECT_EQ(0U, frm.get_channel());
 }
 
 TEST_F(FrameNullTest, ParseMessageNumber)
 {
-	EXPECT_EQ(2U, frm.message());
+	EXPECT_EQ(2U, frm.get_message());
 }
 
 TEST_F(FrameNullTest, ParseMore)
 {
-	EXPECT_EQ(false, frm.more());
+	EXPECT_EQ(false, frm.get_more());
 }
 
 TEST_F(FrameNullTest, ParseSequenceNumber)
 {
-	EXPECT_EQ(392U, frm.sequence());
+	EXPECT_EQ(392U, frm.get_sequence());
 }
 
 TEST_F(FrameNullTest, ParsePayload)
 {
 	const std::string payload;
-	EXPECT_EQ(payload, frm.payload());
+	EXPECT_EQ(payload, frm.get_payload());
 }
 
 int

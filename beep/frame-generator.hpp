@@ -19,25 +19,7 @@ int
 make_frames(const message &msg, channel &chan, OutputIterator out)
 {
 	frame myFrame;
-	switch (msg.get_type()) {
-	case message::msg:
-		myFrame.set_header(frame::msg());
-		break;
-	case message::rpy:
-		myFrame.set_header(frame::rpy());
-		break;
-	case message::ans:
-		myFrame.set_header(frame::ans());
-		break;
-	case message::err:
-		myFrame.set_header(frame::err());
-		break;
-	case message::nul:
-		myFrame.set_header(frame::nul());
-		break;
-	default:
-		throw std::runtime_error("Unsupported frame header!");
-	}
+	myFrame.set_type(msg.get_type());
 	myFrame.set_channel(chan.get_number());
 	myFrame.set_message(chan.get_message_number());
 	myFrame.set_more(false);

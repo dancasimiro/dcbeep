@@ -16,20 +16,17 @@ inline
 ostream&
 operator<<(ostream &stream, const beep::frame &aFrame)
 {
-	using beep::frame;
+	using namespace beep;
 	if (stream) {
-		const frame::header_type header = aFrame.header();
-		const frame::string_type payload = aFrame.payload();
-		const char more =
-			aFrame.more() ? frame::intermediate() : frame::complete();
-		stream << header << frame::separator()
+		const frame::string_type &payload = aFrame.get_payload();
+		stream << frame::reverse_message_lookup(aFrame.get_type()) << frame::separator()
 			   << aFrame.get_channel() << frame::separator()
 			   << aFrame.get_message() << frame::separator()
-			   << more << frame::separator()
+			   << frame::reverse_continuation_lookup(aFrame.get_more()) << frame::separator()
 			   << aFrame.get_sequence() << frame::separator()
 			   << payload.size()
 			;
-		if (header == frame::ans()) {
+		if (aFrame.get_type() == ANS) {
 			stream << frame::separator() << aFrame.get_answer();
 		}
 		stream << frame::terminator();
@@ -42,23 +39,22 @@ inline
 istream&
 operator>>(istream &stream, beep::frame &aFrame)
 {
-	using beep::frame;
+	using namespace beep;
 	if (stream) {
 		frame myFrame;
 		string whole_header;
 		unsigned int payload_size;
 		if (getline(stream, whole_header)) {
 			istringstream hstrm(whole_header);
-			string header_type;
+			string header_type, cont;
 			unsigned int ch, msg, seq;
-			char cont;
 			if (hstrm >> header_type >> ch >> msg >> cont >> seq >> payload_size) {
-				myFrame.set_header(header_type);
+				myFrame.set_type(frame::message_lookup(header_type));
 				myFrame.set_channel(ch);
 				myFrame.set_message(msg);
-				myFrame.set_more(cont == frame::intermediate());
+				myFrame.set_more(frame::continuation_lookup(cont));
 				myFrame.set_sequence(seq);
-				if (header_type == frame::ans()) {
+				if (myFrame.get_type() == ANS) {
 					unsigned int ans;
 					if (!(hstrm >> ans)) {
 						stream.setstate(istream::badbit);

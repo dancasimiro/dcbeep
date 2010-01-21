@@ -18,6 +18,7 @@
 #include <functional>
 
 #include "role.hpp"
+#include "frame.hpp" // for core_message_types definition
 #include "message.hpp"
 #include "channel.hpp"
 #include "profile.hpp"
@@ -580,7 +581,7 @@ make_error(const message &msg)
 	using boost::system::error_code;
 	using boost::system::system_error;
 
-	if (msg.get_type() != message::err) {
+	if (msg.get_type() != ERR) {
 		throw runtime_error("An error code cannot be created from the given message.");
 	}
 	cmp::error myError;
@@ -629,7 +630,7 @@ public:
 		using std::ostringstream;
 
 		greeting_msg.set_mime(mime::beep_xml());
-		greeting_msg.set_type(message::rpy);
+		greeting_msg.set_type(RPY);
 		cmp::greeting g_protocol(first_profile, last_profile);
 		ostringstream strm;
 		if (strm << g_protocol) {
@@ -664,7 +665,7 @@ public:
 			}
 		}
 		msg.set_mime(mime::beep_xml());
-		msg.set_type(message::msg);
+		msg.set_type(MSG);
 		cmp::start start;
 		start.set_number(number);
 		start.set_server_name(name);
@@ -681,7 +682,7 @@ public:
 		using std::ostringstream;
 		msg.set_mime(mime::beep_xml());
 		if (chnum_.erase(number)) {
-			msg.set_type(message::msg);
+			msg.set_type(MSG);
 			cmp::close close;
 			close.set_number(number);
 			close.set_code(rc);
@@ -725,13 +726,13 @@ public:
 					}
 				}
 				if (match_profile) {
-					response.set_type(message::rpy);
+					response.set_type(RPY);
 					cmp::ok ok;
 					ostrm << ok;
 				} else {
 					chnum_.erase(channel);
 					channel = 0;
-					response.set_type(message::err);
+					response.set_type(ERR);
 					ostringstream estrm;
 					estrm << "The specified profile(s) are not supported. "
 						"This listener supports the following profiles: ";
@@ -742,7 +743,7 @@ public:
 					ostrm << error;
 				}
 			} else {
-				response.set_type(message::err);
+				response.set_type(ERR);
 				ostringstream estrm;
 				estrm << "The requested channel (" << channel
 					  << ") is already in use.";
@@ -751,7 +752,7 @@ public:
 				ostrm << error;
 			}
 		} else {
-			response.set_type(message::err);
+			response.set_type(ERR);
 			cmp::error error(reply_code::general_syntax_error,
 							 "The 'start' message could not be decoded.");
 			ostrm << error;
@@ -767,15 +768,15 @@ public:
 
 		bool is_ok = false;
 		cmp::close close;
-		istringstream strm(close_msg.content());
+		istringstream strm(close_msg.get_content());
 		ostringstream ostrm;
 		response.set_mime(mime::beep_xml());
 		if (is_ok = strm >> close) {
-			response.set_type(message::rpy);
+			response.set_type(RPY);
 			cmp::ok ok;
 			ostrm << ok;
 		} else {
-			response.set_type(message::err);
+			response.set_type(ERR);
 			cmp::error error(reply_code::general_syntax_error,
 							 "The 'close' message could not be decoded.");
 			ostrm << error;
