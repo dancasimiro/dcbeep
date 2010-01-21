@@ -59,20 +59,6 @@ private:
 	uuid_t uuid_;
 };     // class identifier
 
-	//DTSSP_DLLLOCAL identifier make_identifier(const char *str, const size_t max_strlen);
-	/*
-	  {
-	using std::min;
-	using std::string;
-	using std::istringstream;
-
-	id myid;
-	istringstream iss(string(str, min(strlen(str), max_strlen)));
-	iss >> myid;
-	return myid;
-	}
-	*/
-
 }      // namespace beep
 
 namespace std {
