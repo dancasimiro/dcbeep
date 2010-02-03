@@ -394,9 +394,9 @@ private:
 			}
 		} else if (msg.get_type() == MSG && cmp::is_close_message(msg)) {
 			message response;
-			if (chman_.close_channel(msg, response)) {
-				/// \todo notify the client that its channel was closed...
-			}
+			const bool close_is_ok = chman_.close_channel(msg, response);
+			assert(close_is_ok);
+			/// \todo if !close_is_ok, notify the client that its channel was not closed.
 			send_tuning_message(response);
 		} else if (msg.get_type() == RPY && cmp::is_ok_message(msg)) {
 			boost::system::error_code message_error;
