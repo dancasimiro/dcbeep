@@ -74,6 +74,7 @@ protected:
 	iterator get_callback(const key_type num)
 	{
 		const iterator i = callbacks_.find(num);
+		assert(i != callbacks_.end());
 		if (i == callbacks_.end()) {
 			using std::ostringstream;
 			ostringstream strm;
