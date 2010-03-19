@@ -508,7 +508,7 @@ private:
 	{
 		if (!error) {
 			frmsig_.disconnect();
-			transport_.close();
+			transport_.stop_connection(id_);
 		}
 	}
 };     // class basic_session

@@ -327,7 +327,19 @@ public:
 
 	virtual ~basic_solo_stream() {}
 
-	virtual void close()
+	// closes the associated socket and removes the connection object
+	virtual void stop_connection(const beep::identifier &ident)
+	{
+		typedef typename container_type::iterator iterator;
+		iterator i = connections_.find(ident);
+		assert(i != connections_.end());
+		if (i != connections_.end()) {
+			i->second->get_stream().close();
+			connections_.erase(i);
+		}
+	}
+
+	virtual void stop_all_connections()
 	{
 		typedef typename container_type::iterator iterator;
 		for (iterator i = connections_.begin(); i != connections_.end(); ++i) {
@@ -350,6 +362,7 @@ public:
 								const frame_signal_t::slot_type slot)
 	{
 		const typename container_type::iterator i = connections_.find(id);
+		assert(i != connections_.end());
 		if (i == connections_.end()) {
 			std::ostringstream strm;
 			strm << "Session " << id << " is not recognized.";
@@ -512,7 +525,7 @@ public:
 	virtual void close()
 	{
 		pimpl_->close();
-		super_type::close();
+		this->stop_all_connections();
 	}
 
 	void set_endpoint(const endpoint_type &ep)
