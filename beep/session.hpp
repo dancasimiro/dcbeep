@@ -506,10 +506,11 @@ private:
 
 	void close_transport(const boost::system::error_code &error)
 	{
-		if (!error) {
-			frmsig_.disconnect();
-			transport_.stop_connection(id_);
+		if (error) {
+			throw boost::system::system_error(error);
 		}
+		frmsig_.disconnect();
+		transport_.stop_connection(id_);
 	}
 };     // class basic_session
 
