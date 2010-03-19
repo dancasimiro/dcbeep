@@ -31,6 +31,7 @@ public:
 		, buffer()
 		, start_time()
 		, session_connection()
+		, session_id()
 	{
 	}
 
@@ -41,6 +42,7 @@ public:
 		using namespace boost::asio::ip;
 		using boost::bind;
 
+		session_id = beep::identifier();
 		start_time = boost::posix_time::second_clock::local_time();
 		is_connected = have_frame = got_new_frame = false;
 		buffer.consume(buffer.size());
@@ -86,6 +88,7 @@ public:
 	boost::posix_time::ptime                    start_time;
 	beep::frame                                 last_frame;
 	boost::signals2::connection                 session_connection;
+	beep::identifier                            session_id;
 
 	void network_is_ready(const boost::system::error_code &error, const beep::identifier &id)
 	{
@@ -94,6 +97,7 @@ public:
 
 		last_error = error;
 		if (!error) {
+			session_id = id;
 			solo_tcp_initiator::signal_connection sigconn =
 				ts.subscribe(id,
 							 bind(&SingleTCPTransportServiceInitiator::handle_new_frame,
@@ -197,7 +201,7 @@ TEST_F(SingleTCPTransportServiceInitiator, SendsProperFrame)
 						"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 						"</start>\r\n" // 10
 						);
-	ts.send_frame(myFrame);
+	ts.send_frame(session_id, myFrame);
 	ASSERT_NO_THROW(run_event_loop_until_frame_received());
 	ASSERT_TRUE(have_frame);
 	EXPECT_FALSE(last_error);
@@ -234,7 +238,7 @@ TEST_F(SingleTCPTransportServiceInitiator, SendsMultipleFrames)
 	secondFrame.set_payload("</start>\r\n"); // 10
 	multiple_frames.push_back(secondFrame);
 
-	ts.send_frames(multiple_frames.begin(), multiple_frames.end());
+	ts.send_frames(session_id, multiple_frames.begin(), multiple_frames.end());
 	ASSERT_NO_THROW(run_event_loop_until_frame_received());
 	ASSERT_TRUE(have_frame);
 	EXPECT_FALSE(last_error);

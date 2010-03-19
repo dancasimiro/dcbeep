@@ -495,7 +495,7 @@ private:
 		vector<frame> frames;
 		make_frames(msg, chan, back_inserter(frames));
 		assert(!frames.empty());
-		transport_.send_frames(frames.begin(), frames.end());
+		transport_.send_frames(id_, frames.begin(), frames.end());
 		return frames.front().get_message();
 	}
 

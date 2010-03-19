@@ -358,10 +358,12 @@ public:
 		return i->second->subscribe(slot);
 	}
 
-	void send_frame(const frame &aFrame)
+	void send_frame(const identifier &ident, const frame &aFrame)
 	{
 		typedef typename container_type::iterator iterator;
-		for (iterator i = connections_.begin(); i != connections_.end(); ++i) {
+		iterator i = connections_.find(ident);
+		assert(i != connections_.end());
+		if (i != connections_.end()) {
 			i->second->send_frame(aFrame);
 		}
 	}
@@ -370,11 +372,12 @@ public:
 	///
 	/// Put a sequence of frames onto the network
 	template <typename FwdIterator>
-	void send_frames(const FwdIterator first, const FwdIterator last)
+	void send_frames(const identifier &ident, const FwdIterator first, const FwdIterator last)
 	{
 		typedef typename container_type::iterator iterator;
-		for (iterator i = connections_.begin(); i != connections_.end(); ++i) {
-
+		iterator i = connections_.find(ident);
+		assert(i != connections_.end());
+		if (i != connections_.end()) {
 			i->second->send_frames(first, last);
 		}
 	}
