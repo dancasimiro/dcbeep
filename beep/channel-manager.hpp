@@ -681,17 +681,16 @@ public:
 	{
 		using std::ostringstream;
 		msg.set_mime(mime::beep_xml());
-		if (chnum_.erase(number)) {
-			msg.set_type(MSG);
-			cmp::close close;
-			close.set_number(number);
-			close.set_code(rc);
-			ostringstream strm;
-			strm << close;
-			msg.set_content(strm.str());
-		} else {
+		if (number > 0 && !chnum_.erase(number)) {
 			throw std::runtime_error("The requested channel was not in use.");
 		}
+		msg.set_type(MSG);
+		cmp::close close;
+		close.set_number(number);
+		close.set_code(rc);
+		ostringstream strm;
+		strm << close;
+		msg.set_content(strm.str());
 	}
 
 	/// \return Accepted channel number, zero indicates an error
