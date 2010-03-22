@@ -16,6 +16,7 @@
 #include <iterator>
 #include <utility>
 #include <functional>
+#include <limits>
 
 #include "role.hpp"
 #include "frame.hpp" // for core_message_types definition
@@ -766,28 +767,42 @@ public:
 		return channel;
 	}
 
-	bool close_channel(const message &close_msg, message &response)
+	unsigned close_channel(const message &close_msg, message &response)
 	{
 		using std::istringstream;
 		using std::ostringstream;
+		using std::numeric_limits;
 
-		bool is_ok = false;
+		response.set_mime(mime::beep_xml());
+
 		cmp::close close;
 		istringstream strm(close_msg.get_content());
-		ostringstream ostrm;
-		response.set_mime(mime::beep_xml());
-		if (is_ok = strm >> close) {
-			response.set_type(RPY);
-			cmp::ok ok;
-			ostrm << ok;
-		} else {
+		if (!(strm >> close)) {
 			response.set_type(ERR);
 			cmp::error error(reply_code::general_syntax_error,
 							 "The 'close' message could not be decoded.");
+			ostringstream ostrm;
 			ostrm << error;
+			response.set_content(ostrm.str());
+			return numeric_limits<unsigned>::max();
 		}
-		response.set_content(ostrm.str());
-		return is_ok;
+		const unsigned ch_num = close.number();
+		if ((ch_num == zero_.get_number()) || chnum_.erase(ch_num)) {
+			response.set_type(RPY);
+			cmp::ok ok;
+			ostringstream ostrm;
+			ostrm << ok;
+			response.set_content(ostrm.str());
+		} else {
+			response.set_type(ERR);
+			cmp::error error(reply_code::parameter_invalid,
+							 "Channel closure failed because the referenced channel number is not recognized.");
+			ostringstream ostrm;
+			ostrm << error;
+			response.set_content(ostrm.str());
+			return numeric_limits<unsigned>::max();
+		}
+		return ch_num;
 	}
 private:
 	typedef std::set<unsigned int> ch_set;

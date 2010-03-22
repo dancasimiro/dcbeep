@@ -28,18 +28,26 @@ handle_channel_data(const boost::system::error_code &error,
 }
 
 static void
-handle_new_channel(const unsigned int channel,
-				   const beep::message &init,
-				   session_type &theSession)
+handle_channel_change(const boost::system::error_code &error,
+					  const unsigned int channel,
+					  const bool should_close,
+					  const beep::message &init,
+					  session_type &theSession)
 {
-	cout << "a new channel (#" << channel
-		 << ") has been created with profile 'http://test/profile/usage'."
-		 << endl;
-	cout << "The peer sent " << init << " as initialization." << endl;
-	beep::message msg;
-	msg.set_content("new-channel-payload");
-	theSession.send(channel, msg);
-	theSession.async_read(channel, handle_channel_data);
+	if (!error) {
+		cout << "a new channel (#" << channel
+			 << ") has been created with profile 'http://test/profile/usage'."
+			 << endl;
+		cout << "The peer sent " << init << " as initialization." << endl;
+		if (!should_close) {
+			beep::message msg;
+			msg.set_content("new-channel-payload");
+			theSession.send(channel, msg);
+			theSession.async_read(channel, handle_channel_data);
+		}
+	} else {
+		cerr << "There was an error changing channel #" << channel << ": " << error.message() << endl;
+	}
 }
 
 static void handle_new_connection(const boost::system::error_code &error,
@@ -73,7 +81,7 @@ main(int /*argc*/, char **/*argv*/)
 		myProfile.set_initialization_message(init_msg);
 
 		session.install_profile(myProfile,
-								bind(handle_new_channel, _1, _2, ref(session)));
+								bind(handle_channel_change, _1, _2, _3, _4, ref(session)));
 
 		transport.set_endpoint(ip::tcp::endpoint(ip::tcp::v4(), 12345));
 		service.run();

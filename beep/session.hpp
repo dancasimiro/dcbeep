@@ -6,7 +6,9 @@
 #define BEEP_SESSION_HEAD 1
 
 #include <vector>
+#include <map>
 #include <iterator>
+#include <limits>
 #include <stdexcept>
 #include <cassert>
 
@@ -141,16 +143,11 @@ private:
 	}
 };     // class handler_user_events
 
-/// store a "new profile" handler with the profile
+/// store a "profile change" handler with the profile
 class wrapped_profile : public profile {
 public:
-	typedef boost::function<void (const unsigned int, const message&)> function_type;
-
-	wrapped_profile()
-		: profile()
-		, handler_()
-	{
-	}
+	typedef boost::system::error_code error_code;
+	typedef boost::function<void (const error_code&, unsigned, bool, const message&)> function_type;
 
 	wrapped_profile(const profile &p)
 		: profile(p)
@@ -158,18 +155,19 @@ public:
 	{
 	}
 
-	wrapped_profile(const profile &p, function_type func)
+	wrapped_profile(const profile &p, const function_type func)
 		: profile(p)
 		, handler_(func)
 	{
 	}
 	virtual ~wrapped_profile() {}
 
-	void execute(const unsigned int channel, const message &init)
+	void set_handler(const function_type cb) { handler_ = cb; }
+
+	void execute(const unsigned int channel, const boost::system::error_code &error,
+				 const message &init, const bool should_close) const
 	{
-		if (handler_) {
-			handler_(channel, init);
-		}
+		handler_(error, channel, should_close, init);
 	}
 private:
 	function_type handler_;
@@ -203,6 +201,7 @@ public:
 		, chman_()
 		, profiles_()
 		, channels_()
+		, ch2prof_()
 		, tuning_handler_()
 		, user_handler_()
 		, session_signal_()
@@ -216,6 +215,7 @@ public:
 		, chman_()
 		, profiles_()
 		, channels_()
+		, ch2prof_()
 		, tuning_handler_()
 		, user_handler_()
 		, session_signal_()
@@ -232,6 +232,13 @@ public:
 	void install_profile(const profile &p, Handler handler)
 	{
 		profiles_.push_back(detail::wrapped_profile(p, handler));
+	}
+
+	template <class Handler>
+	void associate_profile_handler(const std::string &uri, Handler handler)
+	{
+		detail::wrapped_profile &myProfile = get_profile(uri);
+		myProfile.set_handler(handler);
 	}
 
 	signal_connection install_session_handler(const session_signal_t::slot_type slot)
@@ -270,6 +277,7 @@ public:
 	{
 		using std::ostringstream;
 		using boost::bind;
+		using std::make_pair;
 
 		ostringstream strm;
 		strm << id_;
@@ -281,6 +289,7 @@ public:
 		const unsigned int msgno = send_tuning_message(start);
 		tuning_handler_.add(msgno, bind(handler, _1, ch, prof));
 		channels_.push_back(channel(ch));
+		ch2prof_.insert(make_pair(ch, profile_uri));
 		return ch;
 	}
 
@@ -295,6 +304,7 @@ public:
 			tuning_handler_.add(msgno, bind(handler, _1, channel));
 			if (channel != chman_.tuning_channel().get_number()) {
 				remove_channel(channel);
+				ch2prof_.erase(channel);
 			}
 		} else {
 			throw std::runtime_error("the selected channel is not in use.");
@@ -324,6 +334,7 @@ private:
 	typedef typename transport_service::signal_connection signal_connection_t;
 	typedef std::vector<detail::wrapped_profile>          profile_container;
 	typedef std::vector<channel>                          channel_container;
+	typedef std::map<unsigned, std::string>               channel_to_profile_map;
 
 	transport_service_reference   transport_;
 	identifier                    id_;
@@ -332,6 +343,7 @@ private:
 	channel_manager               chman_;
 	profile_container             profiles_;
 	channel_container             channels_;
+	channel_to_profile_map        ch2prof_; // resolves channel numbers to a profile
 
 	detail::handler_tuning_events tuning_handler_;
 	detail::handler_user_events   user_handler_;
@@ -341,7 +353,7 @@ private:
 	void handle_frame(const boost::system::error_code &error, const frame &frm)
 	{
 		if (!error) {
-			/// \todo handle messages that broken into multiple frames.
+			/// \todo handle messages that are broken into multiple frames.
 			try {
 				message msg;
 				make_message(&frm, &frm + 1, msg);
@@ -372,6 +384,8 @@ private:
 	void handle_tuning_frame(const frame &frm, const message &msg)
 	{
 		using std::back_inserter;
+		using std::numeric_limits;
+		using std::make_pair;
 		if (msg.get_type() == RPY && cmp::is_greeting_message(msg)) {
 			chman_.copy_profiles(msg, back_inserter(profiles_));
 			session_signal_(boost::system::error_code());
@@ -385,18 +399,25 @@ private:
 				chman_.accept_start(msg, profiles_.begin(), profiles_.end(),
 									acceptedProfile, response)) {
 				channels_.push_back(channel(chnum));
+				ch2prof_.insert(make_pair(chnum, acceptedProfile.uri()));
 				send_tuning_message(response);
-				detail::wrapped_profile &myProfile =
+				boost::system::error_code not_an_error;
+				const detail::wrapped_profile &myProfile =
 					get_profile(acceptedProfile.uri());
-				myProfile.execute(chnum, acceptedProfile.initial_message());
+				myProfile.execute(chnum, not_an_error, acceptedProfile.initial_message(), false);
 			} else {
 				send_tuning_message(response);
 			}
 		} else if (msg.get_type() == MSG && cmp::is_close_message(msg)) {
 			message response;
-			const bool close_is_ok = chman_.close_channel(msg, response);
-			assert(close_is_ok);
-			/// \todo if !close_is_ok, notify the client that its channel was not closed.
+			const unsigned chnum = chman_.close_channel(msg, response);
+			if (response.get_type() == RPY) {
+				assert(chnum != numeric_limits<unsigned>::max());
+				boost::system::error_code not_an_error;
+				const detail::wrapped_profile &myProfile = get_profile(chnum);
+				myProfile.execute(chnum, not_an_error, response, true);
+				ch2prof_.erase(chnum);
+			}
 			send_tuning_message(response);
 		} else if (msg.get_type() == RPY && cmp::is_ok_message(msg)) {
 			boost::system::error_code message_error;
@@ -484,6 +505,17 @@ private:
 			throw std::runtime_error("Invalid profile!");
 		}
 		return *i;
+	}
+
+	const detail::wrapped_profile &get_profile(const unsigned channel) const
+	{
+		typedef channel_to_profile_map::const_iterator const_iterator;
+		const const_iterator i = ch2prof_.find(channel);
+		assert(i != ch2prof_.end());
+		if (i == ch2prof_.end()) {
+			throw std::runtime_error("The channel number could not be resolved to a profile.");
+		}
+		return get_profile(i->second);
 	}
 
 	/// \return the used message number

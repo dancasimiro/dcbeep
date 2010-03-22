@@ -10,6 +10,14 @@
 #include "beep/session.hpp"
 #include "beep/message-stream.hpp"
 
+static void
+handle_initiator_channel_change(const boost::system::error_code &/*error*/,
+								const unsigned int /*channel*/,
+								const bool /*should_close*/,
+								const beep::message &/*msg*/)
+{
+}
+
 TEST(ChannelManager, Greeting)
 {
 	beep::channel_manager chman;
@@ -284,10 +292,14 @@ public:
 		user_read = false;
 		user_message = beep::message();
 
+		// This list is sent from the listening peer
 		std::vector<std::string> supported_profiles;
 		EXPECT_EQ(1u, initiator.available_profiles(std::back_inserter(supported_profiles)));
 		ASSERT_EQ(1u, supported_profiles.size());
 		ASSERT_EQ("casimiro.daniel/beep/test", supported_profiles.front());
+
+		ASSERT_NO_THROW(initiator.associate_profile_handler("casimiro.daniel/beep/test",
+															handle_initiator_channel_change));
 
 		const unsigned int channel =
 			initiator.async_add_channel("casimiro.daniel/beep/test",
@@ -541,8 +553,8 @@ public:
 		beep::profile myProfile;
 		myProfile.set_uri("casimiro.daniel/test-profile");
 		listener.install_profile(myProfile,
-								 bind(&SessionListener::handle_new_test_channel,
-									  this, _1, _2));
+								 bind(&SessionListener::handle_test_profile_change,
+									  this, _1, _2, _3, _4));
 
 		ip::tcp::endpoint ep(ip::address::from_string("127.0.0.1"), 9999);
 		transport.set_endpoint(ep);
@@ -587,11 +599,17 @@ public:
 		}
 	}
 
-	void handle_new_test_channel(const unsigned int channel,
-								 const beep::message &init)
+	void handle_test_profile_change(const boost::system::error_code& error,
+									const unsigned int channel,
+									const bool should_close,
+									const beep::message &init)
 	{
-		session_channel = channel;
-		user_message = init;
+		if (!error) {
+			if (!should_close) {
+				session_channel = channel;
+				user_message = init;
+			}
+		}
 	}
 };
 
