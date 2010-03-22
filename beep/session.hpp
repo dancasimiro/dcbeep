@@ -548,8 +548,7 @@ private:
 		if (error) {
 			throw boost::system::system_error(error);
 		}
-		frmsig_.disconnect();
-		transport_.stop_connection(id_);
+		transport_.shutdown_connection(id_);
 	}
 };     // class basic_session
 
