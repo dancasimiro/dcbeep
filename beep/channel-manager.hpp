@@ -640,9 +640,16 @@ public:
 		}
 	}
 
+	/// \brief test if a channel is active
+	///
+	/// First, test if the channel number represents the tuning channel. If not,
+	/// check if the number is currently in use.
+	///
+	/// \return True if the channel number is currently active.
 	bool channel_in_use(const unsigned int channel) const
 	{
-		return chnum_.count(channel) > 0;
+		assert(zero_.get_number() == 0u);
+		return (channel == zero_.get_number()) || chnum_.count(channel) > 0;
 	}
 
 	/// To avoid conflict in assigning channel numbers when requesting the
