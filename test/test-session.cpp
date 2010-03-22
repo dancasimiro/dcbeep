@@ -569,8 +569,8 @@ public:
 	virtual void TearDown()
 	{
 		netchng.disconnect();
+		transport.stop_listening();
 		beep::shutdown_session(listener);
-		transport.close();
 		TimedSessionBase::TearDown();
 	}
 

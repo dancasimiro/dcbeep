@@ -327,7 +327,7 @@ public:
 
 	virtual ~basic_solo_stream() {}
 
-	virtual void shutdown_connection(const beep::identifier &ident)
+	void shutdown_connection(const beep::identifier &ident)
 	{
 		typedef typename container_type::iterator iterator;
 		iterator i = connections_.find(ident);
@@ -338,7 +338,7 @@ public:
 	}
 
 	// closes the associated socket and removes the connection object
-	virtual void stop_connection(const beep::identifier &ident)
+	void stop_connection(const beep::identifier &ident)
 	{
 		typedef typename container_type::iterator iterator;
 		iterator i = connections_.find(ident);
@@ -347,15 +347,6 @@ public:
 			i->second->get_stream().close();
 			connections_.erase(i);
 		}
-	}
-
-	virtual void stop_all_connections()
-	{
-		typedef typename container_type::iterator iterator;
-		for (iterator i = connections_.begin(); i != connections_.end(); ++i) {
-			i->second->get_stream().close();
-		}
-		connections_.clear();
 	}
 
 	/// \brief Get notified when a new network session is established
@@ -532,10 +523,9 @@ public:
 		conn_.disconnect();
 	}
 
-	virtual void close()
+	void stop_listening()
 	{
 		pimpl_->close();
-		this->stop_all_connections();
 	}
 
 	void set_endpoint(const endpoint_type &ep)
