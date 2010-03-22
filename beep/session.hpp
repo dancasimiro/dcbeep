@@ -377,9 +377,7 @@ private:
 			}
 		} else {
 			frmsig_.disconnect();
-			if (error == boost::asio::error::eof) {
-				transport_.stop_connection(id_);
-			}
+			transport_.stop_connection(id_);
 			session_signal_(error);
 		}
 	}
