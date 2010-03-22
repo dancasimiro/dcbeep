@@ -327,6 +327,16 @@ public:
 
 	virtual ~basic_solo_stream() {}
 
+	virtual void shutdown_connection(const beep::identifier &ident)
+	{
+		typedef typename container_type::iterator iterator;
+		iterator i = connections_.find(ident);
+		assert(i != connections_.end());
+		if (i != connections_.end()) {
+			i->second->get_stream().shutdown(stream_type::shutdown_send);
+		}
+	}
+
 	// closes the associated socket and removes the connection object
 	virtual void stop_connection(const beep::identifier &ident)
 	{

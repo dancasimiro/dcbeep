@@ -377,6 +377,9 @@ private:
 			}
 		} else {
 			frmsig_.disconnect();
+			if (error == boost::asio::error::eof) {
+				transport_.stop_connection(id_);
+			}
 			session_signal_(error);
 		}
 	}
@@ -411,14 +414,18 @@ private:
 		} else if (msg.get_type() == MSG && cmp::is_close_message(msg)) {
 			message response;
 			const unsigned chnum = chman_.close_channel(msg, response);
+			send_tuning_message(response);
 			if (response.get_type() == RPY) {
 				assert(chnum != numeric_limits<unsigned>::max());
-				boost::system::error_code not_an_error;
-				const detail::wrapped_profile &myProfile = get_profile(chnum);
-				myProfile.execute(chnum, not_an_error, response, true);
-				ch2prof_.erase(chnum);
+				if (chnum != chman_.tuning_channel().get_number()) {
+					boost::system::error_code not_an_error;
+					const detail::wrapped_profile &myProfile = get_profile(chnum);
+					myProfile.execute(chnum, not_an_error, response, true);
+					ch2prof_.erase(chnum);
+				} else {
+					transport_.shutdown_connection(id_);
+				}
 			}
-			send_tuning_message(response);
 		} else if (msg.get_type() == RPY && cmp::is_ok_message(msg)) {
 			boost::system::error_code message_error;
 			tuning_handler_.execute(frm.get_message(), message_error);
