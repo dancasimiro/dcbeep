@@ -656,9 +656,7 @@ public:
 		using std::ostringstream;
 
 		unsigned int number = guess_;
-		if (chnum_.insert(number).second) {
-			guess_ = number + 2;
-		} else {
+		if (!chnum_.insert(number).second) {
 			number = get_next_channel(r);
 			if (!chnum_.insert(number).second) {
 				throw std::runtime_error("could not find a channel number!");
@@ -673,6 +671,7 @@ public:
 		ostringstream strm;
 		strm << start;
 		msg.set_content(strm.str());
+		guess_ = number + 2;
 		return number;
 	}
 
