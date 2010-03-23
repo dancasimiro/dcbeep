@@ -558,6 +558,7 @@ public:
 
 		ip::tcp::endpoint ep(ip::address::from_string("127.0.0.1"), 9999);
 		transport.set_endpoint(ep);
+		transport.start_listening();
 		socket.async_connect(ep, bind(&SessionListener::handle_connect, this,
 									  placeholders::error));
 		ASSERT_NO_THROW(run_event_loop_until_connect());

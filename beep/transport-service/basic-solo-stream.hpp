@@ -263,9 +263,9 @@ public:
 		return signal_.connect(slot);
 	}
 
-	void close()
+	void cancel()
 	{
-		acceptor_.close();
+		acceptor_.cancel();
 	}
 
 	void accept_from(const endpoint_type &ep)
@@ -521,17 +521,25 @@ public:
 	virtual ~basic_solo_stream_listener()
 	{
 		conn_.disconnect();
+		stop_listening();
 	}
 
 	void stop_listening()
 	{
-		pimpl_->close();
+		pimpl_->cancel();
+	}
+
+	void start_listening()
+	{
+		// next is pointer to the connection implementation
+		pimpl_type next(new impl_type(service_));
+		// pimpl_ is a pointer to the listening implementation
+		pimpl_->async_accept(next);
 	}
 
 	void set_endpoint(const endpoint_type &ep)
 	{
 		pimpl_->accept_from(ep);
-		start_listening_connection();
 	}
 private:
 	typedef typename super_type::impl_type       impl_type;
@@ -545,19 +553,13 @@ private:
 	listener_pimpl          pimpl_;
 	signal_connection_t     conn_;
 
-	void start_listening_connection()
-	{
-		pimpl_type next(new impl_type(service_));
-		pimpl_->async_accept(next);
-	}
-
 	void handle_accept(const boost::system::error_code &error,
 					   const pimpl_type next)
 	{
 		if (!error) {
 			const identifier id = this->add_connection(next);
 			next->start(error, id);
-			start_listening_connection();
+			start_listening();
 		}
 	}
 };     // class basic_solo_stream_listener

@@ -84,6 +84,7 @@ main(int /*argc*/, char **/*argv*/)
 								bind(handle_channel_change, _1, _2, _3, _4, ref(session)));
 
 		transport.set_endpoint(ip::tcp::endpoint(ip::tcp::v4(), 12345));
+		transport.start_listening();
 		service.run();
 	} catch (const exception &ex) {
 		cerr << "Fatal Error: " << ex.what() << endl;
