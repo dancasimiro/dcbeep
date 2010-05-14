@@ -26,33 +26,6 @@
 #include "beep/frame-stream.hpp"
 
 namespace beep {
-
-struct asio_frame_parser
-{
-	typedef frame_parser<boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type> > parser_type;
-
-	template <typename Iterator>
-	std::pair<Iterator, bool> operator()(Iterator begin, Iterator end) const
-	{
-		using std::make_pair;
-		using qi::parse;
-		static parser_type g;
-		const bool success = parse(begin, end, g);
-		return make_pair(begin, success);
-	}
-};
-}      // namespace beep
-	
-
-namespace boost {
-namespace asio {
-template <>
-struct is_match_condition<beep::asio_frame_parser>
-	: public boost::true_type {};
-}      // namespace asio
-}      // namespace boost
-
-namespace beep {
 namespace transport_service {
 namespace detail {
 
@@ -85,7 +58,6 @@ public:
 		, wstrand_(service)
 		, signal_frame_()
 		, net_changed_()
-		, matcher_()
 	{
 	}
 
@@ -137,7 +109,6 @@ public:
 private:
 	typedef boost::asio::streambuf streambuf_type;
 	typedef service_type::strand   strand_type;
-	typedef asio_frame_parser      matcher_type;
 
 	stream_type    stream_;
 	streambuf_type rsb_; // read streambuf
@@ -147,7 +118,6 @@ private:
 	strand_type    wstrand_; // serialize write operations
 	frame_signal_t signal_frame_;
 	network_cb_t   net_changed_;
-	matcher_type   matcher_;
 
 	void set_error(const boost::system::error_code &error)
 	{
@@ -198,7 +168,7 @@ private:
 		using boost::bind;
 		using namespace boost::asio;
 		async_read_until(stream_, rsb_,
-						 matcher_,
+						 frame::sentinel(),
 						 bind(&solo_stream_service_impl::handle_frame_read,
 							  this->shared_from_this(),
 							  placeholders::error,
