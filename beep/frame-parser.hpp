@@ -40,12 +40,14 @@ struct message_symbols : qi::symbols<char, unsigned int> {
 	}
 };     // struct message_symbols
 
+inline
 continuation_symbols &get_continuation_symbols()
 {
 	static continuation_symbols symbols;
 	return symbols;
 }
 
+inline
 message_symbols &get_message_symbols()
 {
 	static message_symbols symbols;
