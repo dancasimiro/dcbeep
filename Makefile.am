@@ -28,6 +28,7 @@ TESTS = \
 nobase_include_HEADERS = \
 	beep/frame.hpp \
 	beep/frame-stream.hpp \
+	beep/frame-parser.hpp \
 	beep/identifier.hpp \
 	beep/transport-service/basic-solo-stream.hpp \
 	beep/transport-service/solo-tcp.hpp

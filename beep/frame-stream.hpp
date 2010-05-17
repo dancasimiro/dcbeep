@@ -10,6 +10,9 @@
 #include <vector>
 #include "frame.hpp"
 
+/// \todo Remove the dependency on the boost spirit parser
+#include "frame-parser.hpp"
+
 namespace std {
 
 inline
@@ -19,10 +22,10 @@ operator<<(ostream &stream, const beep::frame &aFrame)
 	using namespace beep;
 	if (stream) {
 		const frame::string_type &payload = aFrame.get_payload();
-		stream << frame::reverse_message_lookup(aFrame.get_type()) << frame::separator()
+		stream << reverse_message_lookup(aFrame.get_type()) << frame::separator()
 			   << aFrame.get_channel() << frame::separator()
 			   << aFrame.get_message() << frame::separator()
-			   << frame::reverse_continuation_lookup(aFrame.get_more()) << frame::separator()
+			   << reverse_continuation_lookup(aFrame.get_more()) << frame::separator()
 			   << aFrame.get_sequence() << frame::separator()
 			   << payload.size()
 			;
@@ -49,10 +52,10 @@ operator>>(istream &stream, beep::frame &aFrame)
 			string header_type, cont;
 			unsigned int ch, msg, seq;
 			if (hstrm >> header_type >> ch >> msg >> cont >> seq >> payload_size) {
-				myFrame.set_type(frame::message_lookup(header_type));
+				myFrame.set_type(message_lookup(header_type));
 				myFrame.set_channel(ch);
 				myFrame.set_message(msg);
-				myFrame.set_more(frame::continuation_lookup(cont));
+				myFrame.set_more(continuation_lookup(cont));
 				myFrame.set_sequence(seq);
 				if (myFrame.get_type() == ANS) {
 					unsigned int ans;
