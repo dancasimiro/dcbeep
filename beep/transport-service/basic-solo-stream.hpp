@@ -10,6 +10,7 @@
 #include <istream>
 #include <sstream>
 #include <map>
+#include <limits>
 
 #include <boost/noncopyable.hpp>
 #include <boost/throw_exception.hpp>
@@ -52,9 +53,23 @@ public:
 	solo_stream_service_impl(service_reference service)
 		: stream_(service)
 		, rsb_()
-		, wsb_()
-		, fwsb_(&wsb_[0])
-		, bwsb_(&wsb_[1])
+		, wsb0_()
+		, wsb1_()
+		, fwsb_(&wsb0_)
+		, bwsb_(&wsb1_)
+		, wstrand_(service)
+		, signal_frame_()
+		, net_changed_()
+	{
+	}
+
+	solo_stream_service_impl(service_reference service, const std::size_t maxSize)
+		: stream_(service)
+		, rsb_(maxSize)
+		, wsb0_(maxSize)
+		, wsb1_(maxSize)
+		, fwsb_(&wsb0_)
+		, bwsb_(&wsb1_)
 		, wstrand_(service)
 		, signal_frame_()
 		, net_changed_()
@@ -112,7 +127,7 @@ private:
 
 	stream_type    stream_;
 	streambuf_type rsb_; // read streambuf
-	streambuf_type wsb_[2]; // double buffered write streambufs
+	streambuf_type wsb0_, wsb1_; // double buffered write streambufs
 	streambuf_type *fwsb_;  // current (foreground) sendbuf that is being sent
 	streambuf_type *bwsb_;  // background streambuf that is updated while fwsb_ is transmitted
 	strand_type    wstrand_; // serialize write operations
@@ -136,8 +151,8 @@ private:
 		using std::ostream;
 		ostream stream(bwsb_);
 		if (!(stream << frame)) {
-			/// \todo send an error up the chain
-			assert(false);
+			boost::system::error_code ecode;
+			set_error(ecode);
 		}
 	}
 
@@ -410,11 +425,12 @@ public:
 
 	typedef basic_solo_stream<stream_type, initiating_role> super_type;
 	
-	basic_solo_stream_initiator(service_reference service)
+	basic_solo_stream_initiator(service_reference service, const std::size_t maxbufsz = std::numeric_limits<std::size_t>::max())
 		: super_type()
 		, service_(service)
 		, id_()
 		, current_()
+		, maxbufsz_(maxbufsz)
 	{
 	}
 
@@ -427,7 +443,7 @@ public:
 		using boost::swap;
 		using namespace boost::asio;
 
-		pimpl_type next(new impl_type(service_));
+		pimpl_type next(new impl_type(service_, maxbufsz_));
 		if (current_) {
 			this->remove_connection(id_);
 		}
@@ -446,6 +462,7 @@ private:
 	const service_reference service_;
 	identifier              id_;
 	pimpl_type              current_; // current network connection
+	size_t                  maxbufsz_;
 };     // class basic_solo_stream_initiator
 
 /// \brief Passively wait for a new TCP connection.

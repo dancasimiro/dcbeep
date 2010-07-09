@@ -15,11 +15,13 @@ check_PROGRAMS = \
 	test/utframe \
 	test/utmessage \
 	test/utsession \
+	test/uterror \
 	test/utsolotcp
 TESTS = \
 	test/utframe \
 	test/utmessage \
 	test/utsession \
+	test/uterror \
 	test/utsolotcp
 
 ###############################################################################
@@ -65,6 +67,12 @@ test_utsolotcp_SOURCES = test/test-solo-tcp-transport-service.cpp
 test_utsolotcp_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
 test_utsolotcp_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
 test_utsolotcp_LDADD = $(AM_LDFLAGS) @BOOST_SYSTEM_LIB@ @GTEST_LIBS@
+# BEEP session over single TCP/IP connection Error Handling Unit Test
+# -----------------------------------------------------------------------------
+test_uterror_SOURCES = test/test-solo-tcp-error-handling.cpp
+test_uterror_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
+test_uterror_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
+test_uterror_LDADD = $(AM_LDFLAGS) @BOOST_SYSTEM_LIB@ @GTEST_LIBS@
 # BEEP session test
 # -----------------------------------------------------------------------------
 test_utsession_SOURCES = test/test-session.cpp
