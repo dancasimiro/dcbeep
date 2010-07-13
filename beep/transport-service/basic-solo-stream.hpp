@@ -151,8 +151,10 @@ private:
 		using std::ostream;
 		ostream stream(bwsb_);
 		if (!(stream << frame)) {
-			boost::system::error_code ecode;
-			set_error(ecode);
+			using namespace boost::system::errc;
+			// I'm guessing the operator<< failed because the bwsb_ is too small.
+			// I'm not sure how to get access to the actual error condition.
+			set_error(make_error_code(value_too_large));
 		}
 	}
 
