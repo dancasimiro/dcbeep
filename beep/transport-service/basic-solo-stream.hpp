@@ -483,11 +483,12 @@ public:
 
 	typedef basic_solo_stream<stream_type, listening_role> super_type;
 
-	basic_solo_stream_listener(service_reference service)
+	basic_solo_stream_listener(service_reference service, const std::size_t maxbufsz = std::numeric_limits<std::size_t>::max())
 		: super_type()
 		, service_(service)
 		, pimpl_(new listener_type(service))
 		, conn_()
+		, maxbufsz_(maxbufsz)
 	{
 		using boost::bind;
 		conn_ =
@@ -495,10 +496,11 @@ public:
 								   this, _1, _2));
 	}
 
-	basic_solo_stream_listener(service_reference svc, const endpoint_type &ep)
+	basic_solo_stream_listener(service_reference svc, const endpoint_type &ep, const std::size_t maxbufsz = std::numeric_limits<std::size_t>::max())
 		: super_type()
 		, service_(svc)
 		, pimpl_(new listener_type(svc))
+		, maxbufsz_(maxbufsz)
 	{
 		using boost::bind;
 		conn_ =
@@ -521,7 +523,7 @@ public:
 	void start_listening()
 	{
 		// next is pointer to the connection implementation
-		pimpl_type next(new impl_type(service_));
+		pimpl_type next(new impl_type(service_, maxbufsz_));
 		// pimpl_ is a pointer to the listening implementation
 		pimpl_->async_accept(next);
 	}
@@ -541,6 +543,7 @@ private:
 	const service_reference service_;
 	listener_pimpl          pimpl_;
 	signal_connection_t     conn_;
+	std::size_t             maxbufsz_;
 
 	void handle_accept(const boost::system::error_code &error,
 					   const pimpl_type next)
