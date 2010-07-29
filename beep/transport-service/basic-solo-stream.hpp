@@ -9,6 +9,7 @@
 #include <utility>
 #include <istream>
 #include <sstream>
+#include <iterator>
 #include <map>
 #include <limits>
 
@@ -24,7 +25,9 @@
 #include "beep/identifier.hpp"
 #include "beep/role.hpp"
 #include "beep/frame.hpp"
+#include "beep/frame-parser.hpp"
 #include "beep/frame-stream.hpp"
+#include "beep/reply-code.hpp"
 
 namespace beep {
 namespace transport_service {
@@ -73,6 +76,7 @@ public:
 		, wstrand_(service)
 		, signal_frame_()
 		, net_changed_()
+		, grammar_()
 	{
 	}
 
@@ -133,6 +137,7 @@ private:
 	strand_type    wstrand_; // serialize write operations
 	frame_signal_t signal_frame_;
 	network_cb_t   net_changed_;
+	frame_parser<boost::spirit::istream_iterator> grammar_;
 
 	void set_error(const boost::system::error_code &error)
 	{
@@ -149,6 +154,8 @@ private:
 	void serialize_frame(const frame &frame)
 	{
 		using std::ostream;
+		/// \todo split frame into multiple frames if it is larger than the advertized SEQ window
+		/// \todo implement flow control?
 		ostream stream(bwsb_);
 		if (!(stream << frame)) {
 			using namespace boost::system::errc;
@@ -185,7 +192,7 @@ private:
 		using boost::bind;
 		using namespace boost::asio;
 		async_read_until(stream_, rsb_,
-						 frame::sentinel(),
+						 sentinel(),
 						 bind(&solo_stream_service_impl::handle_frame_read,
 							  this->shared_from_this(),
 							  placeholders::error,
@@ -212,10 +219,24 @@ private:
 		using std::istream;
 		if (!error || error == boost::asio::error::message_size) {
 			istream stream(&rsb_);
+			stream.unsetf(std::ios::skipws);
 			frame current;
-			stream >> current;
-			assert(stream);
-			signal_frame_(boost::system::error_code(), current);
+
+			// if frame_type != SEQ {
+			/// \todo Send the SEQ frame now?
+			// } else {
+			//  process SEQ frame
+			boost::spirit::istream_iterator begin(stream);
+			boost::spirit::istream_iterator end;
+			if (parse(begin, end, grammar_, current)) {
+				stream.unget();
+				signal_frame_(boost::system::error_code(), current);
+			} else {
+				// should I just close the stream?
+				set_error(boost::system::error_code(beep::reply_code::general_syntax_error,
+													beep::beep_category));
+			}
+			//}
 			do_start_read();
 		} else {
 			set_error(error);

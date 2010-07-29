@@ -11,11 +11,16 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/phoenix.hpp>
+#include <boost/variant.hpp>
+#include <boost/fusion/adapted/struct/adapt_struct.hpp>
+#include <boost/fusion/include/adapt_struct.hpp>
 
 #include "frame.hpp"
 
 namespace beep {
+namespace phoenix = boost::phoenix;
 namespace qi = boost::spirit::qi;
+namespace ascii = boost::spirit::ascii;
 
 struct continuation_symbols : qi::symbols<char, bool> {
 	continuation_symbols()
@@ -27,30 +32,10 @@ struct continuation_symbols : qi::symbols<char, bool> {
 	}
 };     // struct continuation_symbols
 
-struct message_symbols : qi::symbols<char, unsigned int> {
-	message_symbols()
-	{
-		add
-			("msg", MSG)
-			("rpy", RPY)
-			("ans", ANS)
-			("err", ERR)
-			("nul", NUL)
-			;
-	}
-};     // struct message_symbols
-
 inline
 continuation_symbols &get_continuation_symbols()
 {
 	static continuation_symbols symbols;
-	return symbols;
-}
-
-inline
-message_symbols &get_message_symbols()
-{
-	static message_symbols symbols;
 	return symbols;
 }
 
@@ -93,21 +78,6 @@ public:
 };     // symbol_table_reverse_lookup
 
 template <typename T>
-unsigned int message_lookup(const T &sym)
-{
-	using std::transform;
-	const message_symbols &table = get_message_symbols();
-	// convert the symbol to lowercase
-	T mySymbol = sym;
-	transform(mySymbol.begin(), mySymbol.end(), mySymbol.begin(), tolower);
-	const unsigned int * const ptr = table.find(mySymbol);
-	if (!ptr) {
-		throw std::range_error("This message symbol is unknown.");
-	}
-	return *ptr;
-}
-
-template <typename T>
 bool continuation_lookup(const T &sym)
 {
 	using std::transform;
@@ -123,21 +93,6 @@ bool continuation_lookup(const T &sym)
 }
 
 // I may be able to replace these reverse lookups with a karma generator
-inline
-std::string reverse_message_lookup(const unsigned int t)
-{
-	using std::transform;
-
-	const message_symbols &table = get_message_symbols();
-	symbol_table_reverse_lookup<unsigned int> lookup(t);
-	table.for_each(lookup);
-	std::string symbol = lookup.symbol();
-	if (symbol.empty()) {
-		throw std::range_error("The message symbol lookup failed.");
-	}
-	transform(symbol.begin(), symbol.end(), symbol.begin(), toupper);
-	return symbol;
-}
 
 inline
 std::string reverse_continuation_lookup(const bool c)
@@ -152,24 +107,89 @@ std::string reverse_continuation_lookup(const bool c)
 	return symbol;
 }
 
+typedef boost::variant<
+	msg_frame
+	, rpy_frame
+	, ans_frame
+	, err_frame
+	, nul_frame
+	, seq_frame
+	>
+frame;
+
+}      // namespace beep
+
+BOOST_FUSION_ADAPT_STRUCT(beep::seq_frame,
+						  (unsigned int, channel)
+						  (unsigned int, acknowledgement)
+						  (unsigned int, window)
+						  )
+
+BOOST_FUSION_ADAPT_STRUCT(beep::msg_frame,
+						  (unsigned int, channel)
+						  (unsigned int, message)
+						  (bool, more)
+						  (unsigned int, sequence)
+						  (std::string, payload)
+						  )
+
+BOOST_FUSION_ADAPT_STRUCT(beep::rpy_frame,
+						  (unsigned int, channel)
+						  (unsigned int, message)
+						  (bool, more)
+						  (unsigned int, sequence)
+						  (std::string, payload)
+						  )
+
+BOOST_FUSION_ADAPT_STRUCT(beep::ans_frame,
+						  (unsigned int, channel)
+						  (unsigned int, message)
+						  (bool, more)
+						  (unsigned int, sequence)
+						  (unsigned int, answer)
+						  (std::string, payload)
+						  )
+
+BOOST_FUSION_ADAPT_STRUCT(beep::err_frame,
+						  (unsigned int, channel)
+						  (unsigned int, message)
+						  (bool, more)
+						  (unsigned int, sequence)
+						  (std::string, payload)
+						  )
+
+BOOST_FUSION_ADAPT_STRUCT(beep::nul_frame,
+						  (unsigned int, channel)
+						  (unsigned int, message)
+						  (bool, more)
+						  (unsigned int, sequence)
+						  (std::string, payload)
+						  )
+
+namespace beep {
+
 template <typename Iterator>
-struct frame_parser : qi::grammar<Iterator, frame(), qi::locals<std::size_t> > {
+struct frame_parser : qi::grammar<Iterator, frame()> {
 
-	frame_parser() : frame_parser::base_type(start)
+	frame_parser() : frame_parser::base_type(frame_rule)
 	{
-		using qi::eps;
 		using qi::uint_;
-		using qi::char_;
-		using qi::repeat;
-		using qi::raw;
-		using qi::no_case;
 		using qi::_1;
-		using qi::_val;
-		using qi::_a;
-		using qi::_pass;
+		using qi::_2;
+		using qi::_3;
+		using qi::_4;
+		using qi::lit;
+		using qi::skip;
+		using qi::omit;
+		using qi::space;
+		using qi::repeat;
+		using qi::on_error;
+		using qi::fail;
+		using ascii::char_;
+		using namespace qi::labels;
 
-		using boost::phoenix::bind;
-
+		using phoenix::construct;
+		using phoenix::val;
 		// The channel number ("channel") must be a non-negative integer (in the
 		// range 0..2147483647).
 
@@ -210,29 +230,162 @@ struct frame_parser : qi::grammar<Iterator, frame(), qi::locals<std::size_t> > {
 		// parameters.  A single space character (decimal code 32, " ") 
 		// separates each component.  The header is terminated with a CRLF pair.
 
-		// I am generous in what I accept, I don't enforce case in header type or END sentinel
-		start = eps[_val = frame()] >> // initialize the frame object to the default
-			// parse the header first
-			(no_case[get_message_symbols()][bind(&frame::set_type, _val, _1)] >> ' '
-			 >> uint_[bind(&frame::set_channel, _val, _1), _pass = _1 < 2147483648u] >> ' '    // channel
-			 >> uint_[bind(&frame::set_message, _val, _1), _pass = _1 < 2147483648u] >> ' '    // msgno
-			 >> get_continuation_symbols()[bind(&frame::set_more, _val, _1)] >> ' '     // more
-			 >> uint_[bind(&frame::set_sequence, _val, _1), _pass = _1 <= 4294967295u] >> ' '  // seqno
-			 >> uint_[_a = _1, _pass = _1 < 2147483648u]                                       // size
-			 /// \todo Require ansno if header_symbol == "ANS"
-			 >> -(' ' >> uint_[bind(&frame::set_answer, _val, _1), _pass = _1 <= 4294967295u]) // ansno
-			 >> "\r\n"
+		// This parser also knows about the "SEQ" frame header that is defined in RFC 3081 to
+		// support the TCP/IP transport backing. In the future, I should only enable the SEQ
+		// keyword if the TCP/IP transport is in use. However, it is currently always "on"
+		// because the TCP/IP transport is the only one that I have implemented.
+		terminator_rule = terminator();
+		trailer = sentinel(); // terminator (\r\n) is included in sentinel().
 
-			 // start the payload
-			 //>> raw[repeat(_a)[char_]][bind(&frame::set_payload_i<Iterator>, _val, _1)]
-			 >> repeat(_a)[char_][bind(&frame::set_payload_vector, _val, _1)]
+		// header components
+		channel %= uint_[_pass = _1 < 2147483648u];
+		message_number %= uint_[_pass = _1 < 2147483648u];
+		more %= get_continuation_symbols();
+		sequence_number %= uint_[_pass = _1 <= 4294967295u];
+		size %= uint_[_pass = _1 < 2147483648u];
+		answer_number %= uint_[_pass = _1 <= 4294967295u];
 
-			 // and the trailer
-			 >> no_case["end\r\n"]
+		//common %= skip(space)[channel >> message_number >> more >> sequence_number >> size[_a = _1]];
+
+		payload %= repeat(_r1)[char_];
+
+		msg %= lit("MSG")
+			>> skip(space)[channel]
+			>> skip(space)[message_number]
+			>> skip(space)[more]
+			>> skip(space)[sequence_number]
+			>> omit[skip(space)[size[_a = _1]]]
+			>> terminator_rule
+			>> payload(_a)
+			>> trailer
+			;
+
+		rpy %= lit("RPY")
+			>> skip(space)[channel]
+			>> skip(space)[message_number]
+			>> skip(space)[more]
+			>> skip(space)[sequence_number]
+			>> omit[skip(space)[size[_a = _1]]]
+			>> terminator_rule
+			>> payload(_a)
+			>> trailer
+			;
+
+		ans %= lit("ANS")
+			>> skip(space)[channel]
+			>> skip(space)[message_number]
+			>> skip(space)[more]
+			>> skip(space)[sequence_number]
+			>> omit[skip(space)[size[_a = _1]]]
+			>> skip(space)[answer_number]
+			>> terminator_rule
+			>> payload(_a)
+			>> trailer
+			;
+
+		err %= lit("ERR")
+			>> skip(space)[channel]
+			>> skip(space)[message_number]
+			>> skip(space)[more]
+			>> skip(space)[sequence_number]
+			>> omit[skip(space)[size[_a = _1]]]
+			>> terminator_rule
+			>> payload(_a)
+			>> trailer
+			;
+
+		nul %= lit("NUL")
+			>> skip(space)[channel]
+			>> skip(space)[message_number]
+			>> skip(space)[more]
+			>> skip(space)[sequence_number]
+			>> omit[skip(space)[size[_a = _1]]]
+			>> terminator_rule
+			>> payload(_a)
+			>> trailer
+			;
+
+		data %= msg
+			| rpy
+			| ans
+			| err
+			| nul
+			;
+
+		seq %= lit("SEQ")
+			>> skip(space)[channel]
+			>> skip(space)[sequence_number]
+			>> skip(space)[size]
+			>> terminator_rule
+			>> trailer
+			;
+		mapping %= seq;
+
+		frame_rule %= data | mapping;
+
+		terminator_rule.name("terminator");
+		trailer.name("trailer");
+		channel.name("channel");
+		message_number.name("message_number");
+		more.name("more");
+		sequence_number.name("sequence_number");
+		size.name("size");
+		//common.name("common");
+		payload.name("payload");
+		msg.name("MSG");
+		rpy.name("RPY");
+		ans.name("ANS");
+		err.name("ERR");
+		nul.name("NUL");
+		seq.name("SEQ");
+		data.name("data");
+		mapping.name("mapping");
+		frame_rule.name("frame");
+
+		on_error<fail>
+			(
+			 frame_rule
+			 , std::cout
+			 << val("Error! Expecting ")
+			 << _4
+			 << val(" here: \"")
+			 << construct<std::string>(_3, _2)
+			 << val("\"")
+			 << std::endl
 			 );
 	}
 
-	qi::rule<Iterator, frame(), qi::locals<std::size_t> > start;
+	qi::rule<Iterator> terminator_rule;
+
+	// header components
+	qi::rule<Iterator, std::size_t()> channel;
+	qi::rule<Iterator, std::size_t()> message_number;
+	qi::rule<Iterator, bool()> more;
+	qi::rule<Iterator, std::size_t()> sequence_number;
+	qi::rule<Iterator, std::size_t()> size;
+	qi::rule<Iterator, std::size_t()> answer_number;
+	//qi::rule<Iterator, basic_frame(), qi::locals<std::size_t> > common;
+
+	// supported data header types
+	// RFC 3080: The BEEP Core
+	qi::rule<Iterator, msg_frame(), qi::locals<std::size_t> > msg;
+	qi::rule<Iterator, rpy_frame(), qi::locals<std::size_t> > rpy;
+	qi::rule<Iterator, ans_frame(), qi::locals<std::size_t> > ans;
+	qi::rule<Iterator, err_frame(), qi::locals<std::size_t> > err;
+	qi::rule<Iterator, nul_frame(), qi::locals<std::size_t> > nul;
+
+	// supported mapping header types
+	// RFC 3081: Mapping the BEEP Core onto TCP
+	qi::rule<Iterator, seq_frame()> seq;
+
+	// rules to select the current header
+	qi::rule<Iterator, frame()> data;
+	qi::rule<Iterator, frame()> mapping;
+
+	qi::rule<Iterator, std::string(std::size_t)> payload;
+	qi::rule<Iterator> trailer;
+
+	qi::rule<Iterator, frame()> frame_rule;
 };     // struct frame_grammar
 }      // namespace beep
 #endif // BEEP_FRAME_PARSER_HEAD

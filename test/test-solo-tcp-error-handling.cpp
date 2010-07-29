@@ -188,23 +188,20 @@ TEST_F(SingleTCPTransportServiceErrorHandling, Connect)
 TEST_F(SingleTCPTransportServiceErrorHandling, HandlesError)
 {
 	using boost::bind;
-
-	beep::frame myFrame;
-	myFrame.set_type(beep::MSG);
-	myFrame.set_channel(9);
-	myFrame.set_message(1);
-	myFrame.set_more(false);
-	myFrame.set_sequence(52);
-	myFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n" // 38
-						"<start number='1'>\r\n" // 20
-						"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
-						"</start>\r\n" // 10
-						);
+	beep::msg_frame myFrame;
+	myFrame.channel = 9;
+	myFrame.message = 1;
+	myFrame.more = false;
+	myFrame.sequence = 52;
+	myFrame.payload = 
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		;
 	ts.send_frame(session_id, myFrame);
 	ASSERT_NO_THROW(run_event_loop_until_frame_received());
-
 	EXPECT_TRUE(last_error);
-
 }
 
 int

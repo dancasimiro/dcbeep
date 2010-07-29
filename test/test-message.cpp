@@ -95,7 +95,7 @@ TEST(FrameGenerator, GetFrames)
 					);
 
 	std::vector<beep::frame> frames;
-	EXPECT_EQ(1, beep::make_frames(msg, ch, std::back_inserter(frames)));
+	EXPECT_EQ(msg.get_number(), beep::make_frames(msg, ch, std::back_inserter(frames)));
 	ASSERT_EQ(1u, frames.size());
 
 	const std::string encoded_out =

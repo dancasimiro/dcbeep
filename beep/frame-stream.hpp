@@ -5,88 +5,145 @@
 #define BEEP_FRAME_STREAM_HEAD 1
 
 #include <istream>
-#include <sstream>
-#include <string>
-#include <vector>
 #include "frame.hpp"
-
-/// \todo Remove the dependency on the boost spirit parser
 #include "frame-parser.hpp"
+#include <boost/spirit/include/support_istream_iterator.hpp>
+#include <boost/variant.hpp>
 
-namespace std {
+namespace beep {
 
-inline
-ostream&
-operator<<(ostream &stream, const beep::frame &aFrame)
-{
-	using namespace beep;
-	if (stream) {
-		const frame::string_type &payload = aFrame.get_payload();
-		stream << reverse_message_lookup(aFrame.get_type()) << frame::separator()
-			   << aFrame.get_channel() << frame::separator()
-			   << aFrame.get_message() << frame::separator()
-			   << reverse_continuation_lookup(aFrame.get_more()) << frame::separator()
-			   << aFrame.get_sequence() << frame::separator()
-			   << payload.size()
-			;
-		if (aFrame.get_type() == ANS) {
-			stream << frame::separator() << aFrame.get_answer();
-		}
-		stream << frame::terminator();
-		stream << payload << frame::sentinel();
+class frame_stream_visitor : public boost::static_visitor<> {
+public:
+	frame_stream_visitor(std::ostream &a_stream)
+		: boost::static_visitor<>()
+		, stream_(a_stream)
+	{
 	}
-	return stream;
-}
 
-inline
-istream&
-operator>>(istream &stream, beep::frame &aFrame)
-{
-	using namespace beep;
-	if (stream) {
-		frame myFrame;
-		string whole_header;
-		unsigned int payload_size;
-		if (getline(stream, whole_header)) {
-			istringstream hstrm(whole_header);
-			string header_type, cont;
-			unsigned int ch, msg, seq;
-			if (hstrm >> header_type >> ch >> msg >> cont >> seq >> payload_size) {
-				myFrame.set_type(message_lookup(header_type));
-				myFrame.set_channel(ch);
-				myFrame.set_message(msg);
-				myFrame.set_more(continuation_lookup(cont));
-				myFrame.set_sequence(seq);
-				if (myFrame.get_type() == ANS) {
-					unsigned int ans;
-					if (!(hstrm >> ans)) {
-						stream.setstate(istream::badbit);
-					} else {
-						myFrame.set_answer(ans);
+	void operator()(const msg_frame &frm) const
+	{
+		if (stream_ << "MSG ") {
+			if (stream_basic_frame(frm)) {
+				if (stream_frame_end(frm)) {
+					return;
+				}
+			}
+		}
+		stream_.setstate(std::ios::failbit);
+	}
+
+	void operator()(const rpy_frame &frm) const
+	{
+		if (stream_ << "RPY ") {
+			if (stream_basic_frame(frm)) {
+				if (stream_frame_end(frm)) {
+					return;
+				}
+			}
+		}
+		stream_.setstate(std::ios::failbit);
+	}
+
+	void operator()(const ans_frame &frm) const
+	{
+		if (stream_ << "ANS ") {
+			if (stream_basic_frame(frm)) {
+				if (stream_ << ' ' << frm.answer) {
+					if (stream_frame_end(frm)) {
+						return;
 					}
 				}
-			} else {
-				stream.setstate(istream::badbit);
 			}
 		}
-		if (stream) {
-			vector<char> buffer;
-			buffer.resize(payload_size);
-			if (stream.read(&buffer[0], payload_size)) {
-				myFrame.set_payload(string(buffer.begin(), buffer.end()));
+		stream_.setstate(std::ios::failbit);
+	}
+
+	void operator()(const nul_frame &frm) const
+	{
+		if (stream_ << "NUL ") {
+			if (stream_basic_frame(frm)) {
+				if (stream_frame_end(frm)) {
+					return;
+				}
 			}
 		}
-		if (stream) {
-			string trailer;
-			if (getline(stream, trailer) && trailer == "END\r") {
-				swap(myFrame, aFrame);
-			} else {
-				stream.setstate(istream::badbit);
+		stream_.setstate(std::ios::failbit);
+	}
+
+	void operator()(const err_frame &frm) const
+	{
+		if (stream_ << "ERR ") {
+			if (stream_basic_frame(frm)) {
+				if (stream_frame_end(frm)) {
+					return;
+				}
 			}
 		}
+		stream_.setstate(std::ios::failbit);
+	}
+
+	void operator()(const seq_frame &seq) const
+	{
+		if (!(stream_ << "SEQ " << seq.channel << ' ' << seq.acknowledgement << ' ' << seq.window << terminator() << sentinel())) {
+			stream_.setstate(std::ios::failbit);
+		}
+	}
+private:
+	std::ostream &stream_;
+
+	template <core_message_types CoreFrameType>
+	std::ostream &stream_basic_frame(const basic_frame<CoreFrameType> &frm) const
+	{
+		return
+			stream_ << frm.channel << ' '
+					<< frm.message << ' '
+					<< reverse_continuation_lookup(frm.more) << ' '
+					<< frm.sequence << ' '
+					<< frm.payload.size()
+			;
+	}
+
+	template <core_message_types CoreFrameType>
+	std::ostream &stream_frame_end(const basic_frame<CoreFrameType> &frm) const
+	{
+		return stream_ << terminator() << frm.payload << sentinel();
+	}
+};
+
+inline
+std::ostream&
+operator<<(std::ostream &stream, const beep::frame &aFrame)
+{
+	// I could change this to use boost::spirit::karma in the future...
+	if (stream) {
+		using boost::apply_visitor;
+		apply_visitor(frame_stream_visitor(stream), aFrame);
 	}
 	return stream;
 }
 
-}      // namespace std
+inline
+std::istream&
+operator>>(std::istream &stream, beep::frame &aFrame)
+{
+	if (stream) {
+		const std::ios::fmtflags given_flags = stream.flags();
+		stream.unsetf(std::ios::skipws);
+
+		// wrap stream into qi compatible iterator
+		boost::spirit::istream_iterator begin(stream);
+		boost::spirit::istream_iterator end;
+
+		static frame_parser<boost::spirit::istream_iterator> grammar;
+		if (!qi::phrase_parse(begin, end, grammar, qi::space, aFrame)) {
+			stream.setstate(std::ios::badbit);
+			return stream;
+		}
+		stream.setf(given_flags);
+		stream.unget();
+	}
+	return stream;
+}
+
+}      // namespace beep
 #endif // BEEP_FRAME_STREAM_HEAD

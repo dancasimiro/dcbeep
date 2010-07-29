@@ -1,6 +1,7 @@
 /// \file test-session.cpp
 ///
 /// UNCLASSIFIED
+#define BOOST_SPIRIT_DEBUG 1
 #include <gtest/gtest.h>
 
 #include <boost/asio.hpp>
@@ -9,6 +10,8 @@
 #include "beep/transport-service/solo-tcp.hpp"
 #include "beep/session.hpp"
 #include "beep/message-stream.hpp"
+
+using boost::get;
 
 static void
 handle_initiator_channel_change(const boost::system::error_code &/*error*/,
@@ -26,7 +29,7 @@ TEST(ChannelManager, Greeting)
 	tls.set_uri("http://iana.org/beep/TLS");
 	chman.greeting_message(&tls, &tls + 1, greeting);
 	std::vector<beep::frame> frames;
-	EXPECT_EQ(1, beep::make_frames(greeting, chman.tuning_channel(),
+	EXPECT_EQ(0, beep::make_frames(greeting, chman.tuning_channel(),
 								   std::back_inserter(frames)));
 	ASSERT_EQ(1u, frames.size());
 
@@ -64,7 +67,7 @@ TEST(ChannelManager, GreetingWithMultipleProfiles)
 		
 	chman.greeting_message(myProfiles.begin(), myProfiles.end(), greeting);
 	std::vector<beep::frame> frames;
-	EXPECT_EQ(1, beep::make_frames(greeting, chman.tuning_channel(),
+	EXPECT_EQ(0, beep::make_frames(greeting, chman.tuning_channel(),
 								   std::back_inserter(frames)));
 	ASSERT_EQ(1u, frames.size());
 
@@ -125,13 +128,21 @@ public:
 	bool                         is_connected;
 	bool                         have_frame;
 
+	void check_if_timed_out()
+	{
+		const boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
+		if ((current_time - start_time) > boost::posix_time::seconds(5)) {
+			using namespace boost::system::errc;
+			last_error = make_error_code(timed_out);
+		}
+	}
+
 	void run_event_loop_until_connect()
 	{
-		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
-		while (!is_connected && (current_time - start_time) < boost::posix_time::seconds(5)) {
+		while (!last_error && !is_connected) {
 			service.poll();
-			current_time = boost::posix_time::second_clock::local_time();
 			service.reset();
+			check_if_timed_out();
 		}
 	}
 
@@ -148,12 +159,11 @@ public:
 										   this,
 										   boost::asio::placeholders::error,
 										   boost::asio::placeholders::bytes_transferred));
-		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
 		service.reset();
-		while (!last_error && !have_frame && (current_time - start_time) < boost::posix_time::seconds(5)) {
+		while (!last_error && !have_frame) {
 			service.poll();
-			current_time = boost::posix_time::second_clock::local_time();
 			service.reset();
+			check_if_timed_out();
 		}
 	}
 private:
@@ -258,18 +268,19 @@ TEST_F(SessionInitiator, SendsGreeting)
 
 	std::istream stream(&buffer);
 	beep::frame recvFrame;
-	EXPECT_TRUE(stream >> recvFrame);
+	stream >> recvFrame;
+	EXPECT_TRUE(stream.eof());
 	
-	beep::frame myFrame;
-	myFrame.set_type(beep::RPY);
-	myFrame.set_channel(0);
-	myFrame.set_message(0);
-	myFrame.set_more(false);
-	myFrame.set_sequence(0);
-	myFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n" // 38
-						"<greeting />"
-						);
-	EXPECT_EQ(myFrame, recvFrame);
+	beep::rpy_frame myFrame;
+	myFrame.channel = 0;
+	myFrame.message = 0;
+	myFrame.more = false;
+	myFrame.sequence = 0;
+	myFrame.payload =
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<greeting />"
+		;
+	EXPECT_NO_THROW(EXPECT_EQ(myFrame, get<beep::rpy_frame>(recvFrame)));
 }
 
 class SessionChannelInitiator : public SessionInitiator {
@@ -312,7 +323,8 @@ public:
 
 		std::istream stream(&buffer);
 		beep::frame recvFrame;
-		EXPECT_TRUE(stream >> recvFrame);
+		stream >> recvFrame;
+		EXPECT_TRUE(stream.eof());
 
 		std::ostringstream content_strm;
 		content_strm << "Content-Type: application/beep+xml\r\n\r\n" // 38
@@ -321,14 +333,13 @@ public:
 					 <<	"<profile uri=\"casimiro.daniel/beep/test\" />"
 					 << "</start>";
 
-		beep::frame myFrame;
-		myFrame.set_type(beep::MSG);
-		myFrame.set_channel(0);
-		myFrame.set_message(1);
-		myFrame.set_more(false);
-		myFrame.set_sequence(50);
-		myFrame.set_payload(content_strm.str());
-		EXPECT_EQ(myFrame, recvFrame);
+		beep::msg_frame myFrame;
+		myFrame.channel = 0;
+		myFrame.message = 1;
+		myFrame.more = false;
+		myFrame.sequence = 50;
+		myFrame.payload = content_strm.str();
+		EXPECT_NO_THROW(EXPECT_EQ(myFrame, get<beep::msg_frame>(recvFrame)));
 
 		const std::string ok_message =
 			"RPY 0 1 . 0 44\r\n"
@@ -380,24 +391,22 @@ public:
 
 	void run_event_loop_until_channel_ready()
 	{
-		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
 		service.reset();
-		while (!last_error && !session_channel && (current_time - start_time) < boost::posix_time::seconds(5)) {
+		while (!last_error && !session_channel) {
 			service.poll();
-			current_time = boost::posix_time::second_clock::local_time();
 			service.reset();
+			check_if_timed_out();
 		}
 	}
 
 	void run_event_loop_until_user_read()
 	{
-		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
 		service.reset();
 		user_read = false;
-		while (!last_error && !user_read && (current_time - start_time) < boost::posix_time::seconds(5)) {
+		while (!last_error && !user_read) {
 			service.poll();
-			current_time = boost::posix_time::second_clock::local_time();
 			service.reset();
+			check_if_timed_out();
 		}
 	}
 };
@@ -420,16 +429,16 @@ TEST_F(SessionChannelInitiator, PeerClosesChannel)
 
 	std::istream stream(&buffer);
 	beep::frame recvFrame;
-	EXPECT_TRUE(stream >> recvFrame);
+	stream >> recvFrame;
+	EXPECT_TRUE(stream.eof());
 
-	beep::frame okFrame;
-	okFrame.set_type(beep::RPY);
-	okFrame.set_channel(0);
-	okFrame.set_message(2);
-	okFrame.set_more(false);
-	okFrame.set_sequence(207);
-	okFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n<ok />");
-	EXPECT_EQ(okFrame, recvFrame);
+	beep::rpy_frame okFrame;
+	okFrame.channel = 0;
+	okFrame.message = 2;
+	okFrame.more = false;
+	okFrame.sequence = 207;
+	okFrame.payload = "Content-Type: application/beep+xml\r\n\r\n<ok />";
+	EXPECT_NO_THROW(EXPECT_EQ(okFrame, get<beep::rpy_frame>(recvFrame)));
 }
 
 TEST_F(SessionChannelInitiator, ClosesChannel)
@@ -447,16 +456,16 @@ TEST_F(SessionChannelInitiator, ClosesChannel)
 	session_channel = 0;
 	std::istream stream(&buffer);
 	beep::frame recvFrame;
-	EXPECT_TRUE(stream >> recvFrame);
+	stream >> recvFrame;
+	EXPECT_TRUE(stream.eof());
 
-	beep::frame closeFrame;
-	closeFrame.set_type(beep::MSG);
-	closeFrame.set_channel(0);
-	closeFrame.set_message(2);
-	closeFrame.set_more(false);
-	closeFrame.set_sequence(207);
-	closeFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n<close number=\"1\" code=\"200\" />");
-	EXPECT_EQ(closeFrame, recvFrame);
+	beep::msg_frame closeFrame;
+	closeFrame.channel = 0;
+	closeFrame.message = 2;
+	closeFrame.more = false;
+	closeFrame.sequence = 207;
+	closeFrame.payload = "Content-Type: application/beep+xml\r\n\r\n<close number=\"1\" code=\"200\" />";
+	EXPECT_NO_THROW(EXPECT_EQ(closeFrame, get<beep::msg_frame>(recvFrame)));
 
 	// The message number in ok_message must match the closeFrame
 	const std::string ok_message =
@@ -503,16 +512,16 @@ TEST_F(SessionChannelInitiator, AsyncWrite)
 
 	std::istream stream(&buffer);
 	beep::frame recvFrame;
-	EXPECT_TRUE(stream >> recvFrame);
+	stream >> recvFrame;
+	EXPECT_TRUE(stream.eof());
 
-	beep::frame expectedFrame;
-	expectedFrame.set_type(beep::MSG);
-	expectedFrame.set_channel(session_channel);
-	expectedFrame.set_message(0);
-	expectedFrame.set_more(false);
-	expectedFrame.set_sequence(0);
-	expectedFrame.set_payload("Content-Type: application/octet-stream\r\n\r\nTest Payload");
-	EXPECT_EQ(expectedFrame, recvFrame);
+	beep::msg_frame expectedFrame;
+	expectedFrame.channel = session_channel;
+	expectedFrame.message = 0;
+	expectedFrame.more = false;
+	expectedFrame.sequence = 0;
+	expectedFrame.payload = "Content-Type: application/octet-stream\r\n\r\nTest Payload";
+	EXPECT_NO_THROW(EXPECT_EQ(expectedFrame, get<beep::msg_frame>(recvFrame)));
 }
 
 class SessionListener : public TimedSessionBase {
@@ -621,20 +630,21 @@ TEST_F(SessionListener, SendsGreeting)
 
 	std::istream stream(&buffer);
 	beep::frame recvFrame;
-	EXPECT_TRUE(stream >> recvFrame);
+	stream >> recvFrame;
+	EXPECT_TRUE(stream.eof());
 	
-	beep::frame myFrame;
-	myFrame.set_type(beep::RPY);
-	myFrame.set_channel(0);
-	myFrame.set_message(0);
-	myFrame.set_more(false);
-	myFrame.set_sequence(0);
-	myFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n" // 38
-						"<greeting>"
-						"<profile uri=\"casimiro.daniel/test-profile\" />"
-						"</greeting>"
-						);
-	EXPECT_EQ(myFrame, recvFrame);
+	beep::rpy_frame myFrame;
+	myFrame.channel = 0;
+	myFrame.message = 0;
+	myFrame.more = false;
+	myFrame.sequence = 0;
+	myFrame.payload =
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<greeting>"
+		"<profile uri=\"casimiro.daniel/test-profile\" />"
+		"</greeting>"
+		;
+	EXPECT_NO_THROW(EXPECT_EQ(myFrame, get<beep::rpy_frame>(recvFrame)));
 }
 
 class SessionChannelListener : public SessionListener {
@@ -674,24 +684,22 @@ public:
 
 	void run_event_loop_until_user_read()
 	{
-		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
 		service.reset();
 		user_read = false;
-		while (!last_error && !user_read && (current_time - start_time) < boost::posix_time::seconds(5)) {
+		while (!last_error && !user_read) {
 			service.poll();
-			current_time = boost::posix_time::second_clock::local_time();
 			service.reset();
+			check_if_timed_out();
 		}
 	}
 
 	void run_event_loop_until_channel_ready()
 	{
-		boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
 		service.reset();
-		while (!last_error && !session_channel && (current_time - start_time) < boost::posix_time::seconds(5)) {
+		while (!last_error && !session_channel) {
 			service.poll();
-			current_time = boost::posix_time::second_clock::local_time();
 			service.reset();
+			check_if_timed_out();
 		}
 	}
 
@@ -721,16 +729,16 @@ TEST_F(SessionChannelListener, StartChannel)
 {
 	std::istream stream(&buffer);
 	beep::frame recvFrame;
-	EXPECT_TRUE(stream >> recvFrame);
+	stream >> recvFrame;
+	EXPECT_TRUE(stream.eof());
 
-	beep::frame okFrame;
-	okFrame.set_type(beep::RPY);
-	okFrame.set_channel(0);
-	okFrame.set_message(1);
-	okFrame.set_more(false);
-	okFrame.set_sequence(105);
-	okFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n<ok />");
-	EXPECT_EQ(okFrame, recvFrame);
+	beep::rpy_frame okFrame;
+	okFrame.channel = 0;
+	okFrame.message = 1;
+	okFrame.more = false;
+	okFrame.sequence = 105;
+	okFrame.payload = "Content-Type: application/beep+xml\r\n\r\n<ok />";
+	EXPECT_NO_THROW(EXPECT_EQ(okFrame, get<beep::rpy_frame>(recvFrame)));
 	
 	EXPECT_EQ(1u, session_channel);
 }
@@ -748,16 +756,16 @@ TEST_F(SessionChannelListener, PeerClosesChannel)
 
 	std::istream stream(&buffer);
 	beep::frame recvFrame;
-	EXPECT_TRUE(stream >> recvFrame);
+	stream >> recvFrame;
+	EXPECT_TRUE(stream.eof());
 
-	beep::frame okFrame;
-	okFrame.set_type(beep::RPY);
-	okFrame.set_channel(0);
-	okFrame.set_message(2);
-	okFrame.set_more(false);
-	okFrame.set_sequence(149);
-	okFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n<ok />");
-	EXPECT_EQ(okFrame, recvFrame);
+	beep::rpy_frame okFrame;
+	okFrame.channel = 0;
+	okFrame.message = 2;
+	okFrame.more = false;
+	okFrame.sequence = 149;
+	okFrame.payload = "Content-Type: application/beep+xml\r\n\r\n<ok />";
+	EXPECT_NO_THROW(EXPECT_EQ(okFrame, get<beep::rpy_frame>(recvFrame)));
 }
 
 TEST_F(SessionChannelListener, ClosesChannel)
@@ -775,16 +783,16 @@ TEST_F(SessionChannelListener, ClosesChannel)
 	session_channel = 0;
 	std::istream stream(&buffer);
 	beep::frame recvFrame;
-	EXPECT_TRUE(stream >> recvFrame);
+	stream >> recvFrame;
+	EXPECT_TRUE(stream.eof());
 
-	beep::frame closeFrame;
-	closeFrame.set_type(beep::MSG);
-	closeFrame.set_channel(0);
-	closeFrame.set_message(2);
-	closeFrame.set_more(false);
-	closeFrame.set_sequence(149);
-	closeFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n<close number=\"1\" code=\"200\" />");
-	EXPECT_EQ(closeFrame, recvFrame);
+	beep::msg_frame closeFrame;
+	closeFrame.channel = 0;
+	closeFrame.message = 2;
+	closeFrame.more = false;
+	closeFrame.sequence = 149;
+	closeFrame.payload = "Content-Type: application/beep+xml\r\n\r\n<close number=\"1\" code=\"200\" />";
+	EXPECT_NO_THROW(EXPECT_EQ(closeFrame, get<beep::msg_frame>(recvFrame)));
 
 	// The message number in ok_message must match the closeFrame
 	const std::string ok_message =
@@ -830,16 +838,16 @@ TEST_F(SessionChannelListener, AsyncWrite)
 
 	std::istream stream(&buffer);
 	beep::frame recvFrame;
-	EXPECT_TRUE(stream >> recvFrame);
+	stream >> recvFrame;
+	EXPECT_TRUE(stream.eof());
 
-	beep::frame expectedFrame;
-	expectedFrame.set_type(beep::MSG);
-	expectedFrame.set_channel(session_channel);
-	expectedFrame.set_message(0);
-	expectedFrame.set_more(false);
-	expectedFrame.set_sequence(0);
-	expectedFrame.set_payload("Content-Type: application/octet-stream\r\n\r\nTest Payload");
-	EXPECT_EQ(expectedFrame, recvFrame);
+	beep::msg_frame expectedFrame;
+	expectedFrame.channel = session_channel;
+	expectedFrame.message = 0;
+	expectedFrame.more = false;
+	expectedFrame.sequence = 0;
+	expectedFrame.payload = "Content-Type: application/octet-stream\r\n\r\nTest Payload";
+	EXPECT_NO_THROW(EXPECT_EQ(expectedFrame, get<beep::msg_frame>(recvFrame)));
 }
 
 int

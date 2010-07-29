@@ -357,10 +357,10 @@ private:
 			try {
 				message msg;
 				make_message(&frm, &frm + 1, msg);
-				if (frm.get_channel() == chman_.tuning_channel().get_number()) {
-					handle_tuning_frame(frm, msg);
+				if (msg.get_channel() == chman_.tuning_channel().get_number()) {
+					handle_tuning_message(msg);
 				} else {
-					handle_user_frame(frm, msg);
+					handle_user_message(msg);
 				}
 			} catch (const std::exception &ex) {
 				/// \todo handle the error condition!
@@ -382,7 +382,7 @@ private:
 		}
 	}
 
-	void handle_tuning_frame(const frame &frm, const message &msg)
+	void handle_tuning_message(const message &msg)
 	{
 		using std::back_inserter;
 		using std::numeric_limits;
@@ -426,12 +426,12 @@ private:
 			}
 		} else if (msg.get_type() == RPY && cmp::is_ok_message(msg)) {
 			boost::system::error_code message_error;
-			tuning_handler_.execute(frm.get_message(), message_error);
+			tuning_handler_.execute(msg.get_number(), message_error);
 		} else if (msg.get_type() == ERR) {
 			const boost::system::system_error error = make_error(msg);
 			/// \todo log the error description (error.what())
 			/// \todo should I throw the system_error error here?
-			tuning_handler_.execute(frm.get_message(), error.code());
+			tuning_handler_.execute(msg.get_number(), error.code());
 		} else {
 			/// \todo handle other frame types
 			std::cerr << "there was an unexpected message type:  " << msg.get_type() << std::endl;
@@ -439,10 +439,10 @@ private:
 		}
 	}
 
-	void handle_user_frame(const frame &frm, const message &msg)
+	void handle_user_message(const message &msg)
 	{
 		boost::system::error_code error;
-		user_handler_.execute(frm.get_channel(), error, msg);
+		user_handler_.execute(msg.get_channel(), error, msg);
 	}
 
 	void start()
@@ -530,10 +530,10 @@ private:
 		using std::back_inserter;
 
 		vector<frame> frames;
-		make_frames(msg, chan, back_inserter(frames));
+		const unsigned int message_number = make_frames(msg, chan, back_inserter(frames));
 		assert(!frames.empty());
 		transport_.send_frames(id_, frames.begin(), frames.end());
-		return frames.front().get_message();
+		return message_number;
 	}
 
 	unsigned int send_tuning_message(const message &msg)

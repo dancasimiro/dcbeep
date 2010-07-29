@@ -14,6 +14,8 @@
 #include "beep/frame.hpp"
 #include "beep/transport-service/solo-tcp.hpp"
 
+using boost::get;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Test the single TCP/IP connection transport service
 ///////////////////////////////////////////////////////////////////////////////
@@ -189,18 +191,17 @@ TEST_F(SingleTCPTransportServiceInitiator, Connect)
 TEST_F(SingleTCPTransportServiceInitiator, SendsProperFrame)
 {
 	using boost::bind;
-
-	beep::frame myFrame;
-	myFrame.set_type(beep::MSG);
-	myFrame.set_channel(9);
-	myFrame.set_message(1);
-	myFrame.set_more(false);
-	myFrame.set_sequence(52);
-	myFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n" // 38
-						"<start number='1'>\r\n" // 20
-						"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
-						"</start>\r\n" // 10
-						);
+	beep::msg_frame myFrame;
+	myFrame.channel = 9;
+	myFrame.message = 1;
+	myFrame.more = false;
+	myFrame.sequence = 52;
+	myFrame.payload =
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		;
 	ts.send_frame(session_id, myFrame);
 	ASSERT_NO_THROW(run_event_loop_until_frame_received());
 	ASSERT_TRUE(have_frame);
@@ -208,8 +209,8 @@ TEST_F(SingleTCPTransportServiceInitiator, SendsProperFrame)
 
 	std::istream stream(&buffer);
 	beep::frame recvFrame;
-	EXPECT_TRUE(stream >> recvFrame);
-	EXPECT_EQ(myFrame, recvFrame);
+	stream >> recvFrame;
+	EXPECT_NO_THROW(EXPECT_EQ(myFrame, get<beep::msg_frame>(recvFrame)));
 }
 
 TEST_F(SingleTCPTransportServiceInitiator, SendsMultipleFrames)
@@ -217,49 +218,49 @@ TEST_F(SingleTCPTransportServiceInitiator, SendsMultipleFrames)
 	using boost::bind;
 
 	std::vector<beep::frame> multiple_frames;
-	beep::frame firstFrame;
-	firstFrame.set_type(beep::MSG);
-	firstFrame.set_channel(9);
-	firstFrame.set_message(1);
-	firstFrame.set_more(true);
-	firstFrame.set_sequence(52);
-	firstFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n" // 38
-						"<start number='1'>\r\n" // 20
-						"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
-						);
+	beep::msg_frame firstFrame;
+	firstFrame.channel = 9;
+	firstFrame.message = 1;
+	firstFrame.more = true;
+	firstFrame.sequence = 52;
+	firstFrame.payload =
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		;
 	multiple_frames.push_back(firstFrame);
 
-	beep::frame secondFrame;
-	secondFrame.set_type(beep::MSG);
-	secondFrame.set_channel(9);
-	secondFrame.set_message(2);
-	secondFrame.set_more(false);
-	secondFrame.set_sequence(52 + 110);
-	secondFrame.set_payload("</start>\r\n"); // 10
+	beep::msg_frame secondFrame;
+	secondFrame.channel = 9;
+	secondFrame.message = 1;
+	secondFrame.more = false;
+	secondFrame.sequence = 52 + 110;
+	secondFrame.payload = "</start>\r\n"; // 10
 	multiple_frames.push_back(secondFrame);
 
 	ts.send_frames(session_id, multiple_frames.begin(), multiple_frames.end());
 	ASSERT_NO_THROW(run_event_loop_until_frame_received());
 	ASSERT_TRUE(have_frame);
-	EXPECT_FALSE(last_error);
+	EXPECT_EQ(boost::system::error_code(), last_error);
 
-	{
-		std::istream stream1(&buffer);
-		beep::frame recvFrame1;
-		EXPECT_TRUE(stream1 >> recvFrame1);
-		EXPECT_EQ(firstFrame, recvFrame1);
-	}
+	// make sure that both frames are received...
 
 	ASSERT_NO_THROW(run_event_loop_until_frame_received());
 	ASSERT_TRUE(have_frame);
-	EXPECT_FALSE(last_error);
+	EXPECT_EQ(boost::system::error_code(), last_error);
 
-	{
-		std::istream stream2(&buffer);
-		beep::frame recvFrame2;
-		EXPECT_TRUE(stream2 >> recvFrame2);
-		EXPECT_EQ(secondFrame, recvFrame2);
+	std::istream stream(&buffer);
+#if 0
+	while (stream) {
+		std::string my_peek;
+		std::getline(stream, my_peek);
+		std::cerr << my_peek << "\n";
 	}
+#endif
+	beep::frame recvFrame1, recvFrame2;
+	stream >> recvFrame1 >> recvFrame2;
+	EXPECT_NO_THROW(EXPECT_EQ(firstFrame, get<beep::msg_frame>(recvFrame1)));
+	EXPECT_NO_THROW(EXPECT_EQ(secondFrame, get<beep::msg_frame>(recvFrame2)));
 }
 
 TEST_F(SingleTCPTransportServiceInitiator, ReceivesProperFrame)
@@ -282,21 +283,21 @@ TEST_F(SingleTCPTransportServiceInitiator, ReceivesProperFrame)
 					 boost::asio::placeholders::error,
 					 boost::asio::placeholders::bytes_transferred));
 
-	beep::frame expectedFrame;
-	expectedFrame.set_type(beep::MSG);
-	expectedFrame.set_channel(9);
-	expectedFrame.set_message(1);
-	expectedFrame.set_more(false);
-	expectedFrame.set_sequence(52);
-	expectedFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n" // 38
-							  "<start number='1'>\r\n" // 20
-							  "   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
-							  "</start>\r\n" // 10
-							  );
+	beep::msg_frame expectedFrame;
+	expectedFrame.channel = 9;
+	expectedFrame.message = 1;
+	expectedFrame.more = false;
+	expectedFrame.sequence = 52;
+	expectedFrame.payload =
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		;
 	ASSERT_NO_THROW(run_event_loop_until_new_frame());
 	EXPECT_TRUE(got_new_frame);
 	EXPECT_EQ(boost::system::error_code(), last_error);
-	EXPECT_EQ(expectedFrame, last_frame);
+	EXPECT_NO_THROW(EXPECT_EQ(expectedFrame, get<beep::msg_frame>(last_frame)));
 }
 
 TEST_F(SingleTCPTransportServiceInitiator, ReceivesMultipleFrames)
@@ -327,41 +328,41 @@ TEST_F(SingleTCPTransportServiceInitiator, ReceivesMultipleFrames)
 					 boost::asio::placeholders::error,
 					 boost::asio::placeholders::bytes_transferred));
 
-	beep::frame expectedFrame;
-	expectedFrame.set_type(beep::MSG);
-	expectedFrame.set_channel(9);
-	expectedFrame.set_message(1);
-	expectedFrame.set_more(false);
-	expectedFrame.set_sequence(52);
-	expectedFrame.set_payload("Content-Type: application/beep+xml\r\n\r\n" // 38
-							  "<start number='1'>\r\n" // 20
-							  "   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
-							  "</start>\r\n" // 10
-							  );
+	beep::msg_frame expectedFrame;
+	expectedFrame.channel = 9;
+	expectedFrame.message = 1;
+	expectedFrame.more = false;
+	expectedFrame.sequence = 52;
+	expectedFrame.payload =
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='1'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		;
 	ASSERT_NO_THROW(run_event_loop_until_new_frame());
 	EXPECT_TRUE(got_new_frame);
 	EXPECT_EQ(boost::system::error_code(), last_error);
-	EXPECT_EQ(expectedFrame, last_frame);
+	EXPECT_NO_THROW(EXPECT_EQ(expectedFrame, get<beep::msg_frame>(last_frame)));
 
 	got_new_frame = false;
 	last_frame = beep::frame();
 
-	beep::frame expectedFrame2;
-	expectedFrame2.set_type(beep::MSG);
-	expectedFrame2.set_channel(9);
-	expectedFrame2.set_message(2);
-	expectedFrame2.set_more(false);
-	expectedFrame2.set_sequence(99);
-	expectedFrame2.set_payload("Content-Type: application/beep+xml\r\n\r\n" // 38
-							   "<start number='2'>\r\n" // 20
-							   "   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
-							   "</start>\r\n" // 10
-							  );
+	beep::msg_frame expectedFrame2;
+	expectedFrame2.channel = 9;
+	expectedFrame2.message = 2;
+	expectedFrame2.more = false;
+	expectedFrame2.sequence = 99;
+	expectedFrame2.payload =
+		"Content-Type: application/beep+xml\r\n\r\n" // 38
+		"<start number='2'>\r\n" // 20
+		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
+		"</start>\r\n" // 10
+		;
 
 	ASSERT_NO_THROW(run_event_loop_until_new_frame());
 	EXPECT_TRUE(got_new_frame);
 	EXPECT_EQ(boost::system::error_code(), last_error);
-	EXPECT_EQ(expectedFrame2, last_frame);
+	EXPECT_NO_THROW(EXPECT_EQ(expectedFrame2, get<beep::msg_frame>(last_frame)));
 }
 
 int

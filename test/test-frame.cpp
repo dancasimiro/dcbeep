@@ -11,6 +11,8 @@
 typedef std::string::const_iterator iterator_type;
 typedef beep::frame_parser<iterator_type> frame_parser;
 using beep::frame;
+using boost::get;
+using boost::spirit::ascii::space;
 
 namespace std {
 
@@ -32,8 +34,8 @@ TEST(ChannelParser, Valid)
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(parse(iter, end, g, myFrame)));
-	EXPECT_EQ(10u, myFrame.get_channel());
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_EQ(10u, get<beep::msg_frame>(myFrame).channel);
 }
 
 TEST(ChannelParser, Negative)
@@ -44,8 +46,8 @@ TEST(ChannelParser, Negative)
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_FALSE(parse(iter, end, g, myFrame)));
-	EXPECT_EQ(0, myFrame.get_channel());
+	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_EQ(0, get<beep::msg_frame>(myFrame).channel);
 }
 
 TEST(ChannelParser, TooLarge)
@@ -56,8 +58,8 @@ TEST(ChannelParser, TooLarge)
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_FALSE(parse(iter, end, g, myFrame)));
-	EXPECT_EQ(2147483648u, myFrame.get_channel());
+	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_EQ(0, get<beep::msg_frame>(myFrame).channel);
 }
 
 TEST(MessageNumberParser, Valid)
@@ -68,8 +70,8 @@ TEST(MessageNumberParser, Valid)
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(parse(iter, end, g, myFrame)));
-	EXPECT_EQ(3u, myFrame.get_message());
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_EQ(3u, get<beep::msg_frame>(myFrame).message);
 }
 
 TEST(SequenceParser, Valid)
@@ -80,8 +82,8 @@ TEST(SequenceParser, Valid)
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(parse(iter, end, g, myFrame)));
-	EXPECT_EQ(6u, myFrame.get_sequence());
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_EQ(6u, get<beep::msg_frame>(myFrame).sequence);
 }
 
 TEST(SizeParser, Valid)
@@ -92,9 +94,9 @@ TEST(SizeParser, Valid)
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(parse(iter, end, g, myFrame)));
-	EXPECT_EQ(3u, myFrame.get_payload().size());
-	EXPECT_EQ("ABC", myFrame.get_payload());
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_EQ(3u, get<beep::msg_frame>(myFrame).payload.size());
+	EXPECT_EQ("ABC", get<beep::msg_frame>(myFrame).payload);
 }
 
 TEST(AnswerParser, Valid)
@@ -105,9 +107,9 @@ TEST(AnswerParser, Valid)
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(parse(iter, end, g, myFrame)));
-	EXPECT_EQ(beep::ANS, myFrame.get_type());
-	EXPECT_EQ(19u, myFrame.get_answer());
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_NO_THROW(get<beep::ans_frame>(myFrame));
+	EXPECT_EQ(19u, get<beep::ans_frame>(myFrame).answer);
 }
 
 TEST(MessageFrameHeader, Valid)
@@ -118,12 +120,12 @@ TEST(MessageFrameHeader, Valid)
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	EXPECT_NO_THROW(parse(iter, end, g, aFrame));
-	EXPECT_EQ(beep::MSG, aFrame.get_type());
-	EXPECT_EQ(19u, aFrame.get_channel());
-	EXPECT_EQ(2u, aFrame.get_message());
-	EXPECT_FALSE(aFrame.get_more());
-	EXPECT_EQ(3u, aFrame.get_sequence());
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(get<beep::msg_frame>(aFrame));
+	EXPECT_EQ(19u, get<beep::msg_frame>(aFrame).channel);
+	EXPECT_EQ(2u, get<beep::msg_frame>(aFrame).message);
+	EXPECT_FALSE(get<beep::msg_frame>(aFrame).more);
+	EXPECT_EQ(3u, get<beep::msg_frame>(aFrame).sequence);
 }
 
 TEST(ReplyHeader, Valid)
@@ -134,12 +136,12 @@ TEST(ReplyHeader, Valid)
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	EXPECT_NO_THROW(parse(iter, end, g, aFrame));
-	EXPECT_EQ(beep::RPY, aFrame.get_type());
-	EXPECT_EQ(19u, aFrame.get_channel());
-	EXPECT_EQ(2u, aFrame.get_message());
-	EXPECT_FALSE(aFrame.get_more());
-	EXPECT_EQ(3u, aFrame.get_sequence());
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(get<beep::rpy_frame>(aFrame));
+	EXPECT_EQ(19u, get<beep::rpy_frame>(aFrame).channel);
+	EXPECT_EQ(2u, get<beep::rpy_frame>(aFrame).message);
+	EXPECT_FALSE(get<beep::rpy_frame>(aFrame).more);
+	EXPECT_EQ(3u, get<beep::rpy_frame>(aFrame).sequence);
 }
 
 TEST(AnswerHeader, Valid)
@@ -150,13 +152,13 @@ TEST(AnswerHeader, Valid)
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	EXPECT_NO_THROW(parse(iter, end, g, aFrame));
-	EXPECT_EQ(beep::ANS, aFrame.get_type());
-	EXPECT_EQ(19u, aFrame.get_channel());
-	EXPECT_EQ(2u, aFrame.get_message());
-	EXPECT_FALSE(aFrame.get_more());
-	EXPECT_EQ(3u, aFrame.get_sequence());
-	EXPECT_EQ(5u, aFrame.get_answer());
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(get<beep::ans_frame>(aFrame));
+	EXPECT_EQ(19u, get<beep::ans_frame>(aFrame).channel);
+	EXPECT_EQ(2u, get<beep::ans_frame>(aFrame).message);
+	EXPECT_FALSE(get<beep::ans_frame>(aFrame).more);
+	EXPECT_EQ(3u, get<beep::ans_frame>(aFrame).sequence);
+	EXPECT_EQ(5u, get<beep::ans_frame>(aFrame).answer);
 }
 
 TEST(ErrorHeader, Valid)
@@ -167,12 +169,12 @@ TEST(ErrorHeader, Valid)
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	EXPECT_NO_THROW(parse(iter, end, g, aFrame));
-	EXPECT_EQ(beep::ERR, aFrame.get_type());
-	EXPECT_EQ(19u, aFrame.get_channel());
-	EXPECT_EQ(2u, aFrame.get_message());
-	EXPECT_FALSE(aFrame.get_more());
-	EXPECT_EQ(3u, aFrame.get_sequence());
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(get<beep::err_frame>(aFrame));
+	EXPECT_EQ(19u, get<beep::err_frame>(aFrame).channel);
+	EXPECT_EQ(2u, get<beep::err_frame>(aFrame).message);
+	EXPECT_FALSE(get<beep::err_frame>(aFrame).more);
+	EXPECT_EQ(3u, get<beep::err_frame>(aFrame).sequence);
 }
 
 TEST(NullHeader, Valid)
@@ -183,12 +185,27 @@ TEST(NullHeader, Valid)
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	EXPECT_NO_THROW(parse(iter, end, g, aFrame));
-	EXPECT_EQ(beep::NUL, aFrame.get_type());
-	EXPECT_EQ(19u, aFrame.get_channel());
-	EXPECT_EQ(2u, aFrame.get_message());
-	EXPECT_FALSE(aFrame.get_more());
-	EXPECT_EQ(3u, aFrame.get_sequence());
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(get<beep::nul_frame>(aFrame));
+	EXPECT_EQ(19u, get<beep::nul_frame>(aFrame).channel);
+	EXPECT_EQ(2u, get<beep::nul_frame>(aFrame).message);
+	EXPECT_FALSE(get<beep::nul_frame>(aFrame).more);
+	EXPECT_EQ(3u, get<beep::nul_frame>(aFrame).sequence);
+}
+
+TEST(SeqHeader, Valid)
+{
+	static const std::string content = "SEQ 3 2 4096\r\nEND\r\n";
+
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	beep::frame aFrame;
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(get<beep::seq_frame>(aFrame));
+	EXPECT_EQ(3u, get<beep::seq_frame>(aFrame).channel);
+	EXPECT_EQ(2u, get<beep::seq_frame>(aFrame).acknowledgement);
+	EXPECT_EQ(4096u, get<beep::seq_frame>(aFrame).window);
 }
 
 TEST(PayloadParse, Valid)
@@ -200,13 +217,13 @@ TEST(PayloadParse, Valid)
 	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
 
-	EXPECT_NO_THROW(parse(iter, end, g, aFrame));
-	EXPECT_EQ(beep::MSG, aFrame.get_type());
-	EXPECT_EQ(19u, aFrame.get_channel());
-	EXPECT_EQ(2u, aFrame.get_message());
-	EXPECT_FALSE(aFrame.get_more());
-	EXPECT_EQ(3u, aFrame.get_sequence());
-	EXPECT_EQ("Some Payload", aFrame.get_payload());
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(get<beep::msg_frame>(aFrame));
+	EXPECT_EQ(19u, get<beep::msg_frame>(aFrame).channel);
+	EXPECT_EQ(2u, get<beep::msg_frame>(aFrame).message);
+	EXPECT_FALSE(get<beep::msg_frame>(aFrame).more);
+	EXPECT_EQ(3u, get<beep::msg_frame>(aFrame).sequence);
+	EXPECT_EQ("Some Payload", get<beep::msg_frame>(aFrame).payload);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -229,7 +246,7 @@ protected:
 		frame_parser syntax;
 		std::string::const_iterator iter = content.begin();
 		std::string::const_iterator end = content.end();
-		EXPECT_NO_THROW(EXPECT_TRUE(parse(iter, end, syntax, frm)));
+		EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
 		EXPECT_EQ(iter, end);
 	}
 
@@ -242,27 +259,28 @@ protected:
 
 TEST_F(FrameMessageTest, ParseKeyword)
 {
-	EXPECT_EQ(beep::MSG, frm.get_type());
+	EXPECT_NO_THROW(get<beep::msg_frame>(frm));
+	EXPECT_EQ(beep::MSG, get<beep::msg_frame>(frm).header());
 }
 
 TEST_F(FrameMessageTest, ParseChannelNumber)
 {
-	EXPECT_EQ(9U, frm.get_channel());
+	EXPECT_EQ(9U, get<beep::msg_frame>(frm).channel);
 }
 
 TEST_F(FrameMessageTest, ParseMessageNumber)
 {
-	EXPECT_EQ(1U, frm.get_message());
+	EXPECT_EQ(1U, get<beep::msg_frame>(frm).message);
 }
 
 TEST_F(FrameMessageTest, ParseMore)
 {
-	EXPECT_EQ(false, frm.get_more());
+	EXPECT_EQ(false, get<beep::msg_frame>(frm).more);
 }
 
 TEST_F(FrameMessageTest, ParseSequenceNumber)
 {
-	EXPECT_EQ(52U, frm.get_sequence());
+	EXPECT_EQ(52U, get<beep::msg_frame>(frm).sequence);
 }
 
 TEST_F(FrameMessageTest, ParsePayload)
@@ -273,7 +291,7 @@ TEST_F(FrameMessageTest, ParsePayload)
 			"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 			"</start>\r\n" // 10
 		;
-	EXPECT_EQ(payload, frm.get_payload());
+	EXPECT_EQ(payload, get<beep::msg_frame>(frm).payload);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -306,7 +324,7 @@ TEST_F(BadFrameMessageTest, InvalidParseKeyword)
 	frame_parser syntax;
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
-	EXPECT_FALSE(parse(iter, end, syntax, frm));
+	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, syntax, space, frm)));
 	EXPECT_EQ(content.begin(), iter);
 }
 
@@ -322,7 +340,7 @@ TEST_F(BadFrameMessageTest, ParseCharacterChannelNumber)
 	frame_parser syntax;
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
-	EXPECT_FALSE(parse(iter, end, syntax, frm));
+	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, syntax, space, frm)));
 	EXPECT_EQ(content.begin(), iter);
 }
 
@@ -338,7 +356,7 @@ TEST_F(BadFrameMessageTest, ParseStringChannelNumber)
 	frame_parser syntax;
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
-	EXPECT_FALSE(parse(iter, end, syntax, frm));
+	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, syntax, space, frm)));
 	EXPECT_EQ(content.begin(), iter);
 }
 
@@ -354,7 +372,7 @@ TEST_F(BadFrameMessageTest, ParseNegativeChannelNumber)
 	frame_parser syntax;
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
-	EXPECT_FALSE(parse(iter, end, syntax, frm));
+	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, syntax, space, frm)));
 	EXPECT_EQ(content.begin(), iter);
 }
 
@@ -370,7 +388,7 @@ TEST_F(BadFrameMessageTest, ParseHugeChannelNumber)
 	frame_parser syntax;
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
-	EXPECT_FALSE(parse(iter, end, syntax, frm));
+	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, syntax, space, frm)));
 	EXPECT_EQ(content.begin(), iter);
 }
 
@@ -386,9 +404,9 @@ TEST_F(BadFrameMessageTest, ParseChannelBoundaryNumber)
 	frame_parser syntax;
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
-	EXPECT_TRUE(parse(iter, end, syntax, frm));
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
 	EXPECT_EQ(end, iter);
-	EXPECT_EQ(2147483647, frm.get_channel());
+	EXPECT_EQ(2147483647, get<beep::msg_frame>(frm).channel);
 }
 
 TEST_F(BadFrameMessageTest, ParseMessageNumber)
@@ -403,9 +421,9 @@ TEST_F(BadFrameMessageTest, ParseMessageNumber)
 	frame_parser syntax;
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
-	EXPECT_TRUE(parse(iter, end, syntax, frm));
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
 	EXPECT_EQ(end, iter);
-	EXPECT_EQ(1U, frm.get_message());
+	EXPECT_EQ(1U, get<beep::msg_frame>(frm).message);
 }
 
 TEST_F(BadFrameMessageTest, ParseMore)
@@ -420,9 +438,9 @@ TEST_F(BadFrameMessageTest, ParseMore)
 	frame_parser syntax;
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
-	EXPECT_TRUE(parse(iter, end, syntax, frm));
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
 	EXPECT_EQ(end, iter);
-	EXPECT_EQ(false, frm.get_more());
+	EXPECT_EQ(false, get<beep::msg_frame>(frm).more);
 }
 
 TEST_F(BadFrameMessageTest, ParseSequenceNumber)
@@ -437,9 +455,9 @@ TEST_F(BadFrameMessageTest, ParseSequenceNumber)
 	frame_parser syntax;
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
-	EXPECT_TRUE(parse(iter, end, syntax, frm));
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
 	EXPECT_EQ(end, iter);
-	EXPECT_EQ(52U, frm.get_sequence());
+	EXPECT_EQ(52U, get<beep::msg_frame>(frm).sequence);
 }
 
 TEST_F(BadFrameMessageTest, ParsePayload)
@@ -454,7 +472,7 @@ TEST_F(BadFrameMessageTest, ParsePayload)
 	frame_parser syntax;
 	std::string::const_iterator iter = content.begin();
 	std::string::const_iterator end = content.end();
-	EXPECT_TRUE(parse(iter, end, syntax, frm));
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
 	EXPECT_EQ(end, iter);
 	const std::string payload =
 		"Content-Type: application/beep+xml\r\n\r\n" // 38
@@ -462,7 +480,7 @@ TEST_F(BadFrameMessageTest, ParsePayload)
 			"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 			"</start>\r\n" // 10
 		;
-	EXPECT_EQ(payload, frm.get_payload());
+	EXPECT_EQ(payload, get<beep::msg_frame>(frm).payload);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -487,7 +505,7 @@ protected:
 		frame_parser syntax;
 		std::string::const_iterator iter = content.begin();
 		std::string::const_iterator end = content.end();
-		EXPECT_TRUE(parse(iter, end, syntax, frm));
+		EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
 		EXPECT_EQ(end, iter);
 	}
 
@@ -500,27 +518,28 @@ protected:
 
 TEST_F(FrameReplyTest, ParseKeyword)
 {
-	EXPECT_EQ(beep::RPY, frm.get_type());
+	EXPECT_NO_THROW(get<beep::rpy_frame>(frm));
+	EXPECT_EQ(beep::RPY, get<beep::rpy_frame>(frm).header());
 }
 
 TEST_F(FrameReplyTest, ParseChannelNumber)
 {
-	EXPECT_EQ(3U, frm.get_channel());
+	EXPECT_EQ(3U, get<beep::rpy_frame>(frm).channel);
 }
 
 TEST_F(FrameReplyTest, ParseMessageNumber)
 {
-	EXPECT_EQ(2U, frm.get_message());
+	EXPECT_EQ(2U, get<beep::rpy_frame>(frm).message);
 }
 
 TEST_F(FrameReplyTest, ParseMore)
 {
-	EXPECT_EQ(false, frm.get_more());
+	EXPECT_EQ(false, get<beep::rpy_frame>(frm).more);
 }
 
 TEST_F(FrameReplyTest, ParseSequenceNumber)
 {
-	EXPECT_EQ(7U, frm.get_sequence());
+	EXPECT_EQ(7U, get<beep::rpy_frame>(frm).sequence);
 }
 
 TEST_F(FrameReplyTest, ParsePayload)
@@ -532,7 +551,7 @@ TEST_F(FrameReplyTest, ParsePayload)
 		"   <profile uri='http://iana.org/beep/TLS' />\r\n"
 		"</greeting>\r\n"
 		;
-	EXPECT_EQ(payload, frm.get_payload());
+	EXPECT_EQ(payload, get<beep::rpy_frame>(frm).payload);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -553,7 +572,7 @@ protected:
 		frame_parser syntax;
 		std::string::const_iterator iter = content.begin();
 		std::string::const_iterator end = content.end();
-		EXPECT_TRUE(parse(iter, end, syntax, frm));
+		EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
 		EXPECT_EQ(end, iter);
 	}
 
@@ -566,27 +585,28 @@ protected:
 
 TEST_F(FrameAnswerTest, ParseKeyword)
 {
-	EXPECT_EQ(beep::ANS, frm.get_type());
+	EXPECT_NO_THROW(get<beep::ans_frame>(frm).header());
+	EXPECT_EQ(beep::ANS, get<beep::ans_frame>(frm).header());
 }
 
 TEST_F(FrameAnswerTest, ParseChannelNumber)
 {
-	EXPECT_EQ(1U, frm.get_channel());
+	EXPECT_EQ(1U, get<beep::ans_frame>(frm).channel);
 }
 
 TEST_F(FrameAnswerTest, ParseMessageNumber)
 {
-	EXPECT_EQ(0U, frm.get_message());
+	EXPECT_EQ(0U, get<beep::ans_frame>(frm).message);
 }
 
 TEST_F(FrameAnswerTest, ParseMore)
 {
-	EXPECT_EQ(false, frm.get_more());
+	EXPECT_EQ(false, get<beep::ans_frame>(frm).more);
 }
 
 TEST_F(FrameAnswerTest, ParseSequenceNumber)
 {
-	EXPECT_EQ(40U, frm.get_sequence());
+	EXPECT_EQ(40U, get<beep::ans_frame>(frm).sequence);
 }
 
 TEST_F(FrameAnswerTest, ParsePayload)
@@ -594,12 +614,12 @@ TEST_F(FrameAnswerTest, ParsePayload)
 	const std::string payload =
 		"dan is 1\r\n"
 		;
-	EXPECT_EQ(payload, frm.get_payload());
+	EXPECT_EQ(payload, get<beep::ans_frame>(frm).payload);
 }
 
 TEST_F(FrameAnswerTest, ParseAnswerNumber)
 {
-	EXPECT_EQ(1u, frm.get_answer());
+	EXPECT_EQ(1u, get<beep::ans_frame>(frm).answer);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -622,7 +642,7 @@ protected:
 		frame_parser syntax;
 		std::string::const_iterator iter = content.begin();
 		std::string::const_iterator end = content.end();
-		EXPECT_TRUE(parse(iter, end, syntax, frm));
+		EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
 		EXPECT_EQ(end, iter);
 	}
 
@@ -635,27 +655,27 @@ protected:
 
 TEST_F(FrameErrorTest, ParseKeyword)
 {
-	EXPECT_EQ(beep::ERR, frm.get_type());
+	EXPECT_NO_THROW(EXPECT_EQ(beep::ERR, get<beep::err_frame>(frm).header()));
 }
 
 TEST_F(FrameErrorTest, ParseChannelNumber)
 {
-	EXPECT_EQ(0U, frm.get_channel());
+	EXPECT_EQ(0U, get<beep::err_frame>(frm).channel);
 }
 
 TEST_F(FrameErrorTest, ParseMessageNumber)
 {
-	EXPECT_EQ(2U, frm.get_message());
+	EXPECT_EQ(2U, get<beep::err_frame>(frm).message);
 }
 
 TEST_F(FrameErrorTest, ParseMore)
 {
-	EXPECT_EQ(false, frm.get_more());
+	EXPECT_EQ(false, get<beep::err_frame>(frm).more);
 }
 
 TEST_F(FrameErrorTest, ParseSequenceNumber)
 {
-	EXPECT_EQ(392U, frm.get_sequence());
+	EXPECT_EQ(392U, get<beep::err_frame>(frm).sequence);
 }
 
 TEST_F(FrameErrorTest, ParsePayload)
@@ -665,7 +685,7 @@ TEST_F(FrameErrorTest, ParsePayload)
 		"\r\n"
 		"<error code='550'>still working</error>\r\n"
 		;
-	EXPECT_EQ(payload, frm.get_payload());
+	EXPECT_EQ(payload, get<beep::err_frame>(frm).payload);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -685,7 +705,7 @@ protected:
 		frame_parser syntax;
 		std::string::const_iterator iter = content.begin();
 		std::string::const_iterator end = content.end();
-		EXPECT_TRUE(parse(iter, end, syntax, frm));
+		EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
 		EXPECT_EQ(end, iter);
 	}
 
@@ -698,33 +718,33 @@ protected:
 
 TEST_F(FrameNullTest, ParseKeyword)
 {
-	EXPECT_EQ(beep::NUL, frm.get_type());
+	EXPECT_NO_THROW(EXPECT_EQ(beep::NUL, get<beep::nul_frame>(frm).header()));
 }
 
 TEST_F(FrameNullTest, ParseChannelNumber)
 {
-	EXPECT_EQ(0U, frm.get_channel());
+	EXPECT_EQ(0U, get<beep::nul_frame>(frm).channel);
 }
 
 TEST_F(FrameNullTest, ParseMessageNumber)
 {
-	EXPECT_EQ(2U, frm.get_message());
+	EXPECT_EQ(2U, get<beep::nul_frame>(frm).message);
 }
 
 TEST_F(FrameNullTest, ParseMore)
 {
-	EXPECT_EQ(false, frm.get_more());
+	EXPECT_EQ(false, get<beep::nul_frame>(frm).more);
 }
 
 TEST_F(FrameNullTest, ParseSequenceNumber)
 {
-	EXPECT_EQ(392U, frm.get_sequence());
+	EXPECT_EQ(392U, get<beep::nul_frame>(frm).sequence);
 }
 
 TEST_F(FrameNullTest, ParsePayload)
 {
 	const std::string payload;
-	EXPECT_EQ(payload, frm.get_payload());
+	EXPECT_EQ(payload, get<beep::nul_frame>(frm).payload);
 }
 
 int

@@ -50,6 +50,8 @@ public:
 		, content_()
 		, payload_()
 		, type_(0)
+		, channel_(0)
+		, number_(0)
 	{
 	}
 
@@ -73,11 +75,19 @@ public:
 
 	void set_type(const unsigned int t) { type_ = t; }
 	unsigned int get_type() const { return type_; }
+
+	void set_channel(const unsigned int c) { channel_ = c; }
+	unsigned int get_channel() const { return channel_; }
+
+	void set_number(const unsigned int n) { number_ = n; }
+	unsigned int get_number() const { return number_; }
 private:
 	mime         mime_;
 	content_type content_;
 	content_type payload_;
 	unsigned int type_;
+	unsigned int channel_;
+	unsigned int number_;
 
 	void update_payload()
 	{
