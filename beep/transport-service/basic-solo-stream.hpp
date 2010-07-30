@@ -33,6 +33,48 @@ namespace beep {
 namespace transport_service {
 namespace detail {
 
+enum seq_frame_identifier {
+	is_data_frame = 0,
+	is_seq_frame = 1,
+};
+
+class frame_handler_visitor : public boost::static_visitor<seq_frame_identifier> {
+public:
+	seq_frame_identifier operator()(const seq_frame &) const
+	{
+		return is_seq_frame;
+	}
+
+	template <typename T>
+	seq_frame_identifier operator()(const T &) const
+	{
+		return is_data_frame;
+	}
+};     // class frame_handler_visitor
+
+class channel_number_visitor : public boost::static_visitor<unsigned int> {
+public:
+	template <typename T>
+	unsigned int operator()(const T &frm) const
+	{
+		return frm.channel;
+	}
+};     // class channel_number_visitor
+
+class acknowledgement_visitor : public boost::static_visitor<unsigned int> {
+public:
+	template <typename T>
+	unsigned int operator()(const T &frm) const
+	{
+		return frm.sequence + frm.payload.size();
+	}
+
+	unsigned int operator()(const seq_frame &) const
+	{
+		return 0;
+	}
+};     // class channel_number_visitor
+
 /// \brief Reliably transmit beep frames to and from the network
 ///
 /// This class reads frames from the network and combines them to form complete beep messages.
@@ -63,6 +105,7 @@ public:
 		, wstrand_(service)
 		, signal_frame_()
 		, net_changed_()
+		, grammar_()
 	{
 	}
 
@@ -221,22 +264,27 @@ private:
 			istream stream(&rsb_);
 			stream.unsetf(std::ios::skipws);
 			frame current;
-
-			// if frame_type != SEQ {
-			/// \todo Send the SEQ frame now?
-			// } else {
-			//  process SEQ frame
 			boost::spirit::istream_iterator begin(stream);
 			boost::spirit::istream_iterator end;
 			if (parse(begin, end, grammar_, current)) {
 				stream.unget();
-				signal_frame_(boost::system::error_code(), current);
+				if (apply_visitor(frame_handler_visitor(), current) == is_data_frame) {
+					// send back a SEQ frame advertising the new window
+					seq_frame new_window_ad;
+					new_window_ad.channel = apply_visitor(channel_number_visitor(), current);
+					new_window_ad.acknowledgement = apply_visitor(acknowledgement_visitor(), current);
+					new_window_ad.window = 4096u;
+					send_frame(new_window_ad);
+					signal_frame_(boost::system::error_code(), current);
+					///} else {
+					/// \todo change the way that messages are framed to accomodate window advertisement.
+					// read more data...
+				}
 			} else {
 				// should I just close the stream?
 				set_error(boost::system::error_code(beep::reply_code::general_syntax_error,
 													beep::beep_category));
 			}
-			//}
 			do_start_read();
 		} else {
 			set_error(error);
