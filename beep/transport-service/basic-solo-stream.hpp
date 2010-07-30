@@ -21,6 +21,7 @@
 #include <boost/bind.hpp>
 #include <boost/asio.hpp>
 #include <boost/signals2.hpp>
+#include <boost/date_time.hpp>
 
 #include "beep/identifier.hpp"
 #include "beep/role.hpp"
@@ -97,6 +98,7 @@ public:
 
 	solo_stream_service_impl(service_reference service)
 		: stream_(service)
+		, timer_(service)
 		, rsb_()
 		, wsb0_()
 		, wsb1_()
@@ -111,6 +113,7 @@ public:
 
 	solo_stream_service_impl(service_reference service, const std::size_t maxSize)
 		: stream_(service)
+		, timer_(service)
 		, rsb_(maxSize)
 		, wsb0_(maxSize)
 		, wsb1_(maxSize)
@@ -169,10 +172,12 @@ public:
 		}
 	}
 private:
+	typedef boost::asio::deadline_timer timer_type;
 	typedef boost::asio::streambuf streambuf_type;
 	typedef service_type::strand   strand_type;
 
 	stream_type    stream_;
+	timer_type     timer_;
 	streambuf_type rsb_; // read streambuf
 	streambuf_type wsb0_, wsb1_; // double buffered write streambufs
 	streambuf_type *fwsb_;  // current (foreground) sendbuf that is being sent
@@ -182,12 +187,18 @@ private:
 	network_cb_t   net_changed_;
 	frame_parser<boost::spirit::istream_iterator> grammar_;
 
+	static boost::posix_time::time_duration get_response_timeout()
+	{
+		return boost::posix_time::minutes(10);
+	}
+
 	void set_error(const boost::system::error_code &error)
 	{
 		boost::system::error_code close_error;
 		stream_.close(close_error);
 		fwsb_->consume(fwsb_->size());
 		bwsb_->consume(bwsb_->size());
+		timer_.cancel();
 		signal_frame_(error, beep::frame());
 		if (close_error) {
 			signal_frame_(close_error, beep::frame());
@@ -210,8 +221,15 @@ private:
 
 	void do_send_if_possible()
 	{
+		using boost::bind;
 		if (fwsb_->size() == 0 && stream_.lowest_layer().is_open() && bwsb_->size() > 0) {
 			do_send();
+			/// Time out if the peer does not send a response
+			timer_.cancel();
+			timer_.expires_from_now(get_response_timeout());
+			timer_.async_wait(bind(&solo_stream_service_impl::handle_data_timeout,
+								   this->shared_from_this(),
+								   boost::asio::placeholders::error));
 		}
 	}
 
@@ -260,6 +278,7 @@ private:
 						   std::size_t /*bytes_transferred*/)
 	{
 		using std::istream;
+		timer_.cancel();
 		if (!error || error == boost::asio::error::message_size) {
 			istream stream(&rsb_);
 			stream.unsetf(std::ios::skipws);
@@ -288,6 +307,14 @@ private:
 			do_start_read();
 		} else {
 			set_error(error);
+		}
+	}
+
+	void handle_data_timeout(const boost::system::error_code &error)
+	{
+		if (!error) {
+			using namespace boost::system::errc;
+			set_error(make_error_code(timed_out));
 		}
 	}
 };
