@@ -8,7 +8,7 @@ AM_CXXFLAGS = \
 	@BOOST_CPPFLAGS@
 AM_LDFLAGS = @BOOST_LDFLAGS@
 
-noinst_PROGRAMS = example/listener example/initiator
+noinst_PROGRAMS = example/listener example/initiator example/beep-compat-test
 noinst_LTLIBRARIES = tinyxml/libti.la
 
 check_PROGRAMS = \
@@ -94,3 +94,7 @@ example_listener_LDADD = $(top_builddir)/tinyxml/libti.la @BOOST_SYSTEM_LIB@
 # -----------------------------------------------------------------------------
 example_initiator_SOURCES = example/simple_initiator.cpp
 example_initiator_LDADD = $(top_builddir)/tinyxml/libti.la @BOOST_SYSTEM_LIB@
+# Example compatibility test
+# -----------------------------------------------------------------------------
+example_beep_compat_test_SOURCES = example/compat_test.cpp
+example_beep_compat_test_LDADD = $(top_builddir)/tinyxml/libti.la @BOOST_SYSTEM_LIB@
