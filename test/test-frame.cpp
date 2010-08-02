@@ -226,6 +226,39 @@ TEST(PayloadParse, Valid)
 	EXPECT_EQ("Some Payload", get<beep::msg_frame>(aFrame).payload);
 }
 
+TEST(BinaryParse, Valid)
+{
+	const float some_data[] = { 1.0f, 2.0f, 3.0f, 4.0f };
+	const std::string base = "MSG 19 2 . 3 ";
+	std::ostringstream strm;
+	strm << base << sizeof(some_data) << "\r\n";
+	strm.write(reinterpret_cast<const char*>(some_data), sizeof(some_data));
+	strm << "END\r\n";
+	const std::string content = strm.str();
+	EXPECT_EQ(content.length(), 17 + 5 + sizeof(float) * 4);
+
+	frame_parser g; // the grammar
+	std::string::const_iterator iter = content.begin();
+	std::string::const_iterator end = content.end();
+	beep::frame aFrame;
+
+	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(get<beep::msg_frame>(aFrame));
+	EXPECT_EQ(19u, get<beep::msg_frame>(aFrame).channel);
+	EXPECT_EQ(2u, get<beep::msg_frame>(aFrame).message);
+	EXPECT_FALSE(get<beep::msg_frame>(aFrame).more);
+	EXPECT_EQ(3u, get<beep::msg_frame>(aFrame).sequence);
+	EXPECT_EQ(sizeof(some_data), get<beep::msg_frame>(aFrame).payload.length());
+
+	float out_data[4] = { 0 };
+	std::istringstream payload_strm(get<beep::msg_frame>(aFrame).payload);
+	payload_strm.read(reinterpret_cast<char*>(out_data), sizeof(out_data));
+	EXPECT_FLOAT_EQ(1.0f, out_data[0]);
+	EXPECT_FLOAT_EQ(2.0f, out_data[1]);
+	EXPECT_FLOAT_EQ(3.0f, out_data[2]);
+	EXPECT_FLOAT_EQ(4.0f, out_data[3]);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Test valid "message" frames (MSG)
 ///////////////////////////////////////////////////////////////////////////////

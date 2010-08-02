@@ -185,7 +185,7 @@ struct frame_parser : qi::grammar<Iterator, frame()> {
 		using qi::repeat;
 		using qi::on_error;
 		using qi::fail;
-		using ascii::char_;
+		using qi::byte_;
 		using namespace qi::labels;
 
 		using phoenix::construct;
@@ -247,7 +247,7 @@ struct frame_parser : qi::grammar<Iterator, frame()> {
 
 		//common %= skip(space)[channel >> message_number >> more >> sequence_number >> size[_a = _1]];
 
-		payload %= repeat(_r1)[char_];
+		payload %= repeat(_r1)[byte_];
 
 		msg %= lit("MSG")
 			>> skip(space)[channel]
