@@ -117,6 +117,12 @@ public:
 	{
 	}
 
+	greeting(const profile &my_profile)
+		: uris_()
+	{
+		uris_.push_back(my_profile.uri());
+	}
+
 	// Accept forward iterators of profile objects
 	template <typename FwdIterator>
 	greeting(const FwdIterator first, const FwdIterator last)
@@ -733,8 +739,12 @@ public:
 				}
 				if (match_profile) {
 					response.set_type(RPY);
-					cmp::ok ok;
-					ostrm << ok;
+					TiXmlElement aProfile("profile");
+					aProfile.SetAttribute("uri", acceptedProfile.uri());
+					/// \todo Set the profile "encoding" (if required/allowed)
+					/// \todo add a "features" attribute for optional feature
+					/// \todo add a "localize" attribute for each language token
+					ostrm << aProfile;
 				} else {
 					chnum_.erase(channel);
 					channel = 0;

@@ -726,7 +726,7 @@ TEST_F(SessionChannelListener, StartChannel)
 	okFrame.message = 1;
 	okFrame.more = false;
 	okFrame.sequence = 105;
-	okFrame.payload = "Content-Type: application/beep+xml\r\n\r\n<ok />";
+	okFrame.payload = "Content-Type: application/beep+xml\r\n\r\n<profile uri=\"casimiro.daniel/test-profile\" />";
 	EXPECT_NO_THROW(EXPECT_EQ(okFrame, get<beep::rpy_frame>(last_frame)));
 	
 	EXPECT_EQ(1u, session_channel);
@@ -747,7 +747,7 @@ TEST_F(SessionChannelListener, PeerClosesChannel)
 	okFrame.channel = 0;
 	okFrame.message = 2;
 	okFrame.more = false;
-	okFrame.sequence = 149;
+	okFrame.sequence = 189;
 	okFrame.payload = "Content-Type: application/beep+xml\r\n\r\n<ok />";
 	EXPECT_NO_THROW(EXPECT_EQ(okFrame, get<beep::rpy_frame>(last_frame)));
 }
@@ -770,7 +770,7 @@ TEST_F(SessionChannelListener, ClosesChannel)
 	closeFrame.channel = 0;
 	closeFrame.message = 2;
 	closeFrame.more = false;
-	closeFrame.sequence = 149;
+	closeFrame.sequence = 189;
 	closeFrame.payload = "Content-Type: application/beep+xml\r\n\r\n<close number=\"1\" code=\"200\" />";
 	EXPECT_NO_THROW(EXPECT_EQ(closeFrame, get<beep::msg_frame>(last_frame)));
 
