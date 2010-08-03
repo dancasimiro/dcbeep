@@ -62,6 +62,20 @@ public:
 	}
 };     // class channel_number_visitor
 
+class window_size_visitor : public boost::static_visitor<unsigned int> {
+public:
+	template <typename T>
+	unsigned int operator()(const T &) const
+	{
+		return 0;
+	}
+
+	unsigned int operator()(const seq_frame &frm) const
+	{
+		return frm.window;
+	}
+};     // class window_size_visitor
+
 class acknowledgement_visitor : public boost::static_visitor<unsigned int> {
 public:
 	template <typename T>
@@ -74,7 +88,7 @@ public:
 	{
 		return 0;
 	}
-};     // class channel_number_visitor
+};     // class acknowledgement_number_visitor
 
 /// \brief Reliably transmit beep frames to and from the network
 ///
@@ -108,6 +122,7 @@ public:
 		, signal_frame_()
 		, net_changed_()
 		, grammar_()
+		, peer_window_size_(4096u)
 	{
 	}
 
@@ -123,6 +138,7 @@ public:
 		, signal_frame_()
 		, net_changed_()
 		, grammar_()
+		, peer_window_size_(4096u)
 	{
 	}
 
@@ -175,6 +191,7 @@ private:
 	typedef boost::asio::deadline_timer timer_type;
 	typedef boost::asio::streambuf streambuf_type;
 	typedef service_type::strand   strand_type;
+	typedef size_t size_type;
 
 	stream_type    stream_;
 	timer_type     timer_;
@@ -186,6 +203,7 @@ private:
 	frame_signal_t signal_frame_;
 	network_cb_t   net_changed_;
 	frame_parser<boost::spirit::istream_iterator> grammar_;
+	size_type      peer_window_size_;
 
 	static boost::posix_time::time_duration get_response_timeout()
 	{
@@ -295,9 +313,8 @@ private:
 					new_window_ad.window = 4096u;
 					send_frame(new_window_ad);
 					signal_frame_(boost::system::error_code(), current);
-					///} else {
-					/// \todo change the way that messages are framed to accomodate window advertisement.
-					// read more data...
+				} else {
+					peer_window_size_ = apply_visitor(window_size_visitor(), current);
 				}
 			} else {
 				// should I just close the stream?
