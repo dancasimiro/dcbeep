@@ -424,7 +424,7 @@ private:
 					transport_.shutdown_connection(id_);
 				}
 			}
-		} else if (msg.get_type() == RPY && cmp::is_ok_message(msg)) {
+		} else if (msg.get_type() == RPY && (cmp::is_ok_message(msg) || cmp::is_profile_message(msg))) {
 			boost::system::error_code message_error;
 			tuning_handler_.execute(msg.get_number(), message_error);
 		} else if (msg.get_type() == ERR) {

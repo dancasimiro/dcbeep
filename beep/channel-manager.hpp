@@ -103,6 +103,12 @@ bool is_ok_message(const message &msg)
 }
 
 inline
+bool is_profile_message(const message &msg)
+{
+	return detail::message_has_element_named(msg, "profile");
+}
+
+inline
 bool is_error_message(const message &msg)
 {
 	return detail::message_has_element_named(msg, "error");
