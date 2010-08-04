@@ -307,12 +307,14 @@ private:
 				stream.unget();
 				if (apply_visitor(frame_handler_visitor(), current) == is_data_frame) {
 					signal_frame_(boost::system::error_code(), current);
+#if 0 // disable SEQ frame sending because I think that I have the format wrong!
 					// send back a SEQ frame advertising the new window
 					seq_frame new_window_ad;
 					new_window_ad.channel = apply_visitor(channel_number_visitor(), current);
 					new_window_ad.acknowledgement = apply_visitor(acknowledgement_visitor(), current);
 					new_window_ad.window = 4096u;
 					send_frame(new_window_ad);
+#endif
 				} else {
 					peer_window_size_ = apply_visitor(window_size_visitor(), current);
 				}
