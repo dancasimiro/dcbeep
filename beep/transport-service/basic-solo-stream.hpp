@@ -300,12 +300,14 @@ private:
 		if (!error || error == boost::asio::error::message_size) {
 			istream stream(&rsb_);
 			stream.unsetf(std::ios::skipws);
+			unsigned int parsed_frame_count = 0;
 			frame current;
 			boost::spirit::istream_iterator begin(stream);
 			const boost::spirit::istream_iterator end;
 			// begin is updated on each pass to the next valid position
 			while (parse(begin, end, grammar_, current)) {
 				if (apply_visitor(frame_handler_visitor(), current) == is_data_frame) {
+					parsed_frame_count += 1u;
 					signal_frame_(boost::system::error_code(), current);
 					// send back a SEQ frame advertising the new window
 					seq_frame new_window_ad;
@@ -317,14 +319,17 @@ private:
 					peer_window_size_ = apply_visitor(window_size_visitor(), current);
 				}
 			}
-			// How do I detect parsing errors that do not mean that there was half a frame near the end?
-			// -- I need to set up better error handling in the frame parser.
-			// -- Right now, it simply prints out a log message to cerr
-			// -- I need to invoke custome code at that point... and...
-			// should I just close the stream after an error? or call set_error and keep going...
-			//set_error(boost::system::error_code(beep::reply_code::general_syntax_error,
-			//									beep::beep_category));
-			do_start_read();
+			// There must be at least one valid parsed frame because I read
+			// until there was at least one END\r\n sequence in the streambuf.
+			// There must be a syntax error if I did not parse at least one data
+			// frame correctly. Subsequent errors could be due to incomplete frames
+			// sitting in the streambuf.
+			if (parsed_frame_count > 0) {
+				do_start_read();
+			} else {
+				set_error(boost::system::error_code(beep::reply_code::general_syntax_error,
+													beep::beep_category));
+			}
 		} else {
 			set_error(error);
 		}
