@@ -84,7 +84,7 @@ public:
 
 	void operator()(const seq_frame &seq) const
 	{
-		if (!(stream_ << "SEQ " << seq.channel << ' ' << seq.acknowledgement << ' ' << seq.window << terminator() << sentinel())) {
+		if (!(stream_ << "SEQ " << seq.channel << ' ' << seq.acknowledgement << ' ' << seq.window << terminator())) {
 			stream_.setstate(std::ios::failbit);
 		}
 	}

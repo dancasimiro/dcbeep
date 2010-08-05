@@ -317,7 +317,6 @@ struct frame_parser : qi::grammar<Iterator, frame()> {
 			>> skip(space)[sequence_number]
 			>> skip(space)[size]
 			>> terminator_rule
-			>> trailer
 			;
 		mapping %= seq;
 
