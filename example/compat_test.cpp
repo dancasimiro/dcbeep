@@ -8,6 +8,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <stdint.h>
 using namespace std;
 
 #include <boost/bind.hpp>
@@ -40,10 +41,11 @@ on_got_data(const boost::system::error_code &error,
 		cout << "The initiator got " << msg.get_payload_size()
 			 << " bytes of application data on channel " << channel
 			 << "!" << endl;
-		const int num_ints = msg.get_payload_size() / sizeof(int);
+		const int num_ints = msg.get_payload_size() / sizeof(uint8_t);
+		cout << "received " << num_ints << " integers.\n";
 		const std::string my_payload = msg.get_payload();
 		const std::vector<char> my_data(my_payload.begin(), my_payload.end());
-		const int * const bytes = reinterpret_cast<const int*>(&my_data[0]);
+		const uint8_t * const bytes = reinterpret_cast<const uint8_t*>(&my_data[0]);
 		for (int i = 1; i < num_ints; ++i) {
 			if (bytes[i] != bytes[0]) {
 				cout << "data mismatch!\n";
@@ -67,11 +69,17 @@ on_got_data(const boost::system::error_code &error,
 static void
 on_channel_created(const boost::system::error_code &error,
 				   const unsigned int channel,
-				   session_type &/*mySession*/)
+				   session_type &mySession)
 {
 	if (!error) {
 		cout << "The test channel (#" << channel
 			 << ") was accepted and is ready!" << endl;
+		beep::message msg;
+		const uint8_t number_of_ints = 128u;
+		std::ostringstream strm;
+		strm.write(reinterpret_cast<const char*>(&number_of_ints), sizeof(number_of_ints));
+		msg.set_content(strm.str());
+		mySession.send(channel, msg);
 	} else { 
 		cerr << "Failed to create the channel: " << error << endl;
 	}
