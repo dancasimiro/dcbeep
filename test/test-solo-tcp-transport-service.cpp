@@ -6,6 +6,7 @@
 
 #include <string>
 #include <istream>
+#include <deque>
 
 #include <boost/bind.hpp>
 #include <boost/asio.hpp>
@@ -32,6 +33,8 @@ public:
 		, last_error()
 		, buffer()
 		, start_time()
+		, last_frame()
+		, received_frames()
 		, session_connection()
 		, session_id()
 	{
@@ -50,6 +53,7 @@ public:
 		buffer.consume(buffer.size());
 		last_error = boost::system::error_code();
 		last_frame = beep::frame();
+		received_frames.clear();
 		socket.close();
 
 		session_connection =
@@ -89,6 +93,7 @@ public:
 	boost::asio::streambuf                      buffer;
 	boost::posix_time::ptime                    start_time;
 	beep::frame                                 last_frame;
+	std::deque<beep::frame>                     received_frames;
 	boost::signals2::connection                 session_connection;
 	beep::identifier                            session_id;
 
@@ -177,6 +182,7 @@ public:
 		last_error = error;
 		if (!error) {
 			last_frame = frame;
+			received_frames.push_back(frame);
 			got_new_frame = true;
 		}
 	}
@@ -244,19 +250,13 @@ TEST_F(SingleTCPTransportServiceInitiator, SendsMultipleFrames)
 	EXPECT_EQ(boost::system::error_code(), last_error);
 
 	// make sure that both frames are received...
-
-	ASSERT_NO_THROW(run_event_loop_until_frame_received());
-	ASSERT_TRUE(have_frame);
-	EXPECT_EQ(boost::system::error_code(), last_error);
+	if (received_frames.size() < 2) {
+		ASSERT_NO_THROW(run_event_loop_until_frame_received());
+		ASSERT_TRUE(have_frame);
+		EXPECT_EQ(boost::system::error_code(), last_error);
+	}
 
 	std::istream stream(&buffer);
-#if 0
-	while (stream) {
-		std::string my_peek;
-		std::getline(stream, my_peek);
-		std::cerr << my_peek << "\n";
-	}
-#endif
 	beep::frame recvFrame1, recvFrame2;
 	stream >> recvFrame1 >> recvFrame2;
 	EXPECT_NO_THROW(EXPECT_EQ(firstFrame, get<beep::msg_frame>(recvFrame1)));
@@ -328,6 +328,16 @@ TEST_F(SingleTCPTransportServiceInitiator, ReceivesMultipleFrames)
 					 boost::asio::placeholders::error,
 					 boost::asio::placeholders::bytes_transferred));
 
+	ASSERT_NO_THROW(run_event_loop_until_new_frame());
+	EXPECT_TRUE(got_new_frame);
+	EXPECT_EQ(boost::system::error_code(), last_error);
+	if (received_frames.size() < 2) {
+		got_new_frame = false;
+		ASSERT_NO_THROW(run_event_loop_until_new_frame());
+		EXPECT_TRUE(got_new_frame);
+		EXPECT_EQ(boost::system::error_code(), last_error);
+	}
+
 	beep::msg_frame expectedFrame;
 	expectedFrame.channel = 9;
 	expectedFrame.message = 1;
@@ -339,13 +349,6 @@ TEST_F(SingleTCPTransportServiceInitiator, ReceivesMultipleFrames)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		;
-	ASSERT_NO_THROW(run_event_loop_until_new_frame());
-	EXPECT_TRUE(got_new_frame);
-	EXPECT_EQ(boost::system::error_code(), last_error);
-	EXPECT_NO_THROW(EXPECT_EQ(expectedFrame, get<beep::msg_frame>(last_frame)));
-
-	got_new_frame = false;
-	last_frame = beep::frame();
 
 	beep::msg_frame expectedFrame2;
 	expectedFrame2.channel = 9;
@@ -359,10 +362,10 @@ TEST_F(SingleTCPTransportServiceInitiator, ReceivesMultipleFrames)
 		"</start>\r\n" // 10
 		;
 
-	ASSERT_NO_THROW(run_event_loop_until_new_frame());
-	EXPECT_TRUE(got_new_frame);
-	EXPECT_EQ(boost::system::error_code(), last_error);
-	EXPECT_NO_THROW(EXPECT_EQ(expectedFrame2, get<beep::msg_frame>(last_frame)));
+	EXPECT_NO_THROW(EXPECT_EQ(expectedFrame, get<beep::msg_frame>(received_frames.front())));
+	EXPECT_NO_THROW(received_frames.pop_front());
+	EXPECT_NO_THROW(EXPECT_EQ(expectedFrame2, get<beep::msg_frame>(received_frames.front())));
+	EXPECT_NO_THROW(received_frames.pop_front());
 }
 
 int
