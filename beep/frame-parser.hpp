@@ -180,6 +180,7 @@ struct frame_parser : qi::grammar<Iterator, frame()> {
 		using qi::_4;
 		using qi::lit;
 		using qi::skip;
+		using qi::no_skip;
 		using qi::omit;
 		using qi::space;
 		using qi::repeat;
@@ -249,60 +250,60 @@ struct frame_parser : qi::grammar<Iterator, frame()> {
 
 		payload %= repeat(_r1)[byte_];
 
-		msg %= lit("MSG")
-			>> skip(space)[channel]
-			>> skip(space)[message_number]
-			>> skip(space)[more]
-			>> skip(space)[sequence_number]
-			>> omit[skip(space)[size[_a = _1]]]
-			>> terminator_rule
-			>> payload(_a)
-			>> trailer
+		msg %= no_skip["MSG"]
+			> skip(space)[channel]
+			> skip(space)[message_number]
+			> skip(space)[more]
+			> skip(space)[sequence_number]
+			> omit[skip(space)[size[_a = _1]]]
+			> no_skip[terminator_rule]
+			> no_skip[payload(_a)]
+			> no_skip[trailer]
 			;
 
-		rpy %= lit("RPY")
-			>> skip(space)[channel]
-			>> skip(space)[message_number]
-			>> skip(space)[more]
-			>> skip(space)[sequence_number]
-			>> omit[skip(space)[size[_a = _1]]]
-			>> terminator_rule
-			>> payload(_a)
-			>> trailer
+		rpy %= no_skip["RPY"]
+			> skip(space)[channel]
+			> skip(space)[message_number]
+			> skip(space)[more]
+			> skip(space)[sequence_number]
+			> omit[skip(space)[size[_a = _1]]]
+			> no_skip[terminator_rule]
+			> no_skip[payload(_a)]
+			> no_skip[trailer]
 			;
 
-		ans %= lit("ANS")
-			>> skip(space)[channel]
-			>> skip(space)[message_number]
-			>> skip(space)[more]
-			>> skip(space)[sequence_number]
-			>> omit[skip(space)[size[_a = _1]]]
-			>> skip(space)[answer_number]
-			>> terminator_rule
-			>> payload(_a)
-			>> trailer
+		ans %= no_skip["ANS"]
+			> skip(space)[channel]
+			> skip(space)[message_number]
+			> skip(space)[more]
+			> skip(space)[sequence_number]
+			> omit[skip(space)[size[_a = _1]]]
+			> skip(space)[answer_number]
+			> no_skip[terminator_rule]
+			> no_skip[payload(_a)]
+			> no_skip[trailer]
 			;
 
-		err %= lit("ERR")
-			>> skip(space)[channel]
-			>> skip(space)[message_number]
-			>> skip(space)[more]
-			>> skip(space)[sequence_number]
-			>> omit[skip(space)[size[_a = _1]]]
-			>> terminator_rule
-			>> payload(_a)
-			>> trailer
+		err %= no_skip["ERR"]
+			> skip(space)[channel]
+			> skip(space)[message_number]
+			> skip(space)[more]
+			> skip(space)[sequence_number]
+			> omit[skip(space)[size[_a = _1]]]
+			> no_skip[terminator_rule]
+			> no_skip[payload(_a)]
+			> no_skip[trailer]
 			;
 
-		nul %= lit("NUL")
-			>> skip(space)[channel]
-			>> skip(space)[message_number]
-			>> skip(space)[more]
-			>> skip(space)[sequence_number]
-			>> omit[skip(space)[size[_a = _1]]]
-			>> terminator_rule
-			>> payload(_a)
-			>> trailer
+		nul %= no_skip["NUL"]
+			> skip(space)[channel]
+			> skip(space)[message_number]
+			> skip(space)[more]
+			> skip(space)[sequence_number]
+			> omit[skip(space)[size[_a = _1]]]
+			> no_skip[terminator_rule]
+			> no_skip[payload(_a)]
+			> no_skip[trailer]
 			;
 
 		data %= msg
@@ -312,11 +313,11 @@ struct frame_parser : qi::grammar<Iterator, frame()> {
 			| nul
 			;
 
-		seq %= lit("SEQ")
-			>> skip(space)[channel]
-			>> skip(space)[sequence_number]
-			>> skip(space)[size]
-			>> terminator_rule
+		seq %= no_skip["SEQ"]
+			> skip(space)[channel]
+			> skip(space)[sequence_number]
+			> skip(space)[size]
+			> no_skip[terminator_rule]
 			;
 		mapping %= seq;
 
@@ -350,6 +351,8 @@ struct frame_parser : qi::grammar<Iterator, frame()> {
 			 << val(" here: \"")
 			 << construct<std::string>(_3, _2)
 			 << val("\"")
+			 << val(" from: \"")
+			 << construct<std::string>(_1, _3)
 			 << std::endl
 			 );
 	}
