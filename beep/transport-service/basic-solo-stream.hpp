@@ -296,18 +296,21 @@ private:
 						   std::size_t /*bytes_transferred*/)
 	{
 		using std::istream;
+		using std::ostream;
 		timer_.cancel();
 		if (!error || error == boost::asio::error::message_size) {
 			istream stream(&rsb_);
 			stream.unsetf(std::ios::skipws);
-			unsigned int parsed_frame_count = 0;
 			frame current;
 			boost::spirit::istream_iterator begin(stream);
 			const boost::spirit::istream_iterator end;
 			// begin is updated on each pass to the next valid position
+			unsigned int num_frames = 0;
 			while (parse(begin, end, grammar_, current)) {
-				if (apply_visitor(frame_handler_visitor(), current) == is_data_frame) {
-					parsed_frame_count += 1u;
+				if (apply_visitor(frame_handler_visitor(), current) == is_seq_frame) {
+					peer_window_size_ = apply_visitor(window_size_visitor(), current);
+				} else {
+					num_frames += 1u;
 					signal_frame_(boost::system::error_code(), current);
 					// send back a SEQ frame advertising the new window
 					seq_frame new_window_ad;
@@ -315,18 +318,26 @@ private:
 					new_window_ad.acknowledgement = apply_visitor(acknowledgement_visitor(), current);
 					new_window_ad.window = 4096u;
 					send_frame(new_window_ad);
-				} else {
-					peer_window_size_ = apply_visitor(window_size_visitor(), current);
+				}
+				// check if there is a frame trailer at the end of this buffer
+				if (begin != end && std::string(begin, end).find(sentinel()) == std::string::npos) {
+					// Need to read more data before this partial message can be parsed.
+					break;
 				}
 			}
-			// There must be at least one valid parsed frame because I read
-			// until there was at least one END\r\n sequence in the streambuf.
-			// There must be a syntax error if I did not parse at least one data
-			// frame correctly. Subsequent errors could be due to incomplete frames
-			// sitting in the streambuf.
-			if (parsed_frame_count > 0) {
+			if (num_frames) {
+				if (begin != end) { // there is a partial message at the end of the streambuf
+					// stuff the partial message back into the streambuf
+					ostream reset_stream(&rsb_);
+					reset_stream << std::string(begin, end);
+				}
 				do_start_read();
 			} else {
+				// There must be at least one valid parsed frame because I read
+				// until there was at least one END\r\n sequence in the streambuf.
+				// There must be a syntax error if I did not parse at least one data
+				// frame correctly. Subsequent errors could be due to incomplete frames
+				// sitting in the streambuf.
 				set_error(boost::system::error_code(beep::reply_code::general_syntax_error,
 													beep::beep_category));
 			}
