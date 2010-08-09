@@ -207,7 +207,7 @@ private:
 
 	static boost::posix_time::time_duration get_response_timeout()
 	{
-		return boost::posix_time::minutes(1);
+		return boost::posix_time::minutes(5);
 	}
 
 	void set_error(const boost::system::error_code &error)
