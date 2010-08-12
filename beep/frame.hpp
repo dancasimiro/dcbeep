@@ -6,6 +6,7 @@
 #define BEEP_FRAME_HEAD 1
 
 #include <string>
+#include <boost/variant.hpp>
 
 namespace beep {
 
@@ -93,5 +94,14 @@ struct seq_frame {
 	unsigned int window;
 };     // struct seq_frame
 
+typedef boost::variant<
+	msg_frame
+	, rpy_frame
+	, ans_frame
+	, err_frame
+	, nul_frame
+	, seq_frame
+	>
+frame;
 }      // namespace beep
 #endif // BEEP_FRAME_HEAD

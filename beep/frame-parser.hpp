@@ -11,7 +11,6 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/phoenix.hpp>
-#include <boost/variant.hpp>
 #include <boost/fusion/adapted/struct/adapt_struct.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 
@@ -106,16 +105,6 @@ std::string reverse_continuation_lookup(const bool c)
 	}
 	return symbol;
 }
-
-typedef boost::variant<
-	msg_frame
-	, rpy_frame
-	, ans_frame
-	, err_frame
-	, nul_frame
-	, seq_frame
-	>
-frame;
 
 }      // namespace beep
 
