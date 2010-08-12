@@ -27,6 +27,14 @@ public:
 	{
 	}
 
+	channel(const unsigned int c, const unsigned int m)
+		: num_(c)
+		, msgno_(m)
+		, seqno_(0)
+		, ansno_(0)
+	{
+	}
+
 	channel(const channel& src)
 		: num_(src.num_)
 		, msgno_(src.msgno_)
