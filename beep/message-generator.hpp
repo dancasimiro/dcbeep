@@ -31,7 +31,7 @@ public:
 		sink_ += frm.payload;
 	}
 
-	void operator()(const seq_frame &seq) const
+	void operator()(const seq_frame &/*seq*/) const
 	{
 	}
 private:
@@ -55,7 +55,7 @@ public:
 		msg_.set_number(frm.message);
 	}
 
-	void operator()(const seq_frame &frm) const
+	void operator()(const seq_frame &/*frm*/) const
 	{
 		std::cerr << "cannot make messages from SEQ frames!\n";
 		assert(false);
