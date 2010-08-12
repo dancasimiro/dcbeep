@@ -11,7 +11,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <set>
 #include <map>
 #include <algorithm>
 #include <iterator>
@@ -29,6 +28,9 @@
 #include "reply-code.hpp"
 
 namespace beep {
+namespace detail {
+inline unsigned int tuning_channel_number() { return 0; }
+}      // namespace detail
 
 #if 0
 inline
@@ -57,15 +59,28 @@ class channel_manager {
 public:
 	channel_manager()
 		: profiles_()
-		, zero_(0)
-		, chnum_()
+		, channels_()
 		, guess_(0)
 	{
-		chnum_.insert(0u);
+		// used for adding/removing subsequent channels
+		using std::make_pair;
+		const std::pair<ch_map::iterator, bool> result =
+			channels_.insert(make_pair(0, channel(0)));
+		if (!result.second) {
+			throw std::runtime_error("Could not initialize the tuning channel!");
+		}
 	}
 
-	const channel &tuning_channel() const { return zero_; }
-	channel &tuning_channel() { return zero_; }
+	void prepare_message_for_channel(const unsigned int ch, message &msg)
+	{
+		ch_map::iterator channel_iterator = channels_.find(ch);
+		if (channel_iterator == channels_.end()) {
+			throw std::runtime_error("the selected channel is not in use.");
+		}
+		channel &my_channel = channel_iterator->second;
+		msg.set_channel(my_channel);
+		my_channel.update(msg.get_payload_size());
+	}
 
 	template <class Handler>
 	void install_profile(const std::string &profile_uri, Handler handler)
@@ -111,8 +126,7 @@ public:
 	/// \return True if the channel number is currently active.
 	bool channel_in_use(const unsigned int channel) const
 	{
-		assert(zero_.get_number() == 0u);
-		return (channel == zero_.get_number()) || chnum_.count(channel) > 0;
+		return (channels_.count(channel) > 0);
 	}
 
 	/// To avoid conflict in assigning channel numbers when requesting the
@@ -125,12 +139,13 @@ public:
 	{
 #if 0
 		using std::ostringstream;
+		using std::make_pair;
 		if (!profiles_.count(profile_uri)) return 0;
 
 		unsigned int number = guess_;
-		if (!chnum_.insert(number).second) {
+		if (!channels_.insert(make_pair(number, channel(number))).second) {
 			number = get_next_channel(r);
-			if (!chnum_.insert(number).second) {
+			if (!channels_.insert(make_pair(number, channel(number))).second) {
 				throw std::runtime_error("could not find a channel number!");
 			}
 		}
@@ -156,7 +171,7 @@ public:
 #if 0
 		using std::ostringstream;
 		msg.set_mime(mime::beep_xml());
-		if (number > 0 && !chnum_.erase(number)) {
+		if (number > 0 && !channels_.erase(number)) {
 			throw std::runtime_error("The requested channel was not in use.");
 		}
 		msg.set_type(MSG);
@@ -174,7 +189,8 @@ public:
 	{
 		using std::ostringstream;
 		using std::ostream_iterator;
-		if (chnum_.insert(start_msg.channel).second) {
+		using std::make_pair;
+		if (channels_.insert(make_pair(start_msg.channel, channel(start_msg.channel))).second) {
 			prof_map::const_iterator profile_iter = profiles_.end();
 			typedef std::vector<cmp::profile_element>::const_iterator start_iterator;
 			for (start_iterator i = start_msg.profiles.begin(); i != start_msg.profiles.end(); ++i) {
@@ -193,7 +209,7 @@ public:
 				}
 			}
 			assert(profile_iter == profiles_.end());
-			chnum_.erase(start_msg.channel);
+			channels_.erase(start_msg.channel);
 			//response.set_type(ERR);
 			ostringstream estrm;
 			estrm << "The specified profile(s) are not supported. "
@@ -233,7 +249,7 @@ public:
 			return numeric_limits<unsigned>::max();
 		}
 		const unsigned ch_num = close.number();
-		if ((ch_num == zero_.get_number()) || chnum_.erase(ch_num)) {
+		if (channels_.erase(ch_num)) {
 			response.set_type(RPY);
 			cmp::ok ok;
 			ostringstream ostrm;
@@ -254,14 +270,13 @@ public:
 #endif
 	}
 private:
-	typedef std::set<unsigned int> ch_set;
+	typedef std::map<unsigned int, channel> ch_map;
 	typedef boost::system::error_code error_code;
 	typedef boost::function<void (const error_code&, unsigned, bool, const message&)> profile_callback_type;
 	typedef std::map<std::string, profile_callback_type> prof_map;
 
 	prof_map     profiles_;
-	channel      zero_; ///< used for adding/removing subsequent channels
-	ch_set       chnum_;
+	ch_map       channels_;
 	unsigned int guess_; // guess at next channel number
 
 	static unsigned int get_first_number(const role r)
@@ -283,10 +298,10 @@ private:
 	unsigned int get_next_channel(const role r)
 	{
 		unsigned int number = 0;
-		if (chnum_.empty()) {
+		if (channels_.empty()) {
 			number = get_first_number(r);
 		} else {
-			number = *chnum_.rbegin();
+			number = channels_.rbegin()->first;
 			if (!number) {
 				number = get_first_number(r);
 			} else {

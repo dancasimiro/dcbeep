@@ -24,7 +24,6 @@
 #include "frame-generator.hpp"
 #include "message-generator.hpp"
 #include "message.hpp"
-#include "channel.hpp"
 #include "channel-manager.hpp"
 
 namespace beep {
@@ -281,7 +280,6 @@ public:
 		, id_()
 		, frmsig_()
 		, chman_()
-		, channels_()
 		, tuning_handler_()
 		, user_handler_()
 		, session_signal_()
@@ -293,7 +291,6 @@ public:
 		, id_(id)
 		, frmsig_()
 		, chman_()
-		, channels_()
 		, tuning_handler_()
 		, user_handler_()
 		, session_signal_()
@@ -352,9 +349,10 @@ public:
 		if (const unsigned int ch =
 			chman_.start_channel(transport_service::get_role(),
 								 strm.str(), profile_uri, start)) {
-			const unsigned int msgno = send_tuning_message(start);
+			// send_tuning_message updates message_number inside start message
+			send_tuning_message(start);
+			const unsigned int msgno = start.get_channel().get_message_number();
 			tuning_handler_.add(msgno, bind(handler, _1, ch, profile_uri));
-			channels_.push_back(channel(ch));
 			return ch;
 		}
 		return 0;
@@ -367,11 +365,10 @@ public:
 		if (chman_.channel_in_use(channel)) {
 			message close;
 			chman_.close_channel(channel, rc, close);
-			const unsigned int msgno = send_tuning_message(close);
+			// send_tuning_message updates the message number inside of 'close'
+			send_tuning_message(close);
+			const unsigned int msgno = close.get_channel().get_message_number();
 			tuning_handler_.add(msgno, bind(handler, _1, channel));
-			if (channel != chman_.tuning_channel().get_number()) {
-				remove_channel(channel);
-			}
 		} else {
 			throw std::runtime_error("the selected channel is not in use.");
 		}
@@ -388,17 +385,13 @@ public:
 		}
 	}
 
-	void send(const unsigned int channel, const message &msg)
+	void send(const unsigned int channel, message &msg)
 	{
-		if (chman_.channel_in_use(channel)) {
-			send_message(msg, get_channel(channel));
-		} else {
-			throw std::runtime_error("the selected channel is not in use.");
-		}
+		chman_.prepare_message_for_channel(channel, msg);
+		send_message(msg);
 	}
 private:
 	typedef typename transport_service::signal_connection signal_connection_t;
-	typedef std::vector<channel>                          channel_container;
 	typedef boost::system::error_code error_code;
 	typedef boost::function<void (const error_code&, unsigned, bool, const message&)> function_type;
 
@@ -407,7 +400,6 @@ private:
 	signal_connection_t           frmsig_;
 
 	channel_manager               chman_;
-	channel_container             channels_;
 
 	detail::handler_tuning_events tuning_handler_;
 	detail::handler_user_events   user_handler_;
@@ -421,7 +413,7 @@ private:
 			try {
 				message msg;
 				make_message(&frm, &frm + 1, msg);
-				if (msg.get_channel() == chman_.tuning_channel().get_number()) {
+				if (msg.get_channel().get_number() == detail::tuning_channel_number()) {
 					handle_tuning_message(msg);
 				} else {
 					handle_user_message(msg);
@@ -455,7 +447,7 @@ private:
 		switch (msg.get_type()) {
 		case MSG:
 			{
-				const message response = apply_visitor(detail::tuning_message_visitor(chman_), my_node);
+				message response = apply_visitor(detail::tuning_message_visitor(chman_), my_node);
 				send_tuning_message(response);
 			}
 			break;
@@ -484,7 +476,6 @@ private:
 			if (const unsigned int chnum =
 				chman_.accept_start(msg, profiles_.begin(), profiles_.end(),
 									acceptedProfile, response)) {
-				channels_.push_back(channel(chnum));
 				send_tuning_message(response);
 				boost::system::error_code not_an_error;
 				const detail::wrapped_profile &myProfile =
@@ -526,7 +517,7 @@ private:
 	void handle_user_message(const message &msg)
 	{
 		boost::system::error_code error;
-		user_handler_.execute(msg.get_channel(), error, msg);
+		user_handler_.execute(msg.get_channel().get_number(), error, msg);
 	}
 
 	void start()
@@ -538,58 +529,20 @@ private:
 #endif
 	}
 
-	channel &get_channel(const unsigned int chnum)
-	{
-		using std::find_if;
-		channel_container::iterator i =
-			find_if(channels_.begin(), channels_.end(),
-					detail::channel_number_matcher(chnum));
-		if (i == channels_.end()) {
-			throw std::runtime_error("Invalid channel!");
-		}
-		return *i;
-	}
-
-	const channel &get_channel(const unsigned int chnum) const
-	{
-		using std::find_if;
-		channel_container::const_iterator i =
-			find_if(channels_.begin(), channels_.end(),
-					detail::channel_number_matcher(chnum));
-		if (i == channels_.end()) {
-			throw std::runtime_error("Invalid channel!");
-		}
-		return *i;
-	}
-
-	void remove_channel(const unsigned int chnum)
-	{
-		using std::find_if;
-		channel_container::iterator i =
-			find_if(channels_.begin(), channels_.end(),
-					detail::channel_number_matcher(chnum));
-		if (i == channels_.end()) {
-			throw std::runtime_error("Invalid channel!");
-		}
-		channels_.erase(i);
-	}
-
-	/// \return the used message number
-	unsigned int send_message(const message &msg, channel& chan)
+	void send_message(message &msg)
 	{
 		using std::vector;
 		using std::back_inserter;
 
 		vector<frame> frames;
-		const unsigned int message_number = make_frames(msg, chan, back_inserter(frames));
+		make_frames(msg, back_inserter(frames));
 		assert(!frames.empty());
 		transport_.send_frames(id_, frames.begin(), frames.end());
-		return message_number;
 	}
 
-	unsigned int send_tuning_message(const message &msg)
+	void send_tuning_message(message &msg)
 	{
-		return send_message(msg, chman_.tuning_channel());
+		send(detail::tuning_channel_number(), msg);
 	}
 
 	void close_transport(const boost::system::error_code &error)

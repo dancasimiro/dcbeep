@@ -28,8 +28,8 @@ TEST(ChannelManager, Greeting)
 	const std::string tls = "http://iana.org/beep/TLS"; // profile URI
 	chman.greeting_message(&tls, &tls + 1, greeting);
 	std::vector<beep::frame> frames;
-	EXPECT_EQ(0, beep::make_frames(greeting, chman.tuning_channel(),
-								   std::back_inserter(frames)));
+	chman.prepare_message_for_channel(0, greeting);
+	EXPECT_NO_THROW(beep::make_frames(greeting, std::back_inserter(frames)));
 	ASSERT_EQ(1u, frames.size());
 
 	const std::string encoded_out =
@@ -42,11 +42,6 @@ TEST(ChannelManager, Greeting)
 	std::ostringstream strm;
 	strm << frames[0];
 	EXPECT_EQ(encoded_out, strm.str());
-
-	EXPECT_EQ(0u, chman.tuning_channel().get_number());
-	EXPECT_EQ(1u, chman.tuning_channel().get_message_number());
-	EXPECT_EQ(101u, chman.tuning_channel().get_sequence_number());
-	EXPECT_EQ(0u, chman.tuning_channel().get_answer_number());
 }
 
 TEST(ChannelManager, GreetingWithMultipleProfiles)
@@ -61,8 +56,8 @@ TEST(ChannelManager, GreetingWithMultipleProfiles)
 		
 	chman.greeting_message(myProfiles.begin(), myProfiles.end(), greeting);
 	std::vector<beep::frame> frames;
-	EXPECT_EQ(0, beep::make_frames(greeting, chman.tuning_channel(),
-								   std::back_inserter(frames)));
+	chman.prepare_message_for_channel(0, greeting);
+	EXPECT_NO_THROW(beep::make_frames(greeting, std::back_inserter(frames)));
 	ASSERT_EQ(1u, frames.size());
 
 	const std::string encoded_out =
@@ -75,11 +70,6 @@ TEST(ChannelManager, GreetingWithMultipleProfiles)
 	std::ostringstream strm;
 	strm << frames[0];
 	EXPECT_EQ(encoded_out, strm.str());
-
-	EXPECT_EQ(0u, chman.tuning_channel().get_number());
-	EXPECT_EQ(1u, chman.tuning_channel().get_message_number());
-	EXPECT_EQ(143u, chman.tuning_channel().get_sequence_number());
-	EXPECT_EQ(0u, chman.tuning_channel().get_answer_number());
 }
 
 class TimedSessionBase : public testing::Test {
