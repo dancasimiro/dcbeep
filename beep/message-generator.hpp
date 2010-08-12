@@ -51,8 +51,7 @@ public:
 	{
 		/// \todo add checking that all frames have the same values...
 		msg_.set_type(frm.header());
-		msg_.set_channel(frm.channel);
-		msg_.set_number(frm.message);
+		msg_.set_channel(channel(frm.channel, frm.message));
 	}
 
 	void operator()(const seq_frame &/*frm*/) const

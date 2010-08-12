@@ -5,8 +5,6 @@
 #ifndef BEEP_CHANNEL_HEAD
 #define BEEP_CHANNEL_HEAD 1
 
-#include "message.hpp"
-
 namespace beep {
 
 class channel {
@@ -99,14 +97,14 @@ public:
 	/// expected value for this channel, then the BEEP peers have lost
 	/// synchronization, then the session is terminated without generating a
 	/// response, and it is recommended that a diagnostic entry be logged.
-	void update(const message &msg)
+	void update(const size_t &msg_size)
 	{
 		msgno_ += 1;
 		msgno_ %= 2147483647u;
 
 		// maximum value of seqno is < 4294967296
 		//seqno_ = (seqno_ + msg.payload_size()) % 4294967296ll;
-		seqno_ += msg.get_payload_size();
+		seqno_ += msg_size;
 	}
 private:
 	unsigned int num_;

@@ -8,6 +8,8 @@
 #include <cstddef>
 #include <string>
 
+#include "channel.hpp"
+
 namespace beep {
 
 class mime {
@@ -50,8 +52,7 @@ public:
 		, content_()
 		, payload_()
 		, type_(0)
-		, channel_(0)
-		, number_(0)
+		, channel_()
 	{
 	}
 
@@ -76,18 +77,14 @@ public:
 	void set_type(const unsigned int t) { type_ = t; }
 	unsigned int get_type() const { return type_; }
 
-	void set_channel(const unsigned int c) { channel_ = c; }
-	unsigned int get_channel() const { return channel_; }
-
-	void set_number(const unsigned int n) { number_ = n; }
-	unsigned int get_number() const { return number_; }
+	void set_channel(const channel &c) { channel_ = c; }
+	const channel &get_channel() const { return channel_; }
 private:
 	mime         mime_;
 	content_type content_;
 	content_type payload_;
 	unsigned int type_;
-	unsigned int channel_;
-	unsigned int number_;
+	channel      channel_;
 
 	void update_payload()
 	{
