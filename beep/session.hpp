@@ -25,22 +25,9 @@
 #include "message.hpp"
 #include "channel.hpp"
 #include "channel-manager.hpp"
-#include "profile.hpp"
 
 namespace beep {
 namespace detail {
-
-struct profile_uri_matcher : public std::unary_function<bool, profile> {
-	profile_uri_matcher(const std::string &u) : uri(u) {}
-	virtual ~profile_uri_matcher() {}
-
-	bool operator()(const profile &p) const
-	{
-		return p.uri() == uri;
-	}
-
-	const std::string uri;
-};
 
 struct channel_number_matcher : public std::unary_function<bool, channel> {
 	channel_number_matcher(const unsigned c) : chnum_(c) {}
@@ -143,36 +130,6 @@ private:
 	}
 };     // class handler_user_events
 
-/// store a "profile change" handler with the profile
-class wrapped_profile : public profile {
-public:
-	typedef boost::system::error_code error_code;
-	typedef boost::function<void (const error_code&, unsigned, bool, const message&)> function_type;
-
-	wrapped_profile(const profile &p)
-		: profile(p)
-		, handler_()
-	{
-	}
-
-	wrapped_profile(const profile &p, const function_type func)
-		: profile(p)
-		, handler_(func)
-	{
-	}
-	virtual ~wrapped_profile() {}
-
-	void set_handler(const function_type cb) { handler_ = cb; }
-
-	void execute(const unsigned int channel, const boost::system::error_code &error,
-				 const message &init, const bool should_close) const
-	{
-		handler_(error, channel, should_close, init);
-	}
-private:
-	function_type handler_;
-};     // class wrapped_profile
-
 }      // namespace detail
 
 /// \brief BEEP session management
@@ -199,7 +156,6 @@ public:
 		, id_()
 		, frmsig_()
 		, chman_()
-		, profiles_()
 		, channels_()
 		, ch2prof_()
 		, tuning_handler_()
@@ -213,7 +169,6 @@ public:
 		, id_(id)
 		, frmsig_()
 		, chman_()
-		, profiles_()
 		, channels_()
 		, ch2prof_()
 		, tuning_handler_()
@@ -229,16 +184,11 @@ public:
 	}
 
 	template <class Handler>
-	void install_profile(const profile &p, Handler handler)
+	void install_profile(const std::string &profile_uri, Handler handler)
 	{
+#if 0
 		profiles_.push_back(detail::wrapped_profile(p, handler));
-	}
-
-	template <class Handler>
-	void associate_profile_handler(const std::string &uri, Handler handler)
-	{
-		detail::wrapped_profile &myProfile = get_profile(uri);
-		myProfile.set_handler(handler);
+#endif
 	}
 
 	signal_connection install_session_handler(const session_signal_t::slot_type slot)
@@ -264,17 +214,22 @@ public:
 	template <typename OutputIterator>
 	size_type available_profiles(OutputIterator out)
 	{
+#if 0
 		using std::transform;
 		using std::iterator_traits;
 		typedef typename iterator_traits<profile_container::const_iterator>::value_type value_type;
 		transform(profiles_.begin(), profiles_.end(), out,
 				  cmp::detail::profile_uri_extractor<value_type>());
 		return profiles_.size();
+#else
+		return 0;
+#endif
 	}
 
 	template <class Handler>
 	unsigned int async_add_channel(const std::string &profile_uri, Handler handler)
 	{
+#if 0
 		using std::ostringstream;
 		using boost::bind;
 		using std::make_pair;
@@ -291,6 +246,9 @@ public:
 		channels_.push_back(channel(ch));
 		ch2prof_.insert(make_pair(ch, profile_uri));
 		return ch;
+#else
+		return 0;
+#endif
 	}
 
 	template <class Handler>
@@ -332,16 +290,16 @@ public:
 	}
 private:
 	typedef typename transport_service::signal_connection signal_connection_t;
-	typedef std::vector<detail::wrapped_profile>          profile_container;
 	typedef std::vector<channel>                          channel_container;
 	typedef std::map<unsigned, std::string>               channel_to_profile_map;
+	typedef boost::system::error_code error_code;
+	typedef boost::function<void (const error_code&, unsigned, bool, const message&)> function_type;
 
 	transport_service_reference   transport_;
 	identifier                    id_;
 	signal_connection_t           frmsig_;
 
 	channel_manager               chman_;
-	profile_container             profiles_;
 	channel_container             channels_;
 	channel_to_profile_map        ch2prof_; // resolves channel numbers to a profile
 
@@ -382,11 +340,12 @@ private:
 		}
 	}
 
-	void handle_tuning_message(const message &msg)
+	void handle_tuning_message(const message &/*msg*/)
 	{
 		using std::back_inserter;
 		using std::numeric_limits;
 		using std::make_pair;
+#if 0
 		if (msg.get_type() == RPY && cmp::is_greeting_message(msg)) {
 			chman_.copy_profiles(msg, back_inserter(profiles_));
 			session_signal_(boost::system::error_code());
@@ -437,6 +396,7 @@ private:
 			std::cerr << "there was an unexpected message type:  " << msg.get_type() << std::endl;
 			assert(false);
 		}
+#endif
 	}
 
 	void handle_user_message(const message &msg)
@@ -447,9 +407,11 @@ private:
 
 	void start()
 	{
+#if 0
 		message greeting;
 		chman_.greeting_message(profiles_.begin(), profiles_.end(), greeting);
 		send_tuning_message(greeting);
+#endif
 	}
 
 	channel &get_channel(const unsigned int chnum)
@@ -486,41 +448,6 @@ private:
 			throw std::runtime_error("Invalid channel!");
 		}
 		channels_.erase(i);
-	}
-
-	detail::wrapped_profile &get_profile(const std::string &uri)
-	{
-		using std::find_if;
-		profile_container::iterator i =
-			find_if(profiles_.begin(), profiles_.end(),
-					detail::profile_uri_matcher(uri));
-		if (i == profiles_.end()) {
-			throw std::runtime_error("Invalid profile!");
-		}
-		return *i;
-	}
-
-	const detail::wrapped_profile &get_profile(const std::string &uri) const
-	{
-		using std::find_if;
-		profile_container::const_iterator i =
-			find_if(profiles_.begin(), profiles_.end(),
-					detail::profile_uri_matcher(uri));
-		if (i == profiles_.end()) {
-			throw std::runtime_error("Invalid profile!");
-		}
-		return *i;
-	}
-
-	const detail::wrapped_profile &get_profile(const unsigned channel) const
-	{
-		typedef channel_to_profile_map::const_iterator const_iterator;
-		const const_iterator i = ch2prof_.find(channel);
-		assert(i != ch2prof_.end());
-		if (i == ch2prof_.end()) {
-			throw std::runtime_error("The channel number could not be resolved to a profile.");
-		}
-		return get_profile(i->second);
 	}
 
 	/// \return the used message number

@@ -67,20 +67,13 @@ main(int /*argc*/, char **/*argv*/)
 	using boost::bind;
 	try {
 		io_service service;
-		//solo_tcp_listener transport(service, ip::tcp::endpoint(ip::tcp::v4(), 12345));
 		solo_tcp_listener transport(service);
 		session_type session(transport);
 
 		transport.install_network_handler(bind(handle_new_connection,
 											   _1, _2, ref(session)));
 
-		beep::profile myProfile;
-		myProfile.set_uri("http://test/profile/usage");
-		beep::message init_msg;
-		init_msg.set_content("Application Specific Message!\r\n");
-		myProfile.set_initialization_message(init_msg);
-
-		session.install_profile(myProfile,
+		session.install_profile("http://test/profile/usage",
 								bind(handle_channel_change, _1, _2, _3, _4, ref(session)));
 
 		transport.set_endpoint(ip::tcp::endpoint(ip::tcp::v4(), 12345));

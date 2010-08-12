@@ -25,8 +25,7 @@ TEST(ChannelManager, Greeting)
 {
 	beep::channel_manager chman;
 	beep::message greeting;
-	beep::profile tls;
-	tls.set_uri("http://iana.org/beep/TLS");
+	const std::string tls = "http://iana.org/beep/TLS"; // profile URI
 	chman.greeting_message(&tls, &tls + 1, greeting);
 	std::vector<beep::frame> frames;
 	EXPECT_EQ(0, beep::make_frames(greeting, chman.tuning_channel(),
@@ -54,15 +53,10 @@ TEST(ChannelManager, GreetingWithMultipleProfiles)
 {
 	beep::channel_manager chman;
 	beep::message greeting;
-	std::vector<beep::profile> myProfiles;
+	std::vector<std::string> myProfiles;
 	{
-		beep::profile tls;
-		tls.set_uri("http://iana.org/beep/TLS");
-		myProfiles.push_back(tls);
-
-		beep::profile tla;
-		tla.set_uri("http://iana.org/beep/TLA");
-		myProfiles.push_back(tla);
+		myProfiles.push_back("http://iana.org/beep/TLS");
+		myProfiles.push_back("http://iana.org/beep/TLA");
 	}
 		
 	chman.greeting_message(myProfiles.begin(), myProfiles.end(), greeting);
@@ -327,8 +321,8 @@ public:
 		ASSERT_EQ(1u, supported_profiles.size());
 		ASSERT_EQ("casimiro.daniel/beep/test", supported_profiles.front());
 
-		ASSERT_NO_THROW(initiator.associate_profile_handler("casimiro.daniel/beep/test",
-															handle_initiator_channel_change));
+		ASSERT_NO_THROW(initiator.install_profile("casimiro.daniel/beep/test",
+												  handle_initiator_channel_change));
 
 		const unsigned int channel =
 			initiator.async_add_channel("casimiro.daniel/beep/test",
@@ -558,9 +552,7 @@ public:
 		netchng = transport.install_network_handler(bind(&SessionListener::handle_transport_connect,
 														 this, _1, _2));
 
-		beep::profile myProfile;
-		myProfile.set_uri("casimiro.daniel/test-profile");
-		listener.install_profile(myProfile,
+		listener.install_profile("casimiro.daniel/test-profile",
 								 bind(&SessionListener::handle_test_profile_change,
 									  this, _1, _2, _3, _4));
 

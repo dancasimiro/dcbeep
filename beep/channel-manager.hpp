@@ -22,8 +22,6 @@
 #include "frame.hpp" // for core_message_types definition
 #include "message.hpp"
 #include "channel.hpp"
-#include "profile.hpp"
-#include "profile-stream.hpp"
 #include "reply-code.hpp"
 
 #include "tinyxml.h"
@@ -32,31 +30,6 @@ namespace beep {
 /// Channel Management Protocol
 namespace cmp {
 namespace detail {
-
-template <typename T>
-struct profile_uri_extractor : std::unary_function<std::string, T> {
-const std::string &operator()(const T &in) const
-{
-	return in.uri();
-}
-};
-
-template <>
-struct profile_uri_extractor<std::pair<const std::string, profile> >
-	: std::unary_function<std::string, std::pair<const std::string, profile> > {
-const std::string &operator()(const std::pair<const std::string, profile> &in) const
-{
-	return in.first;
-}
-};
-
-inline
-profile uri_to_profile(const std::string &uri)
-{
-	profile p;
-	p.set_uri(uri);
-	return p;
-}
 
 inline
 bool message_has_element_named(const message &msg, const std::string &name)
@@ -123,25 +96,20 @@ public:
 	{
 	}
 
-	greeting(const profile &my_profile)
+	greeting(const std::string &my_profile_uri)
 		: uris_()
 	{
-		uris_.push_back(my_profile.uri());
+		uris_.push_back(my_profile_uri);
 	}
 
-	// Accept forward iterators of profile objects
+	// Accept forward iterators of profile objects (strings)
 	template <typename FwdIterator>
 	greeting(const FwdIterator first, const FwdIterator last)
 		: uris_()
 	{
-		using std::distance;
-		using std::transform;
-		using std::iterator_traits;
-
-		typedef typename iterator_traits<FwdIterator>::value_type value_type;
-		uris_.resize(distance(first, last));
-		transform(first, last, uris_.begin(),
-				  detail::profile_uri_extractor<value_type>());
+		using std::copy;
+		using std::back_inserter;
+		copy(first, last, back_inserter(uris_));
 	}
 
 	uri_const_iterator begin() const { return uris_.begin(); }
@@ -154,7 +122,7 @@ private:
 
 class start {
 public:
-	typedef std::vector<profile>              profile_container;
+	typedef std::vector<std::string>          profile_container;
 	typedef profile_container::const_iterator profile_const_iterator;
 
 	start()
@@ -173,7 +141,7 @@ public:
 	profile_const_iterator profiles_begin() const { return profiles_.begin(); }
 	profile_const_iterator profiles_end() const { return profiles_.end(); }
 
-	void push_back_profile(const profile &p) { profiles_.push_back(p); }
+	void push_back_profile(const std::string &p) { profiles_.push_back(p); }
 private:
 	unsigned int      channel_; // number
 	std::string       server_; // serverName
@@ -370,13 +338,7 @@ public:
 		if ("profile" == element.ValueStr()) {
 			for (; attribute; attribute = attribute->Next()) {
 				if (std::string("uri") == attribute->Name()) {
-					beep::profile myProfile;
-					myProfile.set_uri(attribute->ValueStr());
-					if (element.GetText()) {
-						beep::message msg;
-						/// \todo parse the text for real
-						msg.set_content(element.GetText());
-					}
+					const std::string myProfile = attribute->ValueStr();
 					start_.push_back_profile(myProfile);
 				}
 			}
@@ -485,7 +447,7 @@ operator<<(ostream &strm, const beep::cmp::start &start)
 		typedef beep::cmp::start::profile_const_iterator iterator;
 		for(iterator i = start.profiles_begin(); i != start.profiles_end(); ++i) {
 			TiXmlElement aProfile("profile");
-			aProfile.SetAttribute("uri", i->uri());
+			aProfile.SetAttribute("uri", *i);
 			/// \todo Set the profile "encoding"
 			/// \todo Set the profile initialization content
 			TiXmlNode *result = root.InsertEndChild(aProfile);
@@ -624,12 +586,12 @@ public:
 	void copy_profiles(const message &greeting_msg, OutputIterator out)
 	{
 		using std::istringstream;
-		using std::transform;
+		using std::copy;
 
 		istringstream strm(greeting_msg.get_content());
 		cmp::greeting g_protocol;
 		if (strm >> g_protocol) {
-			transform(g_protocol.begin(), g_protocol.end(), out, cmp::detail::uri_to_profile);
+			copy(g_protocol.begin(), g_protocol.end(), out);
 		} else {
 			throw std::runtime_error("could not decode a greeting message.");
 		}
@@ -671,7 +633,7 @@ public:
 	/// acting in the listening role use only positive integers that are
 	/// even-numbered.
 	unsigned int start_channel(const role r, const std::string &name,
-							   const profile &p, message &msg)
+							   const std::string &profile_uri, message &msg)
 	{
 		using std::ostringstream;
 
@@ -687,7 +649,7 @@ public:
 		cmp::start start;
 		start.set_number(number);
 		start.set_server_name(name);
-		start.push_back_profile(p);
+		start.push_back_profile(profile_uri);
 		ostringstream strm;
 		strm << start;
 		msg.set_content(strm.str());
@@ -714,12 +676,10 @@ public:
 
 	/// \return Accepted channel number, zero indicates an error
 	template <typename FwdIterator>
-	unsigned int accept_start(const message &start_msg,
-							  FwdIterator first_profile,
-							  const FwdIterator last_profile,
-							  profile &acceptedProfile,
-							  message &response)
+	unsigned int accept_start(const message &start_msg, message &response)
+							  
 	{
+#if 0
 		using std::istringstream;
 		using std::ostringstream;
 		using std::find;
@@ -781,6 +741,9 @@ public:
 		}
 		response.set_content(ostrm.str());
 		return channel;
+#else
+		return 0;
+#endif
 	}
 
 	unsigned close_channel(const message &close_msg, message &response)
