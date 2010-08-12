@@ -138,25 +138,15 @@ public:
 	//} else if (msg.get_type() == MSG && cmp::is_start_message(msg)) {
 	message operator()(const cmp::start_message &msg) const
 	{
-		message response;
 		// send_tuning_message is in both branches because I want to send
 		// "OK" message before I execute the profile handler and
 		// _possibly_ send channel data.
-		if (const unsigned int chnum = manager_.accept_start(msg, response)) {
+		const cmp::protocol_node response = manager_.accept_start(msg);
+		//if (const unsigned int chnum = manager_.accept_start(msg, response)) {
 #if 0
-			channels_.push_back(channel(chnum));
+		channels_.push_back(channel(chnum));
 #endif
-			//send_tuning_message(response);
-#if 0
-			boost::system::error_code not_an_error;
-			const detail::wrapped_profile &myProfile =
-				get_profile(acceptedProfile.uri());
-			myProfile.execute(chnum, not_an_error, acceptedProfile.initial_message(), false);
-#endif
-			//} else {
-			//send_tuning_message(response);
-		}
-		return response;
+		return cmp::generate(response);
 	}
 
 	// else if (msg.get_type() == MSG && cmp::is_close_message(msg)) {

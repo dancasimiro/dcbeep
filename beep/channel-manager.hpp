@@ -24,7 +24,6 @@
 
 #include "role.hpp"
 #include "frame.hpp" // for core_message_types definition
-#include "message.hpp"
 #include "channel.hpp"
 #include "channel-management-protocol.hpp"
 #include "reply-code.hpp"
@@ -122,7 +121,7 @@ public:
 	/// acting in the listening role use only positive integers that are
 	/// even-numbered.
 	unsigned int start_channel(const role r, const std::string &name,
-							   const std::string &profile_uri, message &msg)
+							   const std::string &profile_uri, const message &msg)
 	{
 #if 0
 		using std::ostringstream;
@@ -171,73 +170,46 @@ public:
 	}
 
 	/// \return Accepted channel number, zero indicates an error
-	unsigned int accept_start(const cmp::start_message &start_msg, message &response)
+	cmp::protocol_node accept_start(const cmp::start_message &start_msg)
 	{
-#if 0
-		using std::istringstream;
 		using std::ostringstream;
-		using std::find;
-		using std::copy;
 		using std::ostream_iterator;
-		using std::iterator_traits;
-
-		unsigned int channel = 0;
-		cmp::start start;
-		istringstream strm(start_msg.get_content());
-		ostringstream ostrm;
-		response.set_mime(mime::beep_xml());
-		if (strm >> start) {
-			channel = start.number();
-			bool match_profile = false;
-			if (chnum_.insert(channel).second) {
-				typedef cmp::start::profile_const_iterator const_iterator;
-				for (const_iterator i = start.profiles_begin(); i != start.profiles_end() && !match_profile; ++i) {
-					if (find(first_profile, last_profile, *i) != last_profile) {
-						acceptedProfile = *i;
-						match_profile = true;
-					}
+		if (chnum_.insert(start_msg.channel).second) {
+			prof_map::const_iterator profile_iter = profiles_.end();
+			typedef std::vector<cmp::profile_element>::const_iterator start_iterator;
+			for (start_iterator i = start_msg.profiles.begin(); i != start_msg.profiles.end(); ++i) {
+				profile_iter = profiles_.find(i->uri);
+				if (profile_iter != profiles_.end()) {
+					cmp::profile_element response;
+					response.uri = i->uri;
+					// Execute the profile callback to tell the client that a new channel was
+					// started by the peer.
+					/// \note need to queue any frames that are generated from this callback until the
+					///       positive response for this channel creation is sent. Use the flow
+					///       management architecture.
+					boost::system::error_code not_an_error;
+					(profile_iter->second)(not_an_error, start_msg.channel, false, i->initialization);
+					return response;
 				}
-				if (match_profile) {
-					response.set_type(RPY);
-					TiXmlElement aProfile("profile");
-					aProfile.SetAttribute("uri", acceptedProfile.uri());
-					/// \todo Set the profile "encoding" (if required/allowed)
-					/// \todo add a "features" attribute for optional feature
-					/// \todo add a "localize" attribute for each language token
-					ostrm << aProfile;
-				} else {
-					chnum_.erase(channel);
-					channel = 0;
-					response.set_type(ERR);
-					ostringstream estrm;
-					estrm << "The specified profile(s) are not supported. "
-						"This listener supports the following profiles: ";
-					typedef typename iterator_traits<FwdIterator>::value_type value_type;
-					copy(first_profile, last_profile, ostream_iterator<value_type>(estrm, ", "));
-					cmp::error error(reply_code::requested_action_not_accepted,
-									 estrm.str());
-					ostrm << error;
-				}
-			} else {
-				response.set_type(ERR);
-				ostringstream estrm;
-				estrm << "The requested channel (" << channel
-					  << ") is already in use.";
-				cmp::error error(reply_code::requested_action_not_accepted,
-								 estrm.str());
-				ostrm << error;
 			}
-		} else {
-			response.set_type(ERR);
-			cmp::error error(reply_code::general_syntax_error,
-							 "The 'start' message could not be decoded.");
-			ostrm << error;
+			assert(profile_iter == profiles_.end());
+			chnum_.erase(start_msg.channel);
+			//response.set_type(ERR);
+			ostringstream estrm;
+			estrm << "The specified profile(s) are not supported. "
+				"This listener supports the following profiles: ";
+			get_profiles(ostream_iterator<std::string>(estrm, ", "));
+			cmp::error_message error;
+			error.code = reply_code::requested_action_not_accepted;
+			error.diagnostic = estrm.str();
+			return error;
 		}
-		response.set_content(ostrm.str());
-		return channel;
-#else
-		return 0;
-#endif
+		ostringstream estrm;
+		estrm << "The requested channel (" << start_msg.channel << ") is already in use.";
+		cmp::error_message error;
+		error.code = reply_code::requested_action_not_accepted;
+		error.diagnostic = estrm.str();
+		return error;
 	}
 
 	unsigned close_channel(const message &close_msg, message &response)
