@@ -139,14 +139,10 @@ public:
 	message operator()(const cmp::start_message &msg) const
 	{
 		message response;
-		profile acceptedProfile;
 		// send_tuning_message is in both branches because I want to send
 		// "OK" message before I execute the profile handler and
 		// _possibly_ send channel data.
-#if 0
-		if (const unsigned int chnum =
-			manager_.accept_start(msg, profiles_.begin(), profiles_.end(),
-								  acceptedProfile, response)) {
+		if (const unsigned int chnum = manager_.accept_start(msg, response)) {
 #if 0
 			channels_.push_back(channel(chnum));
 			ch2prof_.insert(make_pair(chnum, acceptedProfile.uri()));
@@ -161,7 +157,6 @@ public:
 			//} else {
 			//send_tuning_message(response);
 		}
-#endif
 		return response;
 	}
 

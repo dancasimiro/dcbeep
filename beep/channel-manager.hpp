@@ -171,9 +171,7 @@ public:
 	}
 
 	/// \return Accepted channel number, zero indicates an error
-	template <typename FwdIterator>
-	unsigned int accept_start(const message &start_msg, message &response)
-							  
+	unsigned int accept_start(const cmp::start_message &start_msg, message &response)
 	{
 #if 0
 		using std::istringstream;
