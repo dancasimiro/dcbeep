@@ -5,21 +5,17 @@
 #ifndef BEEP_CHANNEL_HEAD
 #define BEEP_CHANNEL_HEAD 1
 
-#include <string>
 #include "message.hpp"
 
 namespace beep {
 
 class channel {
 public:
-	typedef std::string profile_type;
-
 	channel()
 		: num_(0)
 		, msgno_(0)
 		, seqno_(0)
 		, ansno_(0)
-		, profile_()
 	{
 	}
 
@@ -28,7 +24,6 @@ public:
 		, msgno_(0)
 		, seqno_(0)
 		, ansno_(0)
-		, profile_()
 	{
 	}
 
@@ -37,7 +32,6 @@ public:
 		, msgno_(src.msgno_)
 		, seqno_(src.seqno_)
 		, ansno_(src.ansno_)
-		, profile_(src.profile_)
 	{
 	}
 
@@ -48,7 +42,6 @@ public:
 			this->msgno_ = src.msgno_;
 			this->seqno_ = src.seqno_;
 			this->ansno_ = src.ansno_;
-			this->profile_ = src.profile_;
 		}
 		return *this;
 	}
@@ -56,9 +49,6 @@ public:
 	/// The channel number ("channel") must be a non-negative integer (in the
 	/// range 0..2147483647).
 	unsigned int get_number() const { return num_; }
-
-	void set_profile(const profile_type &p) { profile_ = p; }
-	const profile_type &get_profile() const { return profile_; }
 
 	/// The message number ("msgno") must be a non-negative integer (in the
 	/// range 0..2147483647) and have a different value than all other "MSG"
@@ -115,7 +105,6 @@ private:
 	unsigned int msgno_;
 	unsigned int seqno_;
 	unsigned int ansno_;
-	profile_type profile_; // URI identifier
 };     // class channel  
 
 }      // namespace beep
