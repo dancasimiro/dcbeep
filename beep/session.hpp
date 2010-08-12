@@ -211,18 +211,9 @@ public:
 	}
 
 	template <typename OutputIterator>
-	size_type available_profiles(OutputIterator out)
+	OutputIterator available_profiles(OutputIterator out) const
 	{
-#if 0
-		using std::transform;
-		using std::iterator_traits;
-		typedef typename iterator_traits<profile_container::const_iterator>::value_type value_type;
-		transform(profiles_.begin(), profiles_.end(), out,
-				  cmp::detail::profile_uri_extractor<value_type>());
-		return profiles_.size();
-#else
-		return 0;
-#endif
+		return chman_.get_profiles(out);
 	}
 
 	template <class Handler>

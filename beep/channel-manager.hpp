@@ -599,18 +599,10 @@ public:
 	}
 
 	template <typename OutputIterator>
-	void copy_profiles(const message &greeting_msg, OutputIterator out)
+	OutputIterator get_profiles(OutputIterator out) const
 	{
-		using std::istringstream;
-		using std::copy;
-
-		istringstream strm(greeting_msg.get_content());
-		cmp::greeting g_protocol;
-		if (strm >> g_protocol) {
-			copy(g_protocol.begin(), g_protocol.end(), out);
-		} else {
-			throw std::runtime_error("could not decode a greeting message.");
-		}
+		using std::transform;
+		return transform(profiles_.begin(), profiles_.end(), out, profile_pair_to_uri());
 	}
 
 	template <typename FwdIterator>
@@ -841,6 +833,13 @@ private:
 		}
 		return number;
 	}
+
+	struct profile_pair_to_uri : public std::unary_function<prof_map::value_type, std::string> {
+		std::string operator()(const prof_map::value_type &pair) const
+		{
+			return pair.first;
+		}
+	};
 };
 
 }      // namespace beep
