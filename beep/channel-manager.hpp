@@ -12,11 +12,15 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <map>
 #include <algorithm>
 #include <iterator>
 #include <utility>
 #include <functional>
 #include <limits>
+
+#include <boost/function.hpp>
+#include <boost/system/error_code.hpp>
 
 #include "role.hpp"
 #include "frame.hpp" // for core_message_types definition
@@ -572,7 +576,8 @@ make_error(const message &msg)
 class channel_manager {
 public:
 	channel_manager()
-		: zero_(0)
+		: profiles_()
+		, zero_(0)
 		, chnum_()
 		, guess_(0)
 	{
@@ -581,6 +586,17 @@ public:
 
 	const channel &tuning_channel() const { return zero_; }
 	channel &tuning_channel() { return zero_; }
+
+	template <class Handler>
+	void install_profile(const std::string &profile_uri, Handler handler)
+	{
+		using std::make_pair;
+		const std::pair<prof_map::iterator, bool> result =
+			profiles_.insert(make_pair(profile_uri, handler));
+		if (!result.second) {
+			throw std::runtime_error("The profile was not installed.");
+		}
+	}
 
 	template <typename OutputIterator>
 	void copy_profiles(const message &greeting_msg, OutputIterator out)
@@ -785,6 +801,11 @@ public:
 	}
 private:
 	typedef std::set<unsigned int> ch_set;
+	typedef boost::system::error_code error_code;
+	typedef boost::function<void (const error_code&, unsigned, bool, const message&)> profile_callback_type;
+	typedef std::map<std::string, profile_callback_type> prof_map;
+
+	prof_map     profiles_;
 	channel      zero_; ///< used for adding/removing subsequent channels
 	ch_set       chnum_;
 	unsigned int guess_; // guess at next channel number

@@ -183,12 +183,11 @@ public:
 		frmsig_.disconnect();
 	}
 
+	/// \todo add an overload that accepts an initialization message.
 	template <class Handler>
 	void install_profile(const std::string &profile_uri, Handler handler)
 	{
-#if 0
-		profiles_.push_back(detail::wrapped_profile(p, handler));
-#endif
+		chman_.install_profile(profile_uri, handler);
 	}
 
 	signal_connection install_session_handler(const session_signal_t::slot_type slot)
