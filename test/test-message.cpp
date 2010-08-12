@@ -4,7 +4,6 @@
 #include <gtest/gtest.h>
 
 #include <vector>
-#include <iterator>
 #include <sstream>
 
 #include "beep/message.hpp"
@@ -101,18 +100,18 @@ TEST(FrameGenerator, GetFrames)
 
 	ch.update(msg.get_payload_size());
 
-	const std::string encoded_out =
-		"MSG 0 0 . 0 120\r\n"
-		"Content-Type: application/beep+xml\r\n"
+	beep::msg_frame expected_frame;
+	expected_frame.channel = 0;
+	expected_frame.message = 0;
+	expected_frame.more = false;
+	expected_frame.sequence = 0;
+	expected_frame.payload = "Content-Type: application/beep+xml\r\n"
 		"\r\n"
 		"<start number='1'>\r\n"
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n"
 		"</start>\r\n"
-		"END\r\n"
 		;
-	std::ostringstream strm;
-	strm << frames[0];
-	EXPECT_EQ(encoded_out, strm.str());
+	EXPECT_NO_THROW(EXPECT_EQ(expected_frame, boost::get<beep::msg_frame>(frames[0])));
 
 	EXPECT_EQ(0u, ch.get_number());
 	EXPECT_EQ(1u, ch.get_message_number());
