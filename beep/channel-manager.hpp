@@ -644,6 +644,7 @@ public:
 							   const std::string &profile_uri, message &msg)
 	{
 		using std::ostringstream;
+		if (!profiles_.count(profile_uri)) return 0;
 
 		unsigned int number = guess_;
 		if (!chnum_.insert(number).second) {

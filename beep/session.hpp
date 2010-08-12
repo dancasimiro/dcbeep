@@ -219,7 +219,6 @@ public:
 	template <class Handler>
 	unsigned int async_add_channel(const std::string &profile_uri, Handler handler)
 	{
-#if 0
 		using std::ostringstream;
 		using boost::bind;
 		using std::make_pair;
@@ -227,18 +226,16 @@ public:
 		ostringstream strm;
 		strm << id_;
 		message start;
-		profile prof = get_profile(profile_uri);
-		const unsigned int ch =
+		if (const unsigned int ch =
 			chman_.start_channel(transport_service::get_role(),
-								 strm.str(), prof, start);
-		const unsigned int msgno = send_tuning_message(start);
-		tuning_handler_.add(msgno, bind(handler, _1, ch, prof));
-		channels_.push_back(channel(ch));
-		ch2prof_.insert(make_pair(ch, profile_uri));
-		return ch;
-#else
+								 strm.str(), profile_uri, start)) {
+			const unsigned int msgno = send_tuning_message(start);
+			tuning_handler_.add(msgno, bind(handler, _1, ch, profile_uri));
+			channels_.push_back(channel(ch));
+			ch2prof_.insert(make_pair(ch, profile_uri));
+			return ch;
+		}
 		return 0;
-#endif
 	}
 
 	template <class Handler>
