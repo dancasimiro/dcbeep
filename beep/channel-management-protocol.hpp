@@ -283,6 +283,7 @@ namespace ascii = boost::spirit::ascii;
 typedef boost::variant<
 	greeting_message
 	, start_message
+	, close_message
 	, ok_message
 	, error_message
 	, profile_element

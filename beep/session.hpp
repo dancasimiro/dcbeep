@@ -17,6 +17,7 @@
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/signals2.hpp>
+#include <boost/variant.hpp>
 
 #include "role.hpp"
 #include "frame.hpp"
@@ -129,6 +130,147 @@ private:
 		return d;
 	}
 };     // class handler_user_events
+
+class tuning_message_visitor : public boost::static_visitor<message> {
+public:
+	tuning_message_visitor (channel_manager &chman) : manager_(chman) { }
+
+	//} else if (msg.get_type() == MSG && cmp::is_start_message(msg)) {
+	message operator()(const cmp::start_message &msg) const
+	{
+		message response;
+		profile acceptedProfile;
+		// send_tuning_message is in both branches because I want to send
+		// "OK" message before I execute the profile handler and
+		// _possibly_ send channel data.
+#if 0
+		if (const unsigned int chnum =
+			manager_.accept_start(msg, profiles_.begin(), profiles_.end(),
+								  acceptedProfile, response)) {
+#if 0
+			channels_.push_back(channel(chnum));
+			ch2prof_.insert(make_pair(chnum, acceptedProfile.uri()));
+#endif
+			//send_tuning_message(response);
+#if 0
+			boost::system::error_code not_an_error;
+			const detail::wrapped_profile &myProfile =
+				get_profile(acceptedProfile.uri());
+			myProfile.execute(chnum, not_an_error, acceptedProfile.initial_message(), false);
+#endif
+			//} else {
+			//send_tuning_message(response);
+		}
+#endif
+		return response;
+	}
+
+	// else if (msg.get_type() == MSG && cmp::is_close_message(msg)) {
+	message operator()(const cmp::close_message &msg) const
+	{
+		message response;
+#if 0
+		const unsigned chnum = manager_.close_channel(msg, response);
+		//send_tuning_message(response);
+		if (response.get_type() == RPY) {
+			assert(chnum != numeric_limits<unsigned>::max());
+			if (chnum != chman_.tuning_channel().get_number()) {
+				boost::system::error_code not_an_error;
+				const detail::wrapped_profile &myProfile = get_profile(chnum);
+				myProfile.execute(chnum, not_an_error, response, true);
+				ch2prof_.erase(chnum);
+			} else {
+				transport_.shutdown_connection(id_);
+			}
+		}
+#endif
+		return response;
+	}
+
+	message operator()(const cmp::ok_message &) const
+	{
+		message response;
+		// return error message...
+		return response;
+	}
+
+	message operator()(const cmp::greeting_message &) const
+	{
+		message response;
+		// return error message...
+		return response;
+	}
+
+	message operator()(const cmp::error_message &) const
+	{
+		message response;
+		// return error message...
+		return response;
+	}
+
+	message operator()(const cmp::profile_element &) const
+	{
+		message response;
+		// return error message...
+		return response;
+	}
+private:
+	channel_manager &manager_;
+};     // tuning_message_visitor
+
+class tuning_reply_visitor : public boost::static_visitor<void> {
+public:
+	void operator()(const cmp::greeting_message &) const
+	{
+	}
+
+	void operator()(const cmp::start_message &) const
+	{
+	}
+
+	void operator()(const cmp::close_message &) const
+	{
+	}
+
+	void operator()(const cmp::ok_message &) const
+	{
+	}
+
+	void operator()(const cmp::error_message &) const
+	{
+	}
+
+	void operator()(const cmp::profile_element &) const
+	{
+	}
+};     // tuning_reply_visitor
+
+class tuning_error_visitor : public boost::static_visitor<void> {
+public:
+	void operator()(const cmp::greeting_message &) const
+	{
+	}
+
+	void operator()(const cmp::start_message &) const
+	{
+	}
+
+	void operator()(const cmp::close_message &) const
+	{
+	}
+
+	void operator()(const cmp::ok_message &) const
+	{
+	}
+
+	void operator()(const cmp::error_message &) const
+	{
+	}
+
+	void operator()(const cmp::profile_element &) const
+	{
+	}
+};     // tuning_error_visitor
 
 }      // namespace detail
 
@@ -308,6 +450,7 @@ private:
 					handle_user_message(msg);
 				}
 			} catch (const std::exception &ex) {
+#if 0
 				/// \todo handle the error condition!
 				/// \todo Check if this is the right error condition.
 				///       Maybe I should close the channel?
@@ -319,6 +462,7 @@ private:
 				strm << myError;
 				msg.set_content(strm.str());
 				send_tuning_message(msg);
+#endif
 			}
 		} else {
 			frmsig_.disconnect();
@@ -327,11 +471,29 @@ private:
 		}
 	}
 
-	void handle_tuning_message(const message &/*msg*/)
+	void handle_tuning_message(const message &msg)
 	{
-		using std::back_inserter;
-		using std::numeric_limits;
-		using std::make_pair;
+		using boost::apply_visitor;
+		const cmp::protocol_node my_node = cmp::parse(msg);
+		switch (msg.get_type()) {
+		case MSG:
+			{
+				const message response = apply_visitor(detail::tuning_message_visitor(chman_), my_node);
+				send_tuning_message(response);
+			}
+			break;
+		case RPY:
+			apply_visitor(detail::tuning_reply_visitor(), my_node);
+			break;
+		case ERR:
+			apply_visitor(detail::tuning_error_visitor(), my_node);
+			break;
+		case ANS:
+		case NUL:
+		default:
+			assert(false);
+			throw std::runtime_error("invalid message type in tuning handler...");
+		}
 #if 0
 		if (msg.get_type() == RPY && cmp::is_greeting_message(msg)) {
 			chman_.copy_profiles(msg, back_inserter(profiles_));

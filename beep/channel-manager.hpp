@@ -26,531 +26,12 @@
 #include "frame.hpp" // for core_message_types definition
 #include "message.hpp"
 #include "channel.hpp"
+#include "channel-management-protocol.hpp"
 #include "reply-code.hpp"
 
-#include "tinyxml.h"
-
-namespace beep {
-/// Channel Management Protocol
-namespace cmp {
-namespace detail {
-
-inline
-bool message_has_element_named(const message &msg, const std::string &name)
-{
-	bool is = false;
-	using std::getline;
-	using std::string;
-	using std::istringstream;
-	using std::transform;
-
-	istringstream strm(msg.get_content());
-	string line;
-	while (!is && getline(strm, line)) {
-		transform(line.begin(), line.end(), line.begin(), ::tolower);
-		is = (line.find(name) != string::npos);
-	}
-	return is;
-}
-
-}      // namespace detail
-
-inline
-bool is_greeting_message(const message &msg)
-{
-	return detail::message_has_element_named(msg, "greeting");
-}
-
-inline
-bool is_start_message(const message &msg)
-{
-	return detail::message_has_element_named(msg, "start");
-}
-
-inline
-bool is_close_message(const message &msg)
-{
-	return detail::message_has_element_named(msg, "close");
-}
-
-inline
-bool is_ok_message(const message &msg)
-{
-	return detail::message_has_element_named(msg, "ok");
-}
-
-inline
-bool is_profile_message(const message &msg)
-{
-	return detail::message_has_element_named(msg, "profile");
-}
-
-inline
-bool is_error_message(const message &msg)
-{
-	return detail::message_has_element_named(msg, "error");
-}
-
-class greeting {
-public:
-	typedef std::vector<std::string> uri_container_type;
-	typedef uri_container_type::const_iterator uri_const_iterator;
-	greeting()
-		: uris_()
-	{
-	}
-
-	greeting(const std::string &my_profile_uri)
-		: uris_()
-	{
-		uris_.push_back(my_profile_uri);
-	}
-
-	// Accept forward iterators of profile objects (strings)
-	template <typename FwdIterator>
-	greeting(const FwdIterator first, const FwdIterator last)
-		: uris_()
-	{
-		using std::copy;
-		using std::back_inserter;
-		copy(first, last, back_inserter(uris_));
-	}
-
-	uri_const_iterator begin() const { return uris_.begin(); }
-	uri_const_iterator end() const { return uris_.end(); }
-
-	void push_back_uri(const std::string &uri) { uris_.push_back(uri); }
-private:
-	uri_container_type uris_;
-};
-
-class start {
-public:
-	typedef std::vector<std::string>          profile_container;
-	typedef profile_container::const_iterator profile_const_iterator;
-
-	start()
-		: channel_(0)
-		, server_()
-		, profiles_()
-	{
-	}
-
-	unsigned int number() const { return channel_; }
-	void set_number(const unsigned int c) { channel_ = c; }
-
-	const std::string &server_name() const { return server_; }
-	void set_server_name(const std::string &n) { server_ = n; }
-
-	profile_const_iterator profiles_begin() const { return profiles_.begin(); }
-	profile_const_iterator profiles_end() const { return profiles_.end(); }
-
-	void push_back_profile(const std::string &p) { profiles_.push_back(p); }
-private:
-	unsigned int      channel_; // number
-	std::string       server_; // serverName
-	profile_container profiles_;
-};     // class start
-
-/// The "close" element has a "number" attribute, a "code" attribute, an
-/// optional "xml:lang" attribute, and an optional textual diagnostic as
-/// its content:
-///  *  the "number" attribute indicates the channel number;
-///  *  the "code" attribute is a three-digit reply code meaningful to
-///     programs (c.f., Section 8);
-///  *  the "xml:lang" attribute identifies the language that the
-///     element's content is written in (the value is suggested, but not
-///     mandated, by the "localize" attribute of the "greeting" element
-///     sent by the remote BEEP peer); and,
-///  *  the textual diagnostic (which may be multiline) is meaningful to
-///     implementers, perhaps administrators, and possibly even users, but
-///     never programs.
-class close {
-public:
-	close()
-		: channel_(0)
-		, code_(0)
-	{
-	}
-
-	unsigned int number() const { return channel_; }
-	unsigned int code() const { return code_; }
-
-	void set_number(const unsigned int c) { channel_ = c; }
-	void set_code(const unsigned int c) { code_ = c; }
-private:
-	unsigned int channel_;
-	unsigned int code_;
-};     // class close
-
-/// When a BEEP peer agrees to close a channel (or release the BEEP
-/// session), it sends an "ok" element in a positive reply.
-///
-/// The "ok" element has no attributes and no content.
-class ok {
-};
-
-/// When a BEEP peer declines the creation of a channel, it sends an
-/// "error" element in a negative reply, e.g.,
-///
-///      I: MSG 0 1 . 52 115
-///      I: Content-Type: application/beep+xml
-///      I:
-///      I: <start number='2'>
-///      I:    <profile uri='http://iana.org/beep/FOO' />
-///      I: </start> 
-///      I: END 
-///      L: ERR 0 1 . 221 105 
-///      L: Content-Type: application/beep+xml 
-///      L: 
-///      L: <error code='550'>all requested profiles are 
-///      L: unsupported</error> 
-///      L: END 
-///
-/// The "error" element has a "code" attribute, an optional "xml:lang"
-/// attribute, and an optional textual diagnostic as its content:
-///  *  the "code" attribute is a three-digit reply code meaningful to
-///     programs (c.f., Section 8);
-///  *  the "xml:lang" attribute identifies the language that the
-///     element's content is written in (the value is suggested, but not
-///     mandated, by the "localize" attribute of the "greeting" element
-///     sent by the remote BEEP peer); and,
-///  *  the textual diagnostic (which may be multiline) is meaningful to
-///     implementers, perhaps administrators, and possibly even users, but
-///     never programs.
-///
-/// \note that if the textual diagnostic is present, then the "xml:lang"
-///       attribute is absent only if the language indicated as the remote BEEP
-///       peer's first choice is used.
-class error {
-public:
-	error()
-		: code_(reply_code::success)
-		, descr_("There is no error.")
-	{
-	}
-
-	error(const reply_code::reply_code_type rc, const std::string &descr)
-		: code_(rc)
-		, descr_(descr)
-	{
-	}
-
-	reply_code::reply_code_type code() const { return code_; }
-	const std::string &description() const { return descr_; }
-
-	void set_code(const reply_code::reply_code_type rc) { code_ = rc; }
-	void set_description(const std::string &d) { descr_ = d; }
-private:
-	reply_code::reply_code_type code_;
-	std::string                 descr_;
-};
-
-class XmlErrorVisitor : public TiXmlVisitor {
-public:
-	XmlErrorVisitor(error &e) : error_(e) {}
-	virtual ~XmlErrorVisitor() {}
-
-	virtual bool VisitEnter(const TiXmlDocument &doc)
-	{
-		if (const TiXmlElement *element = doc.RootElement()) {
-			return ("error" == element->ValueStr());
-		}
-		return false;
-	}
-
-	virtual bool VisitEnter(const TiXmlElement &element, const TiXmlAttribute *attribute)
-	{
-		using std::istringstream;
-		using namespace beep::reply_code;
-		if ("error" == element.ValueStr()) {
-			for (; attribute; attribute = attribute->Next()) {
-				if (std::string("code") == attribute->Name()) {
-					const int raw_rc = attribute->IntValue();
-					assert(raw_rc == success ||
-						   raw_rc == service_not_available ||
-						   raw_rc == requested_action_not_taken ||
-						   raw_rc == requested_action_aborted ||
-						   raw_rc == temporary_authentication_failure ||
-						   raw_rc == general_syntax_error ||
-						   raw_rc == syntax_error_in_parameters ||
-						   raw_rc == parameter_not_implemented ||
-						   raw_rc == authentication_required ||
-						   raw_rc == authentication_mechanism_insufficient ||
-						   raw_rc == authentication_failure ||
-						   raw_rc == action_not_authorized_for_user ||
-						   raw_rc == authentication_mechanism_requires_encryption ||
-						   raw_rc == requested_action_not_accepted ||
-						   raw_rc == parameter_invalid ||
-						   raw_rc == transaction_failed);
-					error_.set_code(static_cast<rc_enum>(raw_rc));
-				}
-			}
-			error_.set_description(element.GetText());
-		}
-		return true;
-	}
-private:
-	error &error_;
-
-};     // class XmlErrorVisitor
-
-class XmlGreetingVisitor : public TiXmlVisitor {
-public:
-	XmlGreetingVisitor(greeting &g) : greeting_(g) {}
-	virtual ~XmlGreetingVisitor() {}
-
-	virtual bool VisitEnter(const TiXmlDocument &doc)
-	{
-		if (const TiXmlElement *element = doc.RootElement()) {
-			return ("greeting" == element->ValueStr());
-		}
-		return false;
-	}
-
-	virtual bool VisitEnter(const TiXmlElement &element, const TiXmlAttribute *attribute)
-	{
-		if ("profile" == element.ValueStr()) {
-			for (; attribute; attribute = attribute->Next()) {
-				if (std::string("uri") == attribute->Name()) {
-					greeting_.push_back_uri(attribute->ValueStr());
-				}
-			}
-		}
-		return true;
-	}
-private:
-	greeting &greeting_;
-
-};     // class XmlGreetingVisitor
-
-class XmlStartVisitor : public TiXmlVisitor {
-public:
-	XmlStartVisitor(start &s) : start_(s) {}
-	virtual ~XmlStartVisitor() {}
-
-	virtual bool VisitEnter(const TiXmlDocument &doc)
-	{
-		if (const TiXmlElement *element = doc.RootElement()) {
-			return ("start" == element->ValueStr());
-		}
-		return false;
-	}
-
-	virtual bool VisitEnter(const TiXmlElement &element, const TiXmlAttribute *attribute)
-	{
-		if ("profile" == element.ValueStr()) {
-			for (; attribute; attribute = attribute->Next()) {
-				if (std::string("uri") == attribute->Name()) {
-					const std::string myProfile = attribute->ValueStr();
-					start_.push_back_profile(myProfile);
-				}
-			}
-		} else if ("start" == element.ValueStr()) {
-			for (; attribute; attribute = attribute->Next()) {
-				if (std::string("number") == attribute->Name()) {
-					start_.set_number(attribute->IntValue());
-				} else if (std::string("serverName") == attribute->Name()) {
-					start_.set_server_name(attribute->ValueStr());
-				}
-			}
-		}
-		return true;
-	}
-private:
-	start &start_;
-
-};     // class XmlGreetingVisitor
-
-class XmlCloseVisitor : public TiXmlVisitor {
-public:
-	XmlCloseVisitor(close &c) : close_(c) {}
-	virtual ~XmlCloseVisitor() {}
-
-	virtual bool VisitEnter(const TiXmlDocument &doc)
-	{
-		if (const TiXmlElement *element = doc.RootElement()) {
-			return ("close" == element->ValueStr());
-		}
-		return false;
-	}
-
-	virtual bool VisitEnter(const TiXmlElement &element, const TiXmlAttribute *attribute)
-	{
-		if ("close" == element.ValueStr()) {
-			for (; attribute; attribute = attribute->Next()) {
-				if (std::string("number") == attribute->Name()) {
-					close_.set_number(attribute->IntValue());
-				} else if (std::string("code") == attribute->Name()) {
-					close_.set_code(attribute->IntValue());
-				}
-			}
-		}
-		return true;
-	}
-private:
-	close &close_;
-
-};     // class XmlVisitor
-
-}      // namespace cmp
-}      // namespace beep
-
-namespace std {
-
-// for now, always use tinyxml to encode the greeting
-inline
-ostream&
-operator<<(ostream &strm, const beep::cmp::greeting &protocol)
-{
-	if (strm) {
-		TiXmlElement root("greeting");
-		typedef beep::cmp::greeting::uri_const_iterator iterator;
-		for(iterator i = protocol.begin(); i != protocol.end(); ++i) {
-			TiXmlElement aProfile("profile");
-			aProfile.SetAttribute("uri", *i);
-			/// \todo Set the profile "encoding" (if required/allowed)
-			TiXmlNode *result = root.InsertEndChild(aProfile);
-			if (!result) {
-				/// \todo handle error
-			}
-			assert(result);
-		}
-		/// \todo add a "features" attribute for optional feature
-		/// \todo add a "localize" attribute for each language token
-		strm << root;
-	}
-	return strm;
-}
-
-inline
-istream&
-operator>>(istream &strm, beep::cmp::greeting &protocol)
-{
-	if (strm) {
-		TiXmlDocument doc;
-		strm >> doc;
-		beep::cmp::XmlGreetingVisitor visitor(protocol);
-		if (!doc.Accept(&visitor)) {
-			strm.setstate(ios::badbit);
-		}
-	}
-	return strm;
-}
-
-inline
-ostream&
-operator<<(ostream &strm, const beep::cmp::start &start)
-{
-	if (strm) {
-		TiXmlElement root("start");
-		root.SetAttribute("number", start.number());
-		if (!start.server_name().empty()) {
-			root.SetAttribute("serverName", start.server_name());
-		}
-		typedef beep::cmp::start::profile_const_iterator iterator;
-		for(iterator i = start.profiles_begin(); i != start.profiles_end(); ++i) {
-			TiXmlElement aProfile("profile");
-			aProfile.SetAttribute("uri", *i);
-			/// \todo Set the profile "encoding"
-			/// \todo Set the profile initialization content
-			TiXmlNode *result = root.InsertEndChild(aProfile);
-			if (!result) {
-				/// \todo handle error
-			}
-			assert(result);
-		}
-		strm << root;
-	}
-	return strm;
-}
-
-inline
-istream&
-operator>>(istream &strm, beep::cmp::start &start)
-{
-	if (strm) {
-		TiXmlDocument doc;
-		strm >> doc;
-		beep::cmp::XmlStartVisitor visitor(start);
-		if (!doc.Accept(&visitor)) {
-			strm.setstate(ios::badbit);
-		}
-	}
-	return strm;
-}
-
-inline
-ostream&
-operator<<(ostream &strm, const beep::cmp::close &close)
-{
-	if (strm) {
-		TiXmlElement root("close");
-		root.SetAttribute("number", close.number());
-		root.SetAttribute("code", close.code());
-		strm << root;
-	}
-	return strm;
-}
-
-inline
-istream&
-operator>>(istream &strm, beep::cmp::close &close)
-{
-	if (strm) {
-		TiXmlDocument doc;
-		strm >> doc;
-		beep::cmp::XmlCloseVisitor visitor(close);
-		if (!doc.Accept(&visitor)) {
-			strm.setstate(ios::badbit);
-		}
-	}
-	return strm;
-}
-
-inline
-ostream&
-operator<<(ostream &strm, const beep::cmp::ok&)
-{
-	if (strm) {
-		strm << "<ok />";
-	}
-	return strm;
-}
-
-inline
-ostream&
-operator<<(ostream &strm, const beep::cmp::error &error)
-{
-	if (strm) {
-		TiXmlElement root("error");
-		root.SetAttribute("code", error.code());
-		TiXmlText text(error.description());
-		root.InsertEndChild(text);
-		strm << root;
-	}
-	return strm;
-}
-
-inline
-istream&
-operator>>(istream &strm, beep::cmp::error &error)
-{
-	if (strm) {
-		TiXmlDocument doc;
-		strm >> doc;
-		beep::cmp::XmlErrorVisitor visitor(error);
-		if (!doc.Accept(&visitor)) {
-			strm.setstate(ios::badbit);
-		}
-	}
-	return strm;
-}
-
-}      // namespace std
-
 namespace beep {
 
+#if 0
 inline
 boost::system::system_error
 make_error(const message &msg)
@@ -572,7 +53,7 @@ make_error(const message &msg)
 		throw runtime_error("could not decode the error message.");
 	}
 }
-
+#endif
 class channel_manager {
 public:
 	channel_manager()
@@ -610,17 +91,17 @@ public:
 	greeting_message(const FwdIterator first_profile, const FwdIterator last_profile,
 					 message &greeting_msg) const
 	{
+#if 0
 		using std::ostringstream;
+		using std::copy;
+		using std::back_inserter;
 
-		greeting_msg.set_mime(mime::beep_xml());
+		cmp::greeting_message g_protocol;
+		copy(first_profile, last_profile, back_inserter(g_protocol.profile_uris));
+		greeting_msg = cmp::generate(g_protocol);
+		//greeting_msg.set_mime(mime::beep_xml());
 		greeting_msg.set_type(RPY);
-		cmp::greeting g_protocol(first_profile, last_profile);
-		ostringstream strm;
-		if (strm << g_protocol) {
-			greeting_msg.set_content(strm.str());
-		} else {
-			throw std::runtime_error("could not encode a greeting message.");
-		}
+#endif
 	}
 
 	/// \brief test if a channel is active
@@ -643,6 +124,7 @@ public:
 	unsigned int start_channel(const role r, const std::string &name,
 							   const std::string &profile_uri, message &msg)
 	{
+#if 0
 		using std::ostringstream;
 		if (!profiles_.count(profile_uri)) return 0;
 
@@ -664,11 +146,15 @@ public:
 		msg.set_content(strm.str());
 		guess_ = number + 2;
 		return number;
+#else
+		return 0;
+#endif
 	}
 
 	void close_channel(const unsigned int number, const reply_code::rc_enum rc,
 					   message &msg)
 	{
+#if 0
 		using std::ostringstream;
 		msg.set_mime(mime::beep_xml());
 		if (number > 0 && !chnum_.erase(number)) {
@@ -681,6 +167,7 @@ public:
 		ostringstream strm;
 		strm << close;
 		msg.set_content(strm.str());
+#endif
 	}
 
 	/// \return Accepted channel number, zero indicates an error
@@ -757,6 +244,7 @@ public:
 
 	unsigned close_channel(const message &close_msg, message &response)
 	{
+#if 0
 		using std::istringstream;
 		using std::ostringstream;
 		using std::numeric_limits;
@@ -791,6 +279,9 @@ public:
 			return numeric_limits<unsigned>::max();
 		}
 		return ch_num;
+#else
+		return 0;
+#endif
 	}
 private:
 	typedef std::set<unsigned int> ch_set;
