@@ -145,7 +145,6 @@ public:
 		if (const unsigned int chnum = manager_.accept_start(msg, response)) {
 #if 0
 			channels_.push_back(channel(chnum));
-			ch2prof_.insert(make_pair(chnum, acceptedProfile.uri()));
 #endif
 			//send_tuning_message(response);
 #if 0
@@ -173,7 +172,6 @@ public:
 				boost::system::error_code not_an_error;
 				const detail::wrapped_profile &myProfile = get_profile(chnum);
 				myProfile.execute(chnum, not_an_error, response, true);
-				ch2prof_.erase(chnum);
 			} else {
 				transport_.shutdown_connection(id_);
 			}
@@ -294,7 +292,6 @@ public:
 		, frmsig_()
 		, chman_()
 		, channels_()
-		, ch2prof_()
 		, tuning_handler_()
 		, user_handler_()
 		, session_signal_()
@@ -307,7 +304,6 @@ public:
 		, frmsig_()
 		, chman_()
 		, channels_()
-		, ch2prof_()
 		, tuning_handler_()
 		, user_handler_()
 		, session_signal_()
@@ -369,7 +365,6 @@ public:
 			const unsigned int msgno = send_tuning_message(start);
 			tuning_handler_.add(msgno, bind(handler, _1, ch, profile_uri));
 			channels_.push_back(channel(ch));
-			ch2prof_.insert(make_pair(ch, profile_uri));
 			return ch;
 		}
 		return 0;
@@ -386,7 +381,6 @@ public:
 			tuning_handler_.add(msgno, bind(handler, _1, channel));
 			if (channel != chman_.tuning_channel().get_number()) {
 				remove_channel(channel);
-				ch2prof_.erase(channel);
 			}
 		} else {
 			throw std::runtime_error("the selected channel is not in use.");
@@ -415,7 +409,6 @@ public:
 private:
 	typedef typename transport_service::signal_connection signal_connection_t;
 	typedef std::vector<channel>                          channel_container;
-	typedef std::map<unsigned, std::string>               channel_to_profile_map;
 	typedef boost::system::error_code error_code;
 	typedef boost::function<void (const error_code&, unsigned, bool, const message&)> function_type;
 
@@ -425,7 +418,6 @@ private:
 
 	channel_manager               chman_;
 	channel_container             channels_;
-	channel_to_profile_map        ch2prof_; // resolves channel numbers to a profile
 
 	detail::handler_tuning_events tuning_handler_;
 	detail::handler_user_events   user_handler_;
@@ -503,7 +495,6 @@ private:
 				chman_.accept_start(msg, profiles_.begin(), profiles_.end(),
 									acceptedProfile, response)) {
 				channels_.push_back(channel(chnum));
-				ch2prof_.insert(make_pair(chnum, acceptedProfile.uri()));
 				send_tuning_message(response);
 				boost::system::error_code not_an_error;
 				const detail::wrapped_profile &myProfile =
@@ -522,7 +513,6 @@ private:
 					boost::system::error_code not_an_error;
 					const detail::wrapped_profile &myProfile = get_profile(chnum);
 					myProfile.execute(chnum, not_an_error, response, true);
-					ch2prof_.erase(chnum);
 				} else {
 					transport_.shutdown_connection(id_);
 				}
