@@ -141,10 +141,6 @@ public:
 		// "OK" message before I execute the profile handler and
 		// _possibly_ send channel data.
 		const cmp::protocol_node response = manager_.accept_start(msg);
-		//if (const unsigned int chnum = manager_.accept_start(msg, response)) {
-#if 0
-		channels_.push_back(channel(chnum));
-#endif
 		return cmp::generate(response);
 	}
 
