@@ -47,7 +47,7 @@ public:
 		return ans.message;
 	}
 
-	unsigned int operator()(seq_frame &seq) const
+	unsigned int operator()(seq_frame &/*seq*/) const
 	{
 		std::cerr << "warning: SEQ frames don't support message numbers.\n";
 		return 0;
