@@ -175,7 +175,7 @@ struct profile_element {
 ///     S: </profile>
 ///     S: END
 struct start_message {
-	profile_element profile;
+	std::vector<profile_element> profiles;
 	std::string server_name;
 	unsigned int channel;
 };     // struct start_message
