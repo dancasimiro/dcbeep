@@ -75,7 +75,7 @@ TEST(Channel, UpdateProperties)
 	beep::channel ch;
 	beep::message msg;
 	msg.set_content("Test");
-	ch.update(msg);
+	ch.update(msg.get_payload_size());
 
 	EXPECT_EQ(0u, ch.get_number());
 	EXPECT_EQ(1u, ch.get_message_number());
@@ -93,10 +93,13 @@ TEST(FrameGenerator, GetFrames)
 					"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n"
 					"</start>\r\n"
 					);
+	msg.set_channel(ch);
 
 	std::vector<beep::frame> frames;
-	EXPECT_EQ(msg.get_number(), beep::make_frames(msg, ch, std::back_inserter(frames)));
+	EXPECT_NO_THROW(beep::make_frames(msg, std::back_inserter(frames)));
 	ASSERT_EQ(1u, frames.size());
+
+	ch.update(msg.get_payload_size());
 
 	const std::string encoded_out =
 		"MSG 0 0 . 0 120\r\n"
