@@ -341,14 +341,50 @@ struct protocol_grammar : qi::grammar<Iterator, protocol_node()>
 	qi::rule<Iterator, void(std::string), ascii::space_type> end_tag;
 };     // protocol_grammar
 
+namespace detail {
+class node_to_message_visitor : public boost::static_visitor<message> {
+public:
+	message operator()(const greeting_message &) const
+	{
+		return message();
+	}
+
+	message operator()(const start_message &) const
+	{
+		return message();
+	}
+
+	message operator()(const close_message &) const
+	{
+		return message();
+	}
+
+	message operator()(const ok_message &) const
+	{
+		return message();
+	}
+
+	message operator()(const error_message &) const
+	{
+		return message();
+	}
+
+	message operator()(const profile_element &) const
+	{
+		return message();
+	}
+};     // node_to_message_visitor
+}      // namespace detail
+
 inline protocol_node parse(const message &)
 {
 	return protocol_node();
 }
 
-inline message generate(const protocol_node &)
+inline message generate(const protocol_node &my_node)
 {
-	return message();
+	using boost::apply_visitor;
+	return apply_visitor(detail::node_to_message_visitor(), my_node);
 }
 
 }      // namespace cmp
