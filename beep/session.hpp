@@ -358,17 +358,17 @@ public:
 
 		ostringstream strm;
 		strm << id_;
-		message start;
-		if (const unsigned int ch =
-			chman_.start_channel(transport_service::get_role(),
-								 strm.str(), profile_uri, start)) {
+		std::pair<unsigned int, cmp::protocol_node> result =
+			chman_.start_channel(transport_service::get_role(), strm.str(), profile_uri);
+		const unsigned int channel_number = result.first;
+		if (channel_number > 0) {
+			message start = cmp::generate(result.second);
 			// send_tuning_message updates message_number inside start message
 			send_tuning_message(start);
 			const unsigned int msgno = start.get_channel().get_message_number();
-			tuning_handler_.add(msgno, bind(handler, _1, ch, profile_uri));
-			return ch;
+			tuning_handler_.add(msgno, bind(handler, _1, channel_number, profile_uri));
 		}
-		return 0;
+		return channel_number;
 	}
 
 	template <class Handler>

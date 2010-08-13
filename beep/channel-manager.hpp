@@ -7,22 +7,18 @@
 
 #include <cassert>
 #include <stdexcept>
-#include <istream>
 #include <sstream>
 #include <string>
 #include <vector>
 #include <map>
 #include <algorithm>
-#include <iterator>
 #include <utility>
 #include <functional>
-#include <limits>
 
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
 
 #include "role.hpp"
-#include "frame.hpp" // for core_message_types definition
 #include "channel.hpp"
 #include "channel-management-protocol.hpp"
 #include "reply-code.hpp"
@@ -101,13 +97,13 @@ public:
 	/// only positive integers that are odd-numbered; similarly, BEEP peers
 	/// acting in the listening role use only positive integers that are
 	/// even-numbered.
-	unsigned int start_channel(const role r, const std::string &name,
-							   const std::string &profile_uri, const message &msg)
+	///
+	/// \return std::pair<unsigned int channel number, cmp::protocol_node request>
+	std::pair<unsigned int, cmp::protocol_node>
+	start_channel(const role r, const std::string &name, const std::string &profile_uri)
 	{
-#if 0
-		using std::ostringstream;
 		using std::make_pair;
-		if (!profiles_.count(profile_uri)) return 0;
+		if (!profiles_.count(profile_uri)) return make_pair(0, cmp::protocol_node());
 
 		unsigned int number = guess_;
 		if (!channels_.insert(make_pair(number, channel(number, profile_uri))).second) {
@@ -116,20 +112,12 @@ public:
 				throw std::runtime_error("could not find a channel number!");
 			}
 		}
-		msg.set_mime(mime::beep_xml());
-		msg.set_type(MSG);
-		cmp::start start;
-		start.set_number(number);
-		start.set_server_name(name);
-		start.push_back_profile(profile_uri);
-		ostringstream strm;
-		strm << start;
-		msg.set_content(strm.str());
+		cmp::start_message start;
+		start.channel = number;
+		start.server_name = name;
+		start.profiles.push_back(profile_uri);
 		guess_ = number + 2;
-		return number;
-#else
-		return 0;
-#endif
+		return make_pair(number, start);
 	}
 
 	// the peer requested that the channel be closed
