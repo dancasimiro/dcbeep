@@ -7,6 +7,9 @@
 #include <vector>
 #include <string>
 #include <boost/spirit/include/qi.hpp>
+#include <boost/spirit/include/karma.hpp>
+#include <boost/fusion/adapted/struct/adapt_struct.hpp>
+#include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/variant.hpp>
 
 namespace beep {
@@ -292,6 +295,7 @@ struct error_message {
 };     // error_message
 
 namespace qi = boost::spirit::qi;
+namespace karma = boost::spirit::karma;
 namespace ascii = boost::spirit::ascii;
 
 typedef boost::variant<
@@ -304,11 +308,24 @@ typedef boost::variant<
 	>
 protocol_node;
 
+} // namespace cmp
+} // namespace beep
+
+//BOOST_FUSION_ADAPT_STRUCT(beep::cmp::profile_element,
+//						 (std::string, uri)
+//						 )
+
+BOOST_FUSION_ADAPT_STRUCT(beep::cmp::greeting_message,
+						  (std::vector<std::string>, profile_uris)
+						 )
+namespace beep {
+namespace cmp {
+
 template <typename Iterator>
-struct protocol_grammar : qi::grammar<Iterator, protocol_node()>
+struct input_protocol_grammar : qi::grammar<Iterator, protocol_node()>
 {
-	protocol_grammar()
-		: protocol_grammar::base_type(xml)
+	input_protocol_grammar()
+		: input_protocol_grammar::base_type(xml)
 	{
 		using qi::lit;
 		using qi::lexeme;
@@ -339,14 +356,52 @@ struct protocol_grammar : qi::grammar<Iterator, protocol_node()>
 	qi::rule<Iterator, protocol_node(), qi::locals<std::string>, ascii::space_type> xml;
 	qi::rule<Iterator, std::string(), ascii::space_type> start_tag;
 	qi::rule<Iterator, void(std::string), ascii::space_type> end_tag;
-};     // protocol_grammar
+};     // input_protocol_grammar
+
+template <typename OutputIterator>
+struct output_greeting_grammar
+//: karma::grammar<OutputIterator, greeting_message()>
+	: karma::grammar<OutputIterator, std::vector<std::string>()>
+{
+	output_greeting_grammar()
+		: output_greeting_grammar::base_type(greeting)
+	{
+		using karma::string;
+		using karma::buffer;
+
+		//profile = "<profile uri=\"" << string << "\" />";
+		profile_uri = "<profile uri=\"" << string << "\" />";
+
+		greeting =
+			"<greeting>" << +profile_uri << "</greeting>"
+			| "<greeting />"
+			;
+	}
+	//karma::rule<OutputIterator, profile_element()> profile;
+	karma::rule<OutputIterator, std::string()> profile_uri;
+	//karma::rule<OutputIterator, greeting_message()> greeting;
+	karma::rule<OutputIterator, std::vector<std::string>()> greeting;
+};
 
 namespace detail {
 class node_to_message_visitor : public boost::static_visitor<message> {
 public:
-	message operator()(const greeting_message &) const
+	message operator()(const greeting_message &greeting) const
 	{
-		return message();
+		using std::string;
+		message msg;
+		msg.set_mime(mime::beep_xml());
+		msg.set_type(RPY);
+
+		std::string generated;
+		output_greeting_grammar<std::back_insert_iterator<std::string> > my_grammar;
+		std::back_insert_iterator<std::string> sink(generated);
+		const bool result = karma::generate(sink, my_grammar, greeting.profile_uris);
+		if (!result) {
+			throw std::runtime_error("bad generation!");
+		}
+		msg.set_content(generated);
+		return msg;
 	}
 
 	message operator()(const start_message &) const
