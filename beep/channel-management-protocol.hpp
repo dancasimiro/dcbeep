@@ -322,14 +322,16 @@ namespace beep {
 namespace cmp {
 
 template <typename Iterator>
-struct input_protocol_grammar : qi::grammar<Iterator, protocol_node()>
+struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), ascii::space_type>
 {
 	input_protocol_grammar()
 		: input_protocol_grammar::base_type(xml)
 	{
 		using qi::lit;
 		using qi::lexeme;
+		using qi::omit;
 		using ascii::char_;
+		using ascii::space;
 		using ascii::string;
 		using namespace qi::labels;
 		using qi::_1;
@@ -337,7 +339,7 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node()>
 		start_tag %=
 			'<'
 			>> !lit('/')
-			>> lexeme[+(char_ - '>')]
+			>> lexeme[_r1]
 			>> '>'
 			;
 
@@ -347,15 +349,29 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node()>
 			>> '>'
 			;
 
+		profile_uri %=
+			"<profile" >> +space >> "uri="
+					   >> omit[char_("'\"")[_a = _1]]
+					   >> lexeme[+char_]
+					   >> char_(_a) >> *space >> "/>"
+			;
+
+		greeting_tag %=
+			omit[start_tag(std::string("greeting"))[_a = _1]]
+			>> +profile_uri
+			> end_tag(_a)
+			;
+
 		xml %=
-			start_tag[_a = _1]
-			>> end_tag(_a)
+			greeting_tag;
 			;
 	}
 
-	qi::rule<Iterator, protocol_node(), qi::locals<std::string>, ascii::space_type> xml;
-	qi::rule<Iterator, std::string(), ascii::space_type> start_tag;
+	qi::rule<Iterator, protocol_node(), ascii::space_type> xml;
+	qi::rule<Iterator, std::string(std::string), ascii::space_type> start_tag;
 	qi::rule<Iterator, void(std::string), ascii::space_type> end_tag;
+	qi::rule<Iterator, std::string(), qi::locals<char>, ascii::space_type> profile_uri;
+	qi::rule<Iterator, greeting_message(), qi::locals<std::string>, ascii::space_type> greeting_tag;
 };     // input_protocol_grammar
 
 template <typename OutputIterator>
@@ -433,9 +449,19 @@ public:
 };     // node_to_message_visitor
 }      // namespace detail
 
-inline protocol_node parse(const message &)
+inline protocol_node parse(const message &my_message)
 {
-	return protocol_node();
+	using boost::spirit::ascii::space;
+	using qi::phrase_parse;
+	const std::string msg_content = my_message.get_content();
+	std::string::const_iterator i = msg_content.begin();
+	std::string::const_iterator end = msg_content.end();
+	input_protocol_grammar<std::string::const_iterator> my_grammar;
+	protocol_node my_node;
+	if (!phrase_parse(i, end, my_grammar, space, my_node) || i != end) {
+		throw std::runtime_error("could not parse channel management message!");
+	}
+	return my_node;
 }
 
 inline message generate(const protocol_node &my_node)
