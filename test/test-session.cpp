@@ -550,14 +550,14 @@ public:
 		ASSERT_NO_THROW(run_event_loop_until_connect());
 		ASSERT_TRUE(socket.is_open());
 		// wait for the greeting message
-		EXPECT_NO_THROW(run_event_loop_until_frame_received());
+		ASSERT_NO_THROW(run_event_loop_until_frame_received());
 	}
 
 	virtual void TearDown()
 	{
 		netchng.disconnect();
 		transport.stop_listening();
-		beep::shutdown_session(listener);
+		ASSERT_NO_THROW(beep::shutdown_session(listener));
 		TimedSessionBase::TearDown();
 	}
 
@@ -646,7 +646,7 @@ public:
 			"END\r\n";
 		boost::asio::write(socket, boost::asio::buffer(start_channel_payload));
 		// wait for the response
-		EXPECT_NO_THROW(run_event_loop_until_frame_received());
+		ASSERT_NO_THROW(run_event_loop_until_frame_received());
 	}
 
 	virtual void TearDown()
