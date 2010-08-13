@@ -21,13 +21,13 @@ enum core_message_types {
 
 typedef std::string string_type;
 
-static const string_type &sentinel()
+inline const string_type &sentinel()
 {
 	static const string_type sent("END\r\n");
 	return sent;
 }
 
-static const string_type &terminator()
+inline const string_type &terminator()
 {
 	static const string_type term("\r\n");
 	return term;
