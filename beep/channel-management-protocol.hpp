@@ -65,6 +65,20 @@ struct profile_element {
 	std::string uri;
 	std::string encoding;
 	message initialization;
+
+	profile_element()
+		: uri()
+		, encoding()
+		, initialization()
+	{
+	}
+
+	profile_element(const std::string &profile_uri)
+		: uri(profile_uri)
+		, encoding()
+		, initialization()
+	{
+	}
 };     // struct profile_element
 
 /// 2.3.1.2 The Start Message
