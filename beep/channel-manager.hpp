@@ -143,9 +143,9 @@ public:
 		if (!profiles_.count(profile_uri)) return 0;
 
 		unsigned int number = guess_;
-		if (!channels_.insert(make_pair(number, channel(number))).second) {
+		if (!channels_.insert(make_pair(number, channel(number, profile_uri))).second) {
 			number = get_next_channel(r);
-			if (!channels_.insert(make_pair(number, channel(number))).second) {
+			if (!channels_.insert(make_pair(number, channel(number, profile_uri))).second) {
 				throw std::runtime_error("could not find a channel number!");
 			}
 		}
@@ -165,23 +165,40 @@ public:
 #endif
 	}
 
-	void close_channel(const unsigned int number, const reply_code::rc_enum rc,
-					   message &msg)
+	// the peer requested that the channel be closed
+	cmp::protocol_node peer_requested_channel_close(const cmp::close_message &close_msg)
 	{
-#if 0
-		using std::ostringstream;
-		msg.set_mime(mime::beep_xml());
-		if (number > 0 && !channels_.erase(number)) {
-			throw std::runtime_error("The requested channel was not in use.");
+		ch_map::iterator channel_iterator = channels_.find(close_msg.channel);
+		if (close_msg.channel > 0 && channel_iterator == channels_.end()) {
+			cmp::error_message err;
+			err.code = 550;
+			err.diagnostic = "The requested channel was not in use.";
+			return err;
 		}
-		msg.set_type(MSG);
-		cmp::close close;
-		close.set_number(number);
-		close.set_code(rc);
-		ostringstream strm;
-		strm << close;
-		msg.set_content(strm.str());
-#endif
+		if (close_msg.channel != detail::tuning_channel_number()) {
+			boost::system::error_code not_an_error;
+			prof_map::iterator profile_iterator =
+				profiles_.find(channel_iterator->second.get_profile());
+			if (profile_iterator == profiles_.end()) {
+				throw std::runtime_error("The closing channel profile is missing.");
+			}
+			profile_iterator->second(not_an_error, close_msg.channel, true, message());
+		}
+		channels_.erase(channel_iterator);
+		return cmp::ok_message();
+	}
+
+	cmp::protocol_node close_channel(const unsigned int channel, const reply_code::rc_enum rc)
+	{
+		ch_map::iterator channel_iterator = channels_.find(channel);
+		if (channel > 0 && channel_iterator == channels_.end()) {
+			throw std::runtime_error("invalid channel close request!");
+		}
+		channels_.erase(channel_iterator);
+		cmp::close_message request;
+		request.channel = channel;
+		request.code = rc;
+		return request;
 	}
 
 	/// \return Accepted channel number, zero indicates an error
@@ -190,12 +207,14 @@ public:
 		using std::ostringstream;
 		using std::ostream_iterator;
 		using std::make_pair;
-		if (channels_.insert(make_pair(start_msg.channel, channel(start_msg.channel))).second) {
+		if (!channels_.count(start_msg.channel)) {
 			prof_map::const_iterator profile_iter = profiles_.end();
 			typedef std::vector<cmp::profile_element>::const_iterator start_iterator;
 			for (start_iterator i = start_msg.profiles.begin(); i != start_msg.profiles.end(); ++i) {
 				profile_iter = profiles_.find(i->uri);
 				if (profile_iter != profiles_.end()) {
+					/// \todo check return value of channels_.insert
+					channels_.insert(make_pair(start_msg.channel, channel(start_msg.channel, i->uri)));
 					cmp::profile_element response;
 					response.uri = i->uri;
 					// Execute the profile callback to tell the client that a new channel was
@@ -209,7 +228,6 @@ public:
 				}
 			}
 			assert(profile_iter == profiles_.end());
-			channels_.erase(start_msg.channel);
 			//response.set_type(ERR);
 			ostringstream estrm;
 			estrm << "The specified profile(s) are not supported. "

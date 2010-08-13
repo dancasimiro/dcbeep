@@ -147,22 +147,11 @@ public:
 	// else if (msg.get_type() == MSG && cmp::is_close_message(msg)) {
 	message operator()(const cmp::close_message &msg) const
 	{
-		message response;
-#if 0
-		const unsigned chnum = manager_.close_channel(msg, response);
-		//send_tuning_message(response);
-		if (response.get_type() == RPY) {
-			assert(chnum != numeric_limits<unsigned>::max());
-			if (chnum != chman_.tuning_channel().get_number()) {
-				boost::system::error_code not_an_error;
-				const detail::wrapped_profile &myProfile = get_profile(chnum);
-				myProfile.execute(chnum, not_an_error, response, true);
-			} else {
-				transport_.shutdown_connection(id_);
-			}
-		}
-#endif
-		return response;
+		const cmp::protocol_node response = manager_.peer_requested_channel_close(msg);
+		/// if not an error...
+		///    and if msg.channel == tuning_channel_number
+		///      				transport_.shutdown_connection(id_);
+		return cmp::generate(response);
 	}
 
 	message operator()(const cmp::ok_message &) const
@@ -358,16 +347,12 @@ public:
 	void async_close_channel(const unsigned int channel,
 							 const reply_code::rc_enum rc, Handler handler)
 	{
-		if (chman_.channel_in_use(channel)) {
-			message close;
-			chman_.close_channel(channel, rc, close);
-			// send_tuning_message updates the message number inside of 'close'
-			send_tuning_message(close);
-			const unsigned int msgno = close.get_channel().get_message_number();
-			tuning_handler_.add(msgno, bind(handler, _1, channel));
-		} else {
-			throw std::runtime_error("the selected channel is not in use.");
-		}
+		const cmp::protocol_node request = chman_.close_channel(channel, rc);
+		message close = cmp::generate(request);
+		// send_tuning_message updates the message number inside of 'close'
+		send_tuning_message(close);
+		const unsigned int msgno = close.get_channel().get_message_number();
+		tuning_handler_.add(msgno, bind(handler, _1, channel));
 	}
 
 	template <class Handler>
