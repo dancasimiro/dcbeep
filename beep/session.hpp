@@ -228,30 +228,42 @@ public:
 	}
 };     // tuning_reply_visitor
 
-class tuning_error_visitor : public boost::static_visitor<void> {
+class tuning_error_visitor : public boost::static_visitor<boost::system::error_code> {
 public:
-	void operator()(const cmp::greeting_message &) const
+	boost::system::error_code operator()(const cmp::greeting_message &) const
 	{
+		throw std::runtime_error("The 'ERR' frame should not contain a greeting message.");
+		return boost::system::error_code(reply_code::transaction_failed, beep::beep_category);
 	}
 
-	void operator()(const cmp::start_message &) const
+	boost::system::error_code operator()(const cmp::start_message &) const
 	{
+		throw std::runtime_error("The 'ERR' frame should not contain a start message.");
+		return boost::system::error_code(reply_code::transaction_failed, beep::beep_category);
 	}
 
-	void operator()(const cmp::close_message &) const
+	boost::system::error_code operator()(const cmp::close_message &) const
 	{
+		throw std::runtime_error("The 'ERR' frame should not contain a close message.");
+		return boost::system::error_code(reply_code::transaction_failed, beep::beep_category);
 	}
 
-	void operator()(const cmp::ok_message &) const
+	boost::system::error_code operator()(const cmp::ok_message &) const
 	{
+		throw std::runtime_error("The 'ERR' frame should not contain an OK message.");
+		return boost::system::error_code(reply_code::transaction_failed, beep::beep_category);
 	}
 
-	void operator()(const cmp::error_message &) const
+	boost::system::error_code operator()(const cmp::error_message &msg) const
 	{
+		/// \todo Check that msg.code is a valid reply code
+		return boost::system::error_code(msg.code, beep::beep_category);
 	}
 
-	void operator()(const cmp::profile_element &) const
+	boost::system::error_code operator()(const cmp::profile_element &) const
 	{
+		throw std::runtime_error("The 'ERR' frame should not contain a profile element.");
+		return boost::system::error_code(reply_code::transaction_failed, beep::beep_category);
 	}
 };     // tuning_error_visitor
 
@@ -472,7 +484,11 @@ private:
 			}
 			break;
 		case ERR:
-			apply_visitor(detail::tuning_error_visitor(), my_node);
+			{
+				const error_code ec = apply_visitor(detail::tuning_error_visitor(), my_node);
+				/// \todo log the error description (error.what())
+				tuning_handler_.execute(msg.get_channel().get_message_number(), ec);
+			}
 			break;
 		case ANS:
 		case NUL:

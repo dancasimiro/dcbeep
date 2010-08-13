@@ -32,29 +32,6 @@ namespace detail {
 inline unsigned int tuning_channel_number() { return 0; }
 }      // namespace detail
 
-#if 0
-inline
-boost::system::system_error
-make_error(const message &msg)
-{
-	using std::runtime_error;
-	using std::istringstream;
-	using boost::system::error_code;
-	using boost::system::system_error;
-
-	if (msg.get_type() != ERR) {
-		throw runtime_error("An error code cannot be created from the given message.");
-	}
-	cmp::error myError;
-	istringstream strm(msg.get_content());
-	if (strm >> myError) {
-		const error_code ec(myError.code(), beep::beep_category);
-		return system_error(ec, myError.description());
-	} else {
-		throw runtime_error("could not decode the error message.");
-	}
-}
-#endif
 class channel_manager {
 public:
 	channel_manager()
