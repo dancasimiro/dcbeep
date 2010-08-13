@@ -189,30 +189,42 @@ private:
 	channel_manager &manager_;
 };     // tuning_message_visitor
 
-class tuning_reply_visitor : public boost::static_visitor<void> {
+enum reply_action {
+	session_start_was_requested,
+	session_start_was_accepted,
+	invalid_message_received,
+};
+
+class tuning_reply_visitor : public boost::static_visitor<reply_action> {
 public:
-	void operator()(const cmp::greeting_message &) const
+	reply_action operator()(const cmp::greeting_message &) const
 	{
+		return session_start_was_requested;
 	}
 
-	void operator()(const cmp::start_message &) const
+	reply_action operator()(const cmp::start_message &) const
 	{
+		return invalid_message_received;
 	}
 
-	void operator()(const cmp::close_message &) const
+	reply_action operator()(const cmp::close_message &) const
 	{
+		return invalid_message_received;
 	}
 
-	void operator()(const cmp::ok_message &) const
+	reply_action operator()(const cmp::ok_message &) const
 	{
+		return invalid_message_received;
 	}
 
-	void operator()(const cmp::error_message &) const
+	reply_action operator()(const cmp::error_message &) const
 	{
+		return invalid_message_received;
 	}
 
-	void operator()(const cmp::profile_element &) const
+	reply_action operator()(const cmp::profile_element &) const
 	{
+		return session_start_was_accepted;
 	}
 };     // tuning_reply_visitor
 
@@ -437,7 +449,27 @@ private:
 			}
 			break;
 		case RPY:
-			apply_visitor(detail::tuning_reply_visitor(), my_node);
+			switch (apply_visitor(detail::tuning_reply_visitor(), my_node)) {
+			case detail::session_start_was_requested:
+				session_signal_(boost::system::error_code());
+				break;
+			case detail::session_start_was_accepted:
+				tuning_handler_.execute(msg.get_channel().get_message_number(), boost::system::error_code());
+				break;
+			case detail::invalid_message_received:
+				{
+					cmp::error_message response;
+					response.code = reply_code::parameter_invalid;
+					response.diagnostic = "An unexpected message type was found in RPY frame.";
+					message my_message = cmp::generate(response);
+					send_tuning_message(my_message);
+				}
+				break;
+			default:
+				assert(false);
+				throw std::runtime_error("Invalid reply action!");
+				break;
+			}
 			break;
 		case ERR:
 			apply_visitor(detail::tuning_error_visitor(), my_node);
