@@ -212,48 +212,6 @@ public:
 		error.diagnostic = estrm.str();
 		return error;
 	}
-
-	unsigned close_channel(const message &close_msg, message &response)
-	{
-#if 0
-		using std::istringstream;
-		using std::ostringstream;
-		using std::numeric_limits;
-
-		response.set_mime(mime::beep_xml());
-
-		cmp::close close;
-		istringstream strm(close_msg.get_content());
-		if (!(strm >> close)) {
-			response.set_type(ERR);
-			cmp::error error(reply_code::general_syntax_error,
-							 "The 'close' message could not be decoded.");
-			ostringstream ostrm;
-			ostrm << error;
-			response.set_content(ostrm.str());
-			return numeric_limits<unsigned>::max();
-		}
-		const unsigned ch_num = close.number();
-		if (channels_.erase(ch_num)) {
-			response.set_type(RPY);
-			cmp::ok ok;
-			ostringstream ostrm;
-			ostrm << ok;
-			response.set_content(ostrm.str());
-		} else {
-			response.set_type(ERR);
-			cmp::error error(reply_code::parameter_invalid,
-							 "Channel closure failed because the referenced channel number is not recognized.");
-			ostringstream ostrm;
-			ostrm << error;
-			response.set_content(ostrm.str());
-			return numeric_limits<unsigned>::max();
-		}
-		return ch_num;
-#else
-		return 0;
-#endif
-	}
 private:
 	typedef std::map<unsigned int, channel> ch_map;
 	typedef boost::system::error_code error_code;
