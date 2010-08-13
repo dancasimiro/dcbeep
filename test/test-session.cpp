@@ -26,7 +26,8 @@ TEST(ChannelManager, Greeting)
 	beep::channel_manager chman;
 	chman.install_profile("http://iana.org/beep/TLS", handle_initiator_channel_change);
 	const beep::cmp::protocol_node request = chman.get_greeting_message();
-	beep::message greeting = beep::cmp::generate(request);
+	beep::message greeting;
+	ASSERT_NO_THROW(greeting = beep::cmp::generate(request));
 	chman.prepare_message_for_channel(0, greeting);
 	std::vector<beep::frame> frames;
 	EXPECT_NO_THROW(beep::make_frames(greeting, std::back_inserter(frames)));
@@ -44,23 +45,48 @@ TEST(ChannelManager, Greeting)
 	EXPECT_EQ(encoded_out, strm.str());
 }
 
-TEST(ChannelManager, GreetingWithMultipleProfiles)
+TEST(ChannelManager, GreetingWithNoProfiles)
 {
 	beep::channel_manager chman;
-	chman.install_profile("http://iana.org/beep/TLS", handle_initiator_channel_change);
-	chman.install_profile("http://iana.org/beep/TLA", handle_initiator_channel_change);
 	const beep::cmp::protocol_node request = chman.get_greeting_message();
-	beep::message greeting = beep::cmp::generate(request);
+	beep::message greeting;
+	ASSERT_NO_THROW(greeting = beep::cmp::generate(request));
 	chman.prepare_message_for_channel(0, greeting);
 	std::vector<beep::frame> frames;
 	EXPECT_NO_THROW(beep::make_frames(greeting, std::back_inserter(frames)));
 	ASSERT_EQ(1u, frames.size());
 
 	const std::string encoded_out =
+		"RPY 0 0 . 0 50\r\n"
+		"Content-Type: application/beep+xml\r\n"
+		"\r\n"
+		"<greeting />"
+		"END\r\n"
+		;
+	std::ostringstream strm;
+	strm << frames[0];
+	EXPECT_EQ(encoded_out, strm.str());
+}
+
+TEST(ChannelManager, GreetingWithMultipleProfiles)
+{
+	beep::channel_manager chman;
+	chman.install_profile("http://iana.org/beep/TLS", handle_initiator_channel_change);
+	chman.install_profile("http://iana.org/beep/TLA", handle_initiator_channel_change);
+	const beep::cmp::protocol_node request = chman.get_greeting_message();
+	beep::message greeting;
+	ASSERT_NO_THROW(greeting = beep::cmp::generate(request));
+	chman.prepare_message_for_channel(0, greeting);
+	std::vector<beep::frame> frames;
+	EXPECT_NO_THROW(beep::make_frames(greeting, std::back_inserter(frames)));
+	ASSERT_EQ(1u, frames.size());
+
+	// the order of the profiles does not matter. not sure how to code that...
+	const std::string encoded_out =
 		"RPY 0 0 . 0 143\r\n"
 		"Content-Type: application/beep+xml\r\n"
 		"\r\n"
-		"<greeting><profile uri=\"http://iana.org/beep/TLS\" /><profile uri=\"http://iana.org/beep/TLA\" /></greeting>"
+		"<greeting><profile uri=\"http://iana.org/beep/TLA\" /><profile uri=\"http://iana.org/beep/TLS\" /></greeting>"
 		"END\r\n"
 		;
 	std::ostringstream strm;
