@@ -29,18 +29,6 @@
 namespace beep {
 namespace detail {
 
-struct channel_number_matcher : public std::unary_function<bool, channel> {
-	channel_number_matcher(const unsigned c) : chnum_(c) {}
-	virtual ~channel_number_matcher() {}
-
-	bool operator()(const channel &c) const
-	{
-		return c.get_number() == chnum_;
-	}
-
-	const unsigned int chnum_;
-};
-
 template <typename FunctionT>
 class basic_event_handler {
 public:
