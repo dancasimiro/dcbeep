@@ -416,19 +416,14 @@ private:
 					handle_user_message(msg);
 				}
 			} catch (const std::exception &ex) {
-#if 0
 				/// \todo handle the error condition!
 				/// \todo Check if this is the right error condition.
 				///       Maybe I should close the channel?
-				message msg;
-				msg.set_type(ERR);
-				cmp::error myError(reply_code::requested_action_aborted,
-								   ex.what());
-				std::ostringstream strm;
-				strm << myError;
-				msg.set_content(strm.str());
+				cmp::error_message err;
+				err.code = reply_code::requested_action_aborted;
+				err.diagnostic = ex.what();
+				message msg = cmp::generate(err);
 				send_tuning_message(msg);
-#endif
 			}
 		} else {
 			frmsig_.disconnect();
