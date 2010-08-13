@@ -304,7 +304,7 @@ public:
 		// This list is sent from the listening peer
 		std::vector<std::string> supported_profiles;
 		EXPECT_NO_THROW(initiator.available_profiles(std::back_inserter(supported_profiles)));
-		EXPECT_EQ(1u, supported_profiles.size());
+		ASSERT_EQ(1u, supported_profiles.size());
 		ASSERT_EQ("casimiro.daniel/beep/test", supported_profiles.front());
 
 		ASSERT_NO_THROW(initiator.install_profile("casimiro.daniel/beep/test",
