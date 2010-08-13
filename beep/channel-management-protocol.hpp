@@ -360,27 +360,29 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node()>
 
 template <typename OutputIterator>
 struct output_greeting_grammar
-//: karma::grammar<OutputIterator, greeting_message()>
-	: karma::grammar<OutputIterator, std::vector<std::string>()>
+	: karma::grammar<OutputIterator, greeting_message()>
 {
 	output_greeting_grammar()
 		: output_greeting_grammar::base_type(greeting)
 	{
 		using karma::string;
-		using karma::buffer;
 
 		//profile = "<profile uri=\"" << string << "\" />";
 		profile_uri = "<profile uri=\"" << string << "\" />";
 
-		greeting =
+		empty_greeting = "<greeting />";
+		
+		server_greeting =
 			"<greeting>" << +profile_uri << "</greeting>"
-			| "<greeting />"
 			;
+
+		greeting = server_greeting | empty_greeting;
 	}
 	//karma::rule<OutputIterator, profile_element()> profile;
 	karma::rule<OutputIterator, std::string()> profile_uri;
-	//karma::rule<OutputIterator, greeting_message()> greeting;
-	karma::rule<OutputIterator, std::vector<std::string>()> greeting;
+	karma::rule<OutputIterator, void()> empty_greeting;
+	karma::rule<OutputIterator, greeting_message()> server_greeting;
+	karma::rule<OutputIterator, greeting_message()> greeting;
 };
 
 namespace detail {
@@ -396,7 +398,7 @@ public:
 		std::string generated;
 		output_greeting_grammar<std::back_insert_iterator<std::string> > my_grammar;
 		std::back_insert_iterator<std::string> sink(generated);
-		const bool result = karma::generate(sink, my_grammar, greeting.profile_uris);
+		const bool result = karma::generate(sink, my_grammar, greeting);
 		if (!result) {
 			throw std::runtime_error("bad generation!");
 		}
