@@ -156,30 +156,34 @@ public:
 
 	message operator()(const cmp::ok_message &) const
 	{
-		message response;
-		// return error message...
-		return response;
+		cmp::error_message response;
+		response.code = reply_code::parameter_invalid;
+		response.diagnostic = "This OK message is not expected.";
+		return cmp::generate(response);
 	}
 
 	message operator()(const cmp::greeting_message &) const
 	{
-		message response;
-		// return error message...
-		return response;
+		cmp::error_message response;
+		response.code = reply_code::parameter_invalid;
+		response.diagnostic = "The greeting message should arrive in a 'RPY' frame.";
+		return cmp::generate(response);
 	}
 
 	message operator()(const cmp::error_message &) const
 	{
-		message response;
-		// return error message...
-		return response;
+		cmp::error_message response;
+		response.code = reply_code::parameter_invalid;
+		response.diagnostic = "An error message should arrive in an 'ERR' frame.";
+		return cmp::generate(response);
 	}
 
 	message operator()(const cmp::profile_element &) const
 	{
-		message response;
-		// return error message...
-		return response;
+		cmp::error_message response;
+		response.code = reply_code::parameter_invalid;
+		response.diagnostic = "The profile element should arrive in a 'RPY' frame.";
+		return cmp::generate(response);
 	}
 private:
 	channel_manager &manager_;
