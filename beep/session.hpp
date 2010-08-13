@@ -555,11 +555,9 @@ private:
 
 	void start()
 	{
-#if 0
-		message greeting;
-		chman_.greeting_message(profiles_.begin(), profiles_.end(), greeting);
+		const cmp::protocol_node request = chman_.get_greeting_message();
+		message greeting = cmp::generate(request);
 		send_tuning_message(greeting);
-#endif
 	}
 
 	void send_message(message &msg)

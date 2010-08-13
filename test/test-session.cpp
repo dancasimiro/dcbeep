@@ -24,11 +24,11 @@ handle_initiator_channel_change(const boost::system::error_code &/*error*/,
 TEST(ChannelManager, Greeting)
 {
 	beep::channel_manager chman;
-	beep::message greeting;
-	const std::string tls = "http://iana.org/beep/TLS"; // profile URI
-	chman.greeting_message(&tls, &tls + 1, greeting);
-	std::vector<beep::frame> frames;
+	chman.install_profile("http://iana.org/beep/TLS", handle_initiator_channel_change);
+	const beep::cmp::protocol_node request = chman.get_greeting_message();
+	beep::message greeting = beep::cmp::generate(request);
 	chman.prepare_message_for_channel(0, greeting);
+	std::vector<beep::frame> frames;
 	EXPECT_NO_THROW(beep::make_frames(greeting, std::back_inserter(frames)));
 	ASSERT_EQ(1u, frames.size());
 
@@ -47,16 +47,12 @@ TEST(ChannelManager, Greeting)
 TEST(ChannelManager, GreetingWithMultipleProfiles)
 {
 	beep::channel_manager chman;
-	beep::message greeting;
-	std::vector<std::string> myProfiles;
-	{
-		myProfiles.push_back("http://iana.org/beep/TLS");
-		myProfiles.push_back("http://iana.org/beep/TLA");
-	}
-		
-	chman.greeting_message(myProfiles.begin(), myProfiles.end(), greeting);
-	std::vector<beep::frame> frames;
+	chman.install_profile("http://iana.org/beep/TLS", handle_initiator_channel_change);
+	chman.install_profile("http://iana.org/beep/TLA", handle_initiator_channel_change);
+	const beep::cmp::protocol_node request = chman.get_greeting_message();
+	beep::message greeting = beep::cmp::generate(request);
 	chman.prepare_message_for_channel(0, greeting);
+	std::vector<beep::frame> frames;
 	EXPECT_NO_THROW(beep::make_frames(greeting, std::back_inserter(frames)));
 	ASSERT_EQ(1u, frames.size());
 

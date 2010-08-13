@@ -77,22 +77,12 @@ public:
 		return transform(profiles_.begin(), profiles_.end(), out, profile_pair_to_uri());
 	}
 
-	template <typename FwdIterator>
-	void
-	greeting_message(const FwdIterator first_profile, const FwdIterator last_profile,
-					 message &greeting_msg) const
+	cmp::protocol_node get_greeting_message() const
 	{
-#if 0
-		using std::ostringstream;
-		using std::copy;
 		using std::back_inserter;
-
-		cmp::greeting_message g_protocol;
-		copy(first_profile, last_profile, back_inserter(g_protocol.profile_uris));
-		greeting_msg = cmp::generate(g_protocol);
-		//greeting_msg.set_mime(mime::beep_xml());
-		greeting_msg.set_type(RPY);
-#endif
+		cmp::greeting_message message;
+		get_profiles(back_inserter(message.profile_uris));
+		return message;
 	}
 
 	/// \brief test if a channel is active
