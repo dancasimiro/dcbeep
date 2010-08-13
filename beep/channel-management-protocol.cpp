@@ -172,7 +172,10 @@ protocol_node parse(const message &my_message)
 	input_protocol_grammar<std::string::const_iterator> my_grammar;
 	protocol_node my_node;
 	if (!phrase_parse(i, end, my_grammar, space, my_node) || i != end) {
-		throw std::runtime_error("could not parse channel management message!");
+		std::ostringstream estrm;
+		estrm << "could not parse channel management message: "
+			  << msg_content;
+		throw std::runtime_error(estrm.str());
 	}
 	return my_node;
 }
