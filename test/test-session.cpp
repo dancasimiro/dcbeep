@@ -187,10 +187,11 @@ private:
 			std::string partial_frame;
 			beep::parse_frames(stream, current_frames, partial_frame);
 			for (std::vector<beep::frame>::const_iterator i = current_frames.begin(); i != current_frames.end(); ++i) {
-				last_frame = *i;
-				beep::seq_frame * const pseq = boost::get<beep::seq_frame>(&last_frame);
+				const beep::frame current = *i;
+				beep::seq_frame * const pseq = boost::get<beep::seq_frame>(&current);
 				if (!pseq) { // is not a SEQ frame
 					have_frame = true;
+					last_frame = current;
 				} else {
 					boost::asio::async_read_until(socket,
 												  buffer,
