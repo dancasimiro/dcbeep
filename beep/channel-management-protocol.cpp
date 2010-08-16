@@ -8,7 +8,6 @@
 
 #include "channel-management-protocol.hpp"
 #include "cmp-adapt.hpp"
-#include "frame.hpp"
 
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/phoenix.hpp>
