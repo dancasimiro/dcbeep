@@ -15,10 +15,6 @@
 #include <boost/fusion/adapted/struct/adapt_struct.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 
-//BOOST_FUSION_ADAPT_STRUCT(beep::cmp::profile_element,
-//						 (std::string, uri)
-//						 )
-
 BOOST_FUSION_ADAPT_STRUCT(beep::cmp::greeting_message,
 						  (std::vector<std::string>, profile_uris)
 						 )
@@ -43,6 +39,7 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 	{
 		using qi::lit;
 		using qi::lexeme;
+		using qi::raw;
 		using qi::omit;
 		using qi::on_error;
 		using qi::fail;
@@ -66,6 +63,26 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 			> "/>"
 			;
 
+		profile_tag =
+			"<profile"
+			>> (
+				(lit("uri") > '='
+				> omit[char_("'\"")[_a = _1]]
+				 > lexeme[+(char_ - char_(_a))][bind(&profile_element::uri, _val)]
+				> omit[char_(_a)]
+				)
+				^
+				(lit("encoding") > '='
+				 > omit[char_("'\"")[_a = _1]]
+				 > lexeme[+(char_ - char_(_a))][bind(&profile_element::encoding, _val)]
+				 > omit[char_(_a)]
+				 )
+				)
+			>> ("/>"
+				| omit[raw[*char_]] >> "</profile>"
+				)
+			;
+
 		empty_greeting_tag = "<greeting />";
 
 		greeting_tag %=
@@ -80,6 +97,7 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 			;
 
 		profile_uri.name("Profile Element");
+		profile_tag.name("Profile Tag");
 		empty_greeting_tag.name("Empty Greeting Tag");
 		greeting_tag.name("Greeting Tag");
 
@@ -102,6 +120,7 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 	qi::rule<Iterator, std::string(), qi::locals<char>, skipper_type> profile_uri;
 	qi::rule<Iterator, greeting_message(), qi::locals<std::string>, skipper_type> greeting_tag;
 	qi::rule<Iterator, void(), skipper_type> empty_greeting_tag;
+	qi::rule<Iterator, profile_element(), qi::locals<char>, skipper_type> profile_tag;
 };     // input_protocol_grammar
 
 template <typename OutputIterator>
