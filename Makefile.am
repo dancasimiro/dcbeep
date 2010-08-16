@@ -40,6 +40,8 @@ beep_libbeepcore_la_SOURCES = \
 beep_libbeepcmp_la_SOURCES = \
 	beep/channel-management-protocol.hpp \
 	beep/channel-management-protocol.cpp \
+	beep/cmp-generate.cpp \
+	beep/cmp-adapt.hpp \
 	beep/channel-manager.hpp \
 	beep/channel-manager.cpp \
 	beep/channel.hpp \
