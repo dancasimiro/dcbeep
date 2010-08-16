@@ -188,7 +188,7 @@ private:
 			beep::parse_frames(stream, current_frames, partial_frame);
 			for (std::vector<beep::frame>::const_iterator i = current_frames.begin(); i != current_frames.end(); ++i) {
 				const beep::frame current = *i;
-				beep::seq_frame * const pseq = boost::get<beep::seq_frame>(&current);
+				const beep::seq_frame * const pseq = boost::get<beep::seq_frame>(&current);
 				if (!pseq) { // is not a SEQ frame
 					have_frame = true;
 					last_frame = current;
