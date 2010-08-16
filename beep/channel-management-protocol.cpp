@@ -41,7 +41,9 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 		using qi::lexeme;
 		using qi::raw;
 		using qi::omit;
+		using qi::uint_;
 		using qi::on_error;
+		using qi::eps;
 		using qi::fail;
 		using ascii::char_;
 		using ascii::string;
@@ -92,14 +94,41 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 			| empty_greeting_tag
 			;
 
+		start_channel_tag =
+			"<start"
+			>> (
+				(lit("number") > '='
+				 > char_("'\"")[_a = _1]
+				 > uint_[_pass = _1 < 2147483648u, bind(&start_message::channel, _val)]
+				 > omit[char_(_a)]
+				 )
+				^
+				(lit("serverName") > '='
+				 > char_("'\"")[_a = _1]
+				 > lexeme[+(char_ - char_(_a))][bind(&start_message::server_name, _val)]
+				 > omit[char_(_a)]
+				 )
+				)
+			>> ">"
+			>> +profile_tag
+			>> "</start>"
+			;
+
+		ok_tag = eps[_val = ok_message()] >> "<ok" > "/>";
+
 		xml %=
 			greeting_tag
+			| profile_tag
+			| start_channel_tag
+			| ok_tag
 			;
 
 		profile_uri.name("Profile Element");
 		profile_tag.name("Profile Tag");
 		empty_greeting_tag.name("Empty Greeting Tag");
 		greeting_tag.name("Greeting Tag");
+		start_channel_tag.name("Start Channel Tag");
+		ok_tag.name("OK tag");
 
 		on_error<fail>
 			(
@@ -121,6 +150,8 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 	qi::rule<Iterator, greeting_message(), skipper_type> greeting_tag;
 	qi::rule<Iterator, void(), skipper_type> empty_greeting_tag;
 	qi::rule<Iterator, profile_element(), qi::locals<char>, skipper_type> profile_tag;
+	qi::rule<Iterator, start_message(), qi::locals<char>, skipper_type> start_channel_tag;
+	qi::rule<Iterator, ok_message(), skipper_type> ok_tag;
 };     // input_protocol_grammar
 
 template <typename OutputIterator>
