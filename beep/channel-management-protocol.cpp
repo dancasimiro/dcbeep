@@ -29,9 +29,14 @@ namespace cmp {
 namespace qi = boost::spirit::qi;
 namespace karma = boost::spirit::karma;
 namespace ascii = boost::spirit::ascii;
+namespace phoenix = boost::phoenix;
+
+#define INPUT_SKIPPER_RULE ((qi::space | qi::eol))
+
+typedef BOOST_TYPEOF(INPUT_SKIPPER_RULE) skipper_type;
 
 template <typename Iterator>
-struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), ascii::space_type>
+struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_type>
 {
 	input_protocol_grammar()
 		: input_protocol_grammar::base_type(xml)
@@ -39,16 +44,19 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), ascii::sp
 		using qi::lit;
 		using qi::lexeme;
 		using qi::omit;
+		using qi::on_error;
+		using qi::fail;
 		using ascii::char_;
-		using ascii::space;
 		using ascii::string;
 		using namespace qi::labels;
 		using qi::_1;
 
+		using phoenix::construct;
+		using phoenix::val;
+
 		start_tag %=
 			'<'
-			>> !lit('/')
-			>> lexeme[_r1]
+			>> string(_r1)
 			>> '>'
 			;
 
@@ -59,17 +67,23 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), ascii::sp
 			;
 
 		profile_uri %=
-			"<profile" >> +space >> "uri="
-					   >> omit[char_("'\"")[_a = _1]]
-					   >> lexeme[+char_]
-					   >> char_(_a) >> *space >> "/>"
+			lit("<profile")
+			>> (lit("uri") > '='
+				> omit[char_("'\"")[_a = _1]]
+				> lexeme[+(char_ - char_(_a))]
+				> omit[char_(_a)]
+				)
+			> "/>"
+			;
+		profile_uri_list %=
+			+profile_uri
 			;
 
 		empty_greeting_tag = "<greeting />";
 
-		greeting_tag %=
+		greeting_tag =
 			omit[start_tag(std::string("greeting"))[_a = _1]]
-			>> +profile_uri
+			> profile_uri_list
 			> end_tag(_a)
 			| empty_greeting_tag
 			;
@@ -77,14 +91,36 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), ascii::sp
 		xml %=
 			greeting_tag
 			;
+
+		start_tag.name("Start of XML Tag");
+		end_tag.name("End of XML Tag");
+		profile_uri.name("Profile Element");
+		profile_uri_list.name("Profile List");
+		empty_greeting_tag.name("Empty Greeting Tag");
+		greeting_tag.name("Greeting Tag");
+
+		on_error<fail>
+			(
+			 xml
+			 , std::cout
+			 << val("Error! Expecting ")
+			 << _4
+			 << val(" here: \"")
+			 << construct<std::string>(_3, _2)
+			 << val("\"")
+			 << val(" from: \"")
+			 << construct<std::string>(_1, _3)
+			 << std::endl
+			 );
 	}
 
-	qi::rule<Iterator, protocol_node(), ascii::space_type> xml;
-	qi::rule<Iterator, std::string(std::string), ascii::space_type> start_tag;
-	qi::rule<Iterator, void(std::string), ascii::space_type> end_tag;
-	qi::rule<Iterator, std::string(), qi::locals<char>, ascii::space_type> profile_uri;
-	qi::rule<Iterator, greeting_message(), qi::locals<std::string>, ascii::space_type> greeting_tag;
-	qi::rule<Iterator, void(), ascii::space_type> empty_greeting_tag;
+	qi::rule<Iterator, protocol_node(), skipper_type> xml;
+	qi::rule<Iterator, std::string(std::string), skipper_type> start_tag;
+	qi::rule<Iterator, void(std::string), skipper_type> end_tag;
+	qi::rule<Iterator, std::vector<std::string>(), skipper_type> profile_uri_list;
+	qi::rule<Iterator, std::string(), qi::locals<char>, skipper_type> profile_uri;
+	qi::rule<Iterator, greeting_message(), qi::locals<std::string>, skipper_type> greeting_tag;
+	qi::rule<Iterator, void(), skipper_type> empty_greeting_tag;
 };     // input_protocol_grammar
 
 template <typename OutputIterator>
@@ -164,14 +200,13 @@ public:
 
 protocol_node parse(const message &my_message)
 {
-	using boost::spirit::ascii::space;
 	using qi::phrase_parse;
 	const std::string msg_content = my_message.get_content();
 	std::string::const_iterator i = msg_content.begin();
-	std::string::const_iterator end = msg_content.end();
+	const std::string::const_iterator end = msg_content.end();
 	input_protocol_grammar<std::string::const_iterator> my_grammar;
 	protocol_node my_node;
-	if (!phrase_parse(i, end, my_grammar, space, my_node) || i != end) {
+	if (!phrase_parse(i, end, my_grammar, INPUT_SKIPPER_RULE, my_node) /*|| i != end*/) {
 		std::ostringstream estrm;
 		estrm << "could not parse channel management message: "
 			  << msg_content;
