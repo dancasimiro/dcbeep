@@ -118,7 +118,7 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 
 	qi::rule<Iterator, protocol_node(), skipper_type> xml;
 	qi::rule<Iterator, std::string(), qi::locals<char>, skipper_type> profile_uri;
-	qi::rule<Iterator, greeting_message(), qi::locals<std::string>, skipper_type> greeting_tag;
+	qi::rule<Iterator, greeting_message(), skipper_type> greeting_tag;
 	qi::rule<Iterator, void(), skipper_type> empty_greeting_tag;
 	qi::rule<Iterator, profile_element(), qi::locals<char>, skipper_type> profile_tag;
 };     // input_protocol_grammar
