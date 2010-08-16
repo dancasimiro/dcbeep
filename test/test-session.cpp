@@ -104,7 +104,6 @@ public:
 		, buffer()
 		, last_error()
 		, last_frame()
-		, grammar_()
 		, is_connected(false)
 		, have_frame(false)
 	{
@@ -135,7 +134,6 @@ public:
 	boost::asio::streambuf       buffer;
 	boost::system::error_code    last_error;
 	beep::frame                  last_frame;
-	beep::frame_parser<boost::spirit::istream_iterator> grammar_;
 	bool                         is_connected;
 	bool                         have_frame;
 
@@ -185,10 +183,11 @@ private:
 		if (!error) {
 			std::istream stream(&buffer);
 			stream.unsetf(std::ios::skipws);
-			boost::spirit::istream_iterator begin(stream);
-			boost::spirit::istream_iterator end;
-			if (parse(begin, end, grammar_, last_frame)) {
-				stream.unget();
+			std::vector<beep::frame> current_frames;
+			std::string partial_frame;
+			beep::parse_frames(stream, current_frames, partial_frame);
+			for (std::vector<beep::frame>::const_iterator i = current_frames.begin(); i != current_frames.end(); ++i) {
+				last_frame = *i;
 				beep::seq_frame * const pseq = boost::get<beep::seq_frame>(&last_frame);
 				if (!pseq) { // is not a SEQ frame
 					have_frame = true;

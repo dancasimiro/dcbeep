@@ -7,8 +7,6 @@
 #include <istream>
 #include "frame.hpp"
 #include "frame-parser.hpp"
-#include <boost/spirit/include/support_istream_iterator.hpp>
-#include <boost/variant.hpp>
 
 namespace beep {
 
@@ -97,7 +95,7 @@ private:
 		return
 			stream_ << frm.channel << ' '
 					<< frm.message << ' '
-					<< reverse_continuation_lookup(frm.more) << ' '
+					<< (frm.more ? '*' : '.') << ' '
 					<< frm.sequence << ' '
 					<< frm.payload.size()
 			;
@@ -130,17 +128,18 @@ operator>>(std::istream &stream, beep::frame &aFrame)
 		const std::ios::fmtflags given_flags = stream.flags();
 		stream.unsetf(std::ios::skipws);
 
-		// wrap stream into qi compatible iterator
-		boost::spirit::istream_iterator begin(stream);
-		boost::spirit::istream_iterator end;
+		std::vector<frame> frames;
+		std::string leftover;
+		/// \todo read only a single frame
+		parse_frames(stream, frames, leftover);
+		/// \todo restore "leftover" to stream
 
-		static frame_parser<boost::spirit::istream_iterator> grammar;
-		if (!qi::phrase_parse(begin, end, grammar, qi::space, aFrame)) {
-			stream.setstate(std::ios::badbit);
-			return stream;
+		if (frames.empty()) {
+			stream.setstate(std::ios::failbit);
+		} else {
+			aFrame = frames.front();
+			stream.setf(given_flags);
 		}
-		stream.setf(given_flags);
-		stream.unget();
 	}
 	return stream;
 }

@@ -121,7 +121,6 @@ public:
 		, wstrand_(service)
 		, signal_frame_()
 		, net_changed_()
-		, grammar_()
 		, peer_window_size_(4096u)
 	{
 	}
@@ -137,7 +136,6 @@ public:
 		, wstrand_(service)
 		, signal_frame_()
 		, net_changed_()
-		, grammar_()
 		, peer_window_size_(4096u)
 	{
 	}
@@ -202,7 +200,6 @@ private:
 	strand_type    wstrand_; // serialize write operations
 	frame_signal_t signal_frame_;
 	network_cb_t   net_changed_;
-	frame_parser<boost::spirit::istream_iterator> grammar_;
 	size_type      peer_window_size_;
 
 	static boost::posix_time::time_duration get_response_timeout()
@@ -299,14 +296,14 @@ private:
 		using std::ostream;
 		timer_.cancel();
 		if (!error || error == boost::asio::error::message_size) {
+			std::vector<frame> current_frames;
+			std::string partial;
 			istream stream(&rsb_);
 			stream.unsetf(std::ios::skipws);
-			frame current;
-			boost::spirit::istream_iterator begin(stream);
-			const boost::spirit::istream_iterator end;
-			// begin is updated on each pass to the next valid position
-			unsigned int num_frames = 0;
-			while (parse(begin, end, grammar_, current)) {
+			parse_frames(stream, current_frames, partial);
+			std::size_t num_frames = 0;
+			for (std::vector<frame>::const_iterator i = current_frames.begin(); i != current_frames.end(); ++i) {
+				const beep::frame current = *i;
 				if (apply_visitor(frame_handler_visitor(), current) == is_seq_frame) {
 					peer_window_size_ = apply_visitor(window_size_visitor(), current);
 				} else {
@@ -319,17 +316,12 @@ private:
 					new_window_ad.window = 4096u;
 					send_frame(new_window_ad);
 				}
-				// check if there is a frame trailer at the end of this buffer
-				if (begin != end && std::string(begin, end).find(sentinel()) == std::string::npos) {
-					// Need to read more data before this partial message can be parsed.
-					break;
-				}
 			}
 			if (num_frames) {
-				if (begin != end) { // there is a partial message at the end of the streambuf
+				if (!partial.empty()) { // there is a partial message at the end of the streambuf
 					// stuff the partial message back into the streambuf
 					ostream reset_stream(&rsb_);
-					reset_stream << std::string(begin, end);
+					reset_stream << partial;
 				}
 				do_start_read();
 			} else {

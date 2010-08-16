@@ -8,33 +8,15 @@
 #include "beep/frame.hpp"
 #include "beep/frame-stream.hpp"
 
-typedef std::string::const_iterator iterator_type;
-typedef beep::frame_parser<iterator_type> frame_parser;
 using beep::frame;
 using boost::get;
-using boost::spirit::ascii::space;
-
-namespace std {
-
-std::ostream& operator<<(std::ostream &strm, const iterator_type &i)
-{
-	if (strm) {
-		strm << "string iterator at " << *i;
-	}
-	return strm;
-}
-
-}
 
 TEST(ChannelParser, Valid)
 {
 	static const std::string content = "MSG 10 2 . 3 0\r\nEND\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_NO_THROW(myFrame = beep::parse_frame(content));
 	EXPECT_EQ(10u, get<beep::msg_frame>(myFrame).channel);
 }
 
@@ -42,11 +24,8 @@ TEST(ChannelParser, Negative)
 {
 	static const std::string content = "MSG -10 2 . 3 0\r\nEND\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_ANY_THROW(myFrame = beep::parse_frame(content));
 	EXPECT_EQ(0, get<beep::msg_frame>(myFrame).channel);
 }
 
@@ -54,11 +33,8 @@ TEST(ChannelParser, TooLarge)
 {
 	static const std::string content = "MSG 2147483648 2 . 3 0\r\nEND\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_ANY_THROW(myFrame = beep::parse_frame(content));
 	EXPECT_EQ(0, get<beep::msg_frame>(myFrame).channel);
 }
 
@@ -66,11 +42,8 @@ TEST(MessageNumberParser, Valid)
 {
 	static const std::string content = "MSG 19 3 . 3 0\r\nEND\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_NO_THROW(myFrame = beep::parse_frame(content));
 	EXPECT_EQ(3u, get<beep::msg_frame>(myFrame).message);
 }
 
@@ -78,11 +51,8 @@ TEST(SequenceParser, Valid)
 {
 	static const std::string content = "MSG 19 3 . 6 0\r\nEND\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_NO_THROW(myFrame = beep::parse_frame(content));
 	EXPECT_EQ(6u, get<beep::msg_frame>(myFrame).sequence);
 }
 
@@ -90,11 +60,8 @@ TEST(SizeParser, Valid)
 {
 	static const std::string content = "MSG 19 3 . 6 3\r\nABCEND\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_NO_THROW(myFrame = beep::parse_frame(content));
 	EXPECT_EQ(3u, get<beep::msg_frame>(myFrame).payload.size());
 	EXPECT_EQ("ABC", get<beep::msg_frame>(myFrame).payload);
 }
@@ -103,11 +70,8 @@ TEST(AnswerParser, Valid)
 {
 	static const std::string content = "ANS 19 3 . 6 3 19\r\nABCEND\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	frame myFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, myFrame)));
+	EXPECT_NO_THROW(myFrame = beep::parse_frame(content));
 	EXPECT_NO_THROW(get<beep::ans_frame>(myFrame));
 	EXPECT_EQ(19u, get<beep::ans_frame>(myFrame).answer);
 }
@@ -116,11 +80,8 @@ TEST(MessageFrameHeader, Valid)
 {
 	static const std::string content = "MSG 19 2 . 3 0\r\nEND\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(aFrame = beep::parse_frame(content));
 	EXPECT_NO_THROW(get<beep::msg_frame>(aFrame));
 	EXPECT_EQ(19u, get<beep::msg_frame>(aFrame).channel);
 	EXPECT_EQ(2u, get<beep::msg_frame>(aFrame).message);
@@ -132,11 +93,8 @@ TEST(ReplyHeader, Valid)
 {
 	static const std::string content = "RPY 19 2 . 3 0\r\nEND\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(aFrame = beep::parse_frame(content));
 	EXPECT_NO_THROW(get<beep::rpy_frame>(aFrame));
 	EXPECT_EQ(19u, get<beep::rpy_frame>(aFrame).channel);
 	EXPECT_EQ(2u, get<beep::rpy_frame>(aFrame).message);
@@ -148,11 +106,8 @@ TEST(AnswerHeader, Valid)
 {
 	static const std::string content = "ANS 19 2 . 3 0 5\r\nEND\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(aFrame = beep::parse_frame(content));
 	EXPECT_NO_THROW(get<beep::ans_frame>(aFrame));
 	EXPECT_EQ(19u, get<beep::ans_frame>(aFrame).channel);
 	EXPECT_EQ(2u, get<beep::ans_frame>(aFrame).message);
@@ -165,11 +120,8 @@ TEST(ErrorHeader, Valid)
 {
 	static const std::string content = "ERR 19 2 . 3 0\r\nEND\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(aFrame = beep::parse_frame(content));
 	EXPECT_NO_THROW(get<beep::err_frame>(aFrame));
 	EXPECT_EQ(19u, get<beep::err_frame>(aFrame).channel);
 	EXPECT_EQ(2u, get<beep::err_frame>(aFrame).message);
@@ -181,11 +133,8 @@ TEST(NullHeader, Valid)
 {
 	static const std::string content = "NUL 19 2 . 3 0\r\nEND\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(aFrame = beep::parse_frame(content));
 	EXPECT_NO_THROW(get<beep::nul_frame>(aFrame));
 	EXPECT_EQ(19u, get<beep::nul_frame>(aFrame).channel);
 	EXPECT_EQ(2u, get<beep::nul_frame>(aFrame).message);
@@ -195,13 +144,10 @@ TEST(NullHeader, Valid)
 
 TEST(SeqHeader, Valid)
 {
-	static const std::string content = "SEQ 3 2 4096\r\nEND\r\n";
+	static const std::string content = "SEQ 3 2 4096\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(aFrame = beep::parse_frame(content));
 	EXPECT_NO_THROW(get<beep::seq_frame>(aFrame));
 	EXPECT_EQ(3u, get<beep::seq_frame>(aFrame).channel);
 	EXPECT_EQ(2u, get<beep::seq_frame>(aFrame).acknowledgement);
@@ -212,12 +158,8 @@ TEST(PayloadParse, Valid)
 {
 	static const std::string content = "MSG 19 2 . 3 12\r\nSome PayloadEND\r\n";
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(aFrame = beep::parse_frame(content));
 	EXPECT_NO_THROW(get<beep::msg_frame>(aFrame));
 	EXPECT_EQ(19u, get<beep::msg_frame>(aFrame).channel);
 	EXPECT_EQ(2u, get<beep::msg_frame>(aFrame).message);
@@ -237,12 +179,8 @@ TEST(BinaryParse, Valid)
 	const std::string content = strm.str();
 	EXPECT_EQ(content.length(), 17 + 5 + sizeof(float) * 4);
 
-	frame_parser g; // the grammar
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
 	beep::frame aFrame;
-
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, g, space, aFrame)));
+	EXPECT_NO_THROW(aFrame = beep::parse_frame(content));
 	EXPECT_NO_THROW(get<beep::msg_frame>(aFrame));
 	EXPECT_EQ(19u, get<beep::msg_frame>(aFrame).channel);
 	EXPECT_EQ(2u, get<beep::msg_frame>(aFrame).message);
@@ -276,11 +214,7 @@ protected:
 			"</start>\r\n" // 10
 			"END\r\n";
 		frm = beep::frame();
-		frame_parser syntax;
-		std::string::const_iterator iter = content.begin();
-		std::string::const_iterator end = content.end();
-		EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
-		EXPECT_EQ(iter, end);
+		EXPECT_NO_THROW(frm = beep::parse_frame(content));
 	}
 
 	virtual void TearDown()
@@ -354,11 +288,7 @@ TEST_F(BadFrameMessageTest, InvalidParseKeyword)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	frame_parser syntax;
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
-	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, syntax, space, frm)));
-	EXPECT_EQ(content.begin(), iter);
+	EXPECT_ANY_THROW(beep::parse_frame(content));
 }
 
 TEST_F(BadFrameMessageTest, ParseCharacterChannelNumber)
@@ -370,11 +300,7 @@ TEST_F(BadFrameMessageTest, ParseCharacterChannelNumber)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	frame_parser syntax;
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
-	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, syntax, space, frm)));
-	EXPECT_EQ(content.begin(), iter);
+	EXPECT_ANY_THROW(beep::parse_frame(content));
 }
 
 TEST_F(BadFrameMessageTest, ParseStringChannelNumber)
@@ -386,11 +312,7 @@ TEST_F(BadFrameMessageTest, ParseStringChannelNumber)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	frame_parser syntax;
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
-	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, syntax, space, frm)));
-	EXPECT_EQ(content.begin(), iter);
+	EXPECT_ANY_THROW(beep::parse_frame(content));
 }
 
 TEST_F(BadFrameMessageTest, ParseNegativeChannelNumber)
@@ -402,11 +324,7 @@ TEST_F(BadFrameMessageTest, ParseNegativeChannelNumber)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	frame_parser syntax;
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
-	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, syntax, space, frm)));
-	EXPECT_EQ(content.begin(), iter);
+	EXPECT_ANY_THROW(beep::parse_frame(content));
 }
 
 TEST_F(BadFrameMessageTest, ParseHugeChannelNumber)
@@ -418,11 +336,7 @@ TEST_F(BadFrameMessageTest, ParseHugeChannelNumber)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	frame_parser syntax;
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
-	EXPECT_NO_THROW(EXPECT_FALSE(phrase_parse(iter, end, syntax, space, frm)));
-	EXPECT_EQ(content.begin(), iter);
+	EXPECT_ANY_THROW(beep::parse_frame(content));
 }
 
 TEST_F(BadFrameMessageTest, ParseChannelBoundaryNumber)
@@ -434,11 +348,7 @@ TEST_F(BadFrameMessageTest, ParseChannelBoundaryNumber)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	frame_parser syntax;
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
-	EXPECT_EQ(end, iter);
+	EXPECT_NO_THROW(frm = beep::parse_frame(content));
 	EXPECT_EQ(2147483647, get<beep::msg_frame>(frm).channel);
 }
 
@@ -451,11 +361,7 @@ TEST_F(BadFrameMessageTest, ParseMessageNumber)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	frame_parser syntax;
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
-	EXPECT_EQ(end, iter);
+	EXPECT_NO_THROW(frm = beep::parse_frame(content));
 	EXPECT_EQ(1U, get<beep::msg_frame>(frm).message);
 }
 
@@ -468,11 +374,7 @@ TEST_F(BadFrameMessageTest, ParseMore)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	frame_parser syntax;
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
-	EXPECT_EQ(end, iter);
+	EXPECT_NO_THROW(frm = beep::parse_frame(content));
 	EXPECT_EQ(false, get<beep::msg_frame>(frm).more);
 }
 
@@ -485,11 +387,7 @@ TEST_F(BadFrameMessageTest, ParseSequenceNumber)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	frame_parser syntax;
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
-	EXPECT_EQ(end, iter);
+	EXPECT_NO_THROW(frm = beep::parse_frame(content));
 	EXPECT_EQ(52U, get<beep::msg_frame>(frm).sequence);
 }
 
@@ -502,11 +400,7 @@ TEST_F(BadFrameMessageTest, ParsePayload)
 		"   <profile uri='http://iana.org/beep/SASL/OTP' />\r\n" // 52
 		"</start>\r\n" // 10
 		"END\r\n";
-	frame_parser syntax;
-	std::string::const_iterator iter = content.begin();
-	std::string::const_iterator end = content.end();
-	EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
-	EXPECT_EQ(end, iter);
+	EXPECT_NO_THROW(frm = beep::parse_frame(content));
 	const std::string payload =
 		"Content-Type: application/beep+xml\r\n\r\n" // 38
 			"<start number='1'>\r\n" // 20
@@ -534,12 +428,7 @@ protected:
 			"</greeting>\r\n"
 			"END\r\n";
 		frm = beep::frame();
-
-		frame_parser syntax;
-		std::string::const_iterator iter = content.begin();
-		std::string::const_iterator end = content.end();
-		EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
-		EXPECT_EQ(end, iter);
+		EXPECT_NO_THROW(frm = beep::parse_frame(content));
 	}
 
 	virtual void TearDown()
@@ -601,12 +490,7 @@ protected:
 			"dan is 1\r\n"
 			"END\r\n";
 		frm = beep::frame();
-
-		frame_parser syntax;
-		std::string::const_iterator iter = content.begin();
-		std::string::const_iterator end = content.end();
-		EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
-		EXPECT_EQ(end, iter);
+		EXPECT_NO_THROW(frm = beep::parse_frame(content));
 	}
 
 	virtual void TearDown()
@@ -671,12 +555,7 @@ protected:
 			"<error code='550'>still working</error>\r\n"
 			"END\r\n";
 		frm = beep::frame();
-
-		frame_parser syntax;
-		std::string::const_iterator iter = content.begin();
-		std::string::const_iterator end = content.end();
-		EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
-		EXPECT_EQ(end, iter);
+		EXPECT_NO_THROW(frm = beep::parse_frame(content));
 	}
 
 	virtual void TearDown()
@@ -734,12 +613,7 @@ protected:
 			"NUL 0 2 . 392 0\r\n"
 			"END\r\n";
 		frm = beep::frame();
-
-		frame_parser syntax;
-		std::string::const_iterator iter = content.begin();
-		std::string::const_iterator end = content.end();
-		EXPECT_NO_THROW(EXPECT_TRUE(phrase_parse(iter, end, syntax, space, frm)));
-		EXPECT_EQ(end, iter);
+		EXPECT_NO_THROW(frm = beep::parse_frame(content));
 	}
 
 	virtual void TearDown()
