@@ -185,8 +185,14 @@ enum reply_action {
 
 class tuning_reply_visitor : public boost::static_visitor<reply_action> {
 public:
-	reply_action operator()(const cmp::greeting_message &) const
+	tuning_reply_visitor (channel_manager &chman) : manager_(chman) { }
+
+	reply_action operator()(const cmp::greeting_message &greeting) const
 	{
+		for (std::vector<std::string>::const_iterator i = greeting.profile_uris.begin();
+			 i != greeting.profile_uris.end(); ++i) {
+			manager_.install_profile(*i);
+		}
 		return session_start_was_requested;
 	}
 
@@ -214,6 +220,8 @@ public:
 	{
 		return session_start_was_accepted;
 	}
+private:
+	channel_manager &manager_;
 };     // tuning_reply_visitor
 
 class tuning_error_visitor : public boost::static_visitor<boost::system::error_code> {
@@ -444,7 +452,7 @@ private:
 			}
 			break;
 		case RPY:
-			switch (apply_visitor(detail::tuning_reply_visitor(), my_node)) {
+			switch (apply_visitor(detail::tuning_reply_visitor(chman_), my_node)) {
 			case detail::session_start_was_requested:
 				session_signal_(boost::system::error_code());
 				break;
