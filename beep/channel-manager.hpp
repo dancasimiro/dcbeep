@@ -41,6 +41,21 @@ public:
 		const std::pair<prof_map::iterator, bool> result =
 			profiles_.insert(make_pair(profile_uri, handler));
 		if (!result.second) {
+			const profile_callback_type installed_callback = result.first->second;
+			if (installed_callback) {
+				throw std::runtime_error("The profile already exists!");
+			} else {
+				profiles_[profile_uri] = handler;
+			}
+		}
+	}
+
+	void install_profile(const std::string &profile_uri)
+	{
+		using std::make_pair;
+		const std::pair<prof_map::iterator, bool> result =
+			profiles_.insert(make_pair(profile_uri, profile_callback_type()));
+		if (!result.second) {
 			throw std::runtime_error("The profile was not installed.");
 		}
 	}
