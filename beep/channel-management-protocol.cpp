@@ -54,18 +54,8 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 		using phoenix::construct;
 		using phoenix::val;
 
-		start_tag %=
-			'<'
-			>> string(_r1)
-			>> '>'
-			;
-
-		end_tag =
-			"</"
-			>> string(_r1)
-			>> '>'
-			;
-
+		// "profile_uri" is a profile element that is not allowed to contain
+		// the encoding attribute, nor any content.
 		profile_uri %=
 			lit("<profile")
 			>> (lit("uri") > '='
@@ -78,10 +68,10 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 
 		empty_greeting_tag = "<greeting />";
 
-		greeting_tag =
-			omit[start_tag(std::string("greeting"))[_a = _1]]
-			> +profile_uri
-			> end_tag(_a)
+		greeting_tag %=
+			("<greeting>"
+			 > +profile_uri
+			 > "</greeting>")
 			| empty_greeting_tag
 			;
 
@@ -89,8 +79,6 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 			greeting_tag
 			;
 
-		start_tag.name("Start of XML Tag");
-		end_tag.name("End of XML Tag");
 		profile_uri.name("Profile Element");
 		empty_greeting_tag.name("Empty Greeting Tag");
 		greeting_tag.name("Greeting Tag");
@@ -111,8 +99,6 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 	}
 
 	qi::rule<Iterator, protocol_node(), skipper_type> xml;
-	qi::rule<Iterator, std::string(std::string), skipper_type> start_tag;
-	qi::rule<Iterator, void(std::string), skipper_type> end_tag;
 	qi::rule<Iterator, std::string(), qi::locals<char>, skipper_type> profile_uri;
 	qi::rule<Iterator, greeting_message(), qi::locals<std::string>, skipper_type> greeting_tag;
 	qi::rule<Iterator, void(), skipper_type> empty_greeting_tag;
