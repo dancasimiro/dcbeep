@@ -75,15 +75,12 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 				)
 			> "/>"
 			;
-		profile_uri_list %=
-			+profile_uri
-			;
 
 		empty_greeting_tag = "<greeting />";
 
 		greeting_tag =
 			omit[start_tag(std::string("greeting"))[_a = _1]]
-			> profile_uri_list
+			> +profile_uri
 			> end_tag(_a)
 			| empty_greeting_tag
 			;
@@ -95,7 +92,6 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 		start_tag.name("Start of XML Tag");
 		end_tag.name("End of XML Tag");
 		profile_uri.name("Profile Element");
-		profile_uri_list.name("Profile List");
 		empty_greeting_tag.name("Empty Greeting Tag");
 		greeting_tag.name("Greeting Tag");
 
@@ -117,7 +113,6 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 	qi::rule<Iterator, protocol_node(), skipper_type> xml;
 	qi::rule<Iterator, std::string(std::string), skipper_type> start_tag;
 	qi::rule<Iterator, void(std::string), skipper_type> end_tag;
-	qi::rule<Iterator, std::vector<std::string>(), skipper_type> profile_uri_list;
 	qi::rule<Iterator, std::string(), qi::locals<char>, skipper_type> profile_uri;
 	qi::rule<Iterator, greeting_message(), qi::locals<std::string>, skipper_type> greeting_tag;
 	qi::rule<Iterator, void(), skipper_type> empty_greeting_tag;
