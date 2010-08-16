@@ -361,9 +361,9 @@ public:
 		EXPECT_NO_THROW(EXPECT_EQ(myFrame, get<beep::msg_frame>(last_frame)));
 
 		const std::string ok_message =
-			"RPY 0 1 . 0 44\r\n"
+			"RPY 0 1 . 0 81\r\n"
 			"Content-Type: application/beep+xml\r\n\r\n" // 38
-			"<ok />" // 6
+			"<profile uri=\"casimiro.daniel/beep/test\" />" // 43
 			"END\r\n";
 		boost::asio::write(socket, boost::asio::buffer(ok_message));
 		ASSERT_NO_THROW(run_event_loop_until_channel_ready());
