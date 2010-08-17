@@ -190,17 +190,24 @@ private:
 				const beep::frame current = *i;
 				const beep::seq_frame * const pseq = boost::get<beep::seq_frame>(&current);
 				if (!pseq) { // is not a SEQ frame
+					// skip over empty MSG heartbeats
+					if (const beep::msg_frame * const pmsg = boost::get<beep::msg_frame>(&current)) {
+						if (pmsg->payload.empty()) {
+							continue;
+						}
+					}
 					have_frame = true;
 					last_frame = current;
-				} else {
-					boost::asio::async_read_until(socket,
-												  buffer,
-												  "END\r\n",
-												  bind(&TimedSessionBase::handle_frame_reception,
-													   this,
-													   boost::asio::placeholders::error,
-													   boost::asio::placeholders::bytes_transferred));
 				}
+			}
+			if (!have_frame) {
+				boost::asio::async_read_until(socket,
+											  buffer,
+											  "END\r\n",
+											  bind(&TimedSessionBase::handle_frame_reception,
+												   this,
+												   boost::asio::placeholders::error,
+												   boost::asio::placeholders::bytes_transferred));
 			}
 		}
 	}
