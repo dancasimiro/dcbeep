@@ -181,6 +181,7 @@ enum reply_action {
 	session_start_was_requested,
 	session_start_was_accepted,
 	invalid_message_received,
+	channel_close_was_accepted,
 };
 
 class tuning_reply_visitor : public boost::static_visitor<reply_action> {
@@ -208,7 +209,7 @@ public:
 
 	reply_action operator()(const cmp::ok_message &) const
 	{
-		return invalid_message_received;
+		return channel_close_was_accepted;
 	}
 
 	reply_action operator()(const cmp::error_message &) const
@@ -457,6 +458,12 @@ private:
 				session_signal_(boost::system::error_code());
 				break;
 			case detail::session_start_was_accepted:
+				tuning_handler_.execute(msg.get_channel().get_message_number(), boost::system::error_code());
+				break;
+			case detail::channel_close_was_accepted:
+				// if msg.channel == tuning_channel
+				//session_signal_(boost::system::error_code());
+				// else
 				tuning_handler_.execute(msg.get_channel().get_message_number(), boost::system::error_code());
 				break;
 			case detail::invalid_message_received:
