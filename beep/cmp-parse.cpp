@@ -1,4 +1,4 @@
-/// \file  channel-management-protocol.cpp
+/// \file  cmp-parse.cpp
 /// \brief Implements parsers and generators for channel management
 ///
 /// UNCLASSIFIED
