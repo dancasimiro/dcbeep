@@ -14,29 +14,13 @@ namespace beep {
 
 class mime {
 public:
-	mime()
-		: type_("Content-Type: application/octet-stream")
-		, encoding_("binary")
-	{
-	}
-
-	mime(const std::string &c, const std::string e)
-		: type_(std::string("Content-Type: ") + c)
-		, encoding_(e)
-	{
-	}
+	mime();
+	mime(const std::string &c, const std::string &e);
 
 	const std::string &get_content_type() const { return type_; }
-	void set_content_type(const std::string &ct)
-	{
-		type_ = std::string("Content-Type: ") + ct;
-	}
+	void set_content_type(const std::string &ct);
 public:
-	static const mime &beep_xml()
-	{
-		static const mime m("application/beep+xml", "binary");
-		return m;
-	}
+	static const mime &beep_xml();
 private:
 	std::string type_;
 	std::string encoding_;
@@ -47,14 +31,7 @@ public:
 	typedef std::string content_type;
 	typedef std::size_t size_type;
 
-	message()
-		: mime_()
-		, content_()
-		, payload_()
-		, type_(0)
-		, channel_()
-	{
-	}
+	message();
 
 	void set_mime(const mime &m)
 	{
@@ -86,22 +63,11 @@ private:
 	unsigned int type_;
 	channel      channel_;
 
-	void update_payload()
-	{
-		static const std::string sep = "\r\n\r\n";
-		payload_ = mime_.get_content_type() + sep + content_;
-	}
+	void update_payload();
 };     // class message
 
-inline bool operator==(const message &lhs, const message &rhs)
-{
-	return lhs.get_payload() == rhs.get_payload();
-}
-
-inline bool operator==(const mime &lhs, const mime &rhs)
-{
-	return lhs.get_content_type() == rhs.get_content_type();
-}
+bool operator==(const message &lhs, const message &rhs);
+bool operator==(const mime &lhs, const mime &rhs);
 
 }      // namespace beep
 #endif // BEEP_MESSAGE_HEAD

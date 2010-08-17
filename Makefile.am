@@ -35,7 +35,10 @@ nobase_include_HEADERS = \
 	beep/transport-service/solo-tcp.hpp
 
 beep_libbeepcore_la_SOURCES = \
-	beep/frame-parser.cpp
+	beep/frame-parser.cpp \
+	beep/message.cpp \
+	beep/message.hpp \
+	beep/message-generator.hpp
 
 beep_libbeepcmp_la_SOURCES = \
 	beep/channel-management-protocol.hpp \
@@ -46,6 +49,9 @@ beep_libbeepcmp_la_SOURCES = \
 	beep/channel-manager.cpp \
 	beep/channel.hpp \
 	beep/channel.cpp
+
+beep_libbeepcmp_la_LIBADD =
+	$(top_builddir)/beep/libbeepcore.la
 
 ###############################################################################
 # Test Programs
@@ -65,7 +71,11 @@ test_utframe_LDADD = $(AM_LDFLAGS) \
 test_utmessage_SOURCES = test/test-message.cpp
 test_utmessage_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
 test_utmessage_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
-test_utmessage_LDADD = $(AM_LDFLAGS) $(top_builddir)/beep/libbeepcmp.la @BOOST_SYSTEM_LIB@ @GTEST_LIBS@
+test_utmessage_LDADD = $(AM_LDFLAGS) \
+	$(top_builddir)/beep/libbeepcore.la \
+	$(top_builddir)/beep/libbeepcmp.la \
+	@BOOST_SYSTEM_LIB@ \
+	@GTEST_LIBS@
 # BEEP session over single TCP/IP connection Unit Test
 # -----------------------------------------------------------------------------
 test_utsolotcp_SOURCES = test/test-solo-tcp-transport-service.cpp
