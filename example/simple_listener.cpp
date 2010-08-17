@@ -4,6 +4,7 @@
 /// UNCLASSIFIED
 #include "beep/transport-service/solo-tcp.hpp"
 #include "beep/session.hpp"
+#include "beep/message-stream.hpp"
 
 #include <iostream>
 #include <stdexcept>
