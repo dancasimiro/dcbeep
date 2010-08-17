@@ -97,7 +97,7 @@ struct output_close_grammar
 		close_channel_tag =
 			string("<close ")
 			<< "number=\""
-			<< uint_[_1 = bind(&close_message::channel, _val), _pass = (_1 < 2147483648u && _1 > 0)]
+			<< uint_[_1 = bind(&close_message::channel, _val), _pass = (_1 < 2147483648u)]
 			<< '\"'
 			<< ' '
 			<< "code=\""
