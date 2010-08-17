@@ -45,6 +45,7 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 		using phoenix::construct;
 		using phoenix::val;
 		using phoenix::assign;
+		using phoenix::push_back;
 
 		// "profile_uri" is a profile element that is not allowed to contain
 		// the encoding attribute, nor any content.
@@ -109,7 +110,7 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 				 )
 				)
 			>> ">"
-			>> +profile_tag
+			>> +profile_tag[push_back(bind(&start_message::profiles, _val), _1)]
 			>> "</start>"
 			;
 
