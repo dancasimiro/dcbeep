@@ -44,6 +44,7 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 
 		using phoenix::construct;
 		using phoenix::val;
+		using phoenix::assign;
 
 		// "profile_uri" is a profile element that is not allowed to contain
 		// the encoding attribute, nor any content.
@@ -61,14 +62,16 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 			"<profile"
 			>> (
 				(lit("uri") > '='
-				> omit[char_("'\"")[_a = _1]]
-				 > lexeme[+(char_ - char_(_a))][bind(&profile_element::uri, _val)]
-				> omit[char_(_a)]
-				)
+				 > omit[char_("'\"")[_a = _1]]
+				 // "lexeme[+(char_ - char_(_a))]" outputs a vector<char>, so save contents by
+				 // saying: _val.uri.assign(output.begin(), output.end())
+				 > lexeme[+(char_ - char_(_a))][assign(bind(&profile_element::uri, _val), begin(_1), end(_1))]
+				 > omit[char_(_a)]
+				 )
 				^
 				(lit("encoding") > '='
 				 > omit[char_("'\"")[_a = _1]]
-				 > lexeme[+(char_ - char_(_a))][bind(&profile_element::encoding, _val)]
+				 > lexeme[+(char_ - char_(_a))][assign(bind(&profile_element::encoding, _val), begin(_1), end(_1))]
 				 > omit[char_(_a)]
 				 )
 				)
@@ -101,7 +104,7 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 				^
 				(lit("serverName") > '='
 				 > char_("'\"")[_a = _1]
-				 > lexeme[+(char_ - char_(_a))][bind(&start_message::server_name, _val)]
+				 > lexeme[+(char_ - char_(_a))][assign(bind(&start_message::server_name, _val), begin(_1), end(_1))]
 				 > omit[char_(_a)]
 				 )
 				)
@@ -130,14 +133,16 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 				^
 				(lit("xml:lang") > '='
 				 > char_("'\"")[_a = _1]
-				 > lexeme[+(char_ - char_(_a))]/*[bind(&start_message::server_name, _val)]*/
+				 > lexeme[+(char_ - char_(_a))][assign(bind(&close_message::language, _val), begin(_1), end(_1))]
 				 > omit[char_(_a)]
 				 )
 				)
 			> (
-				('>' >> lexeme[*(char_ - '<')] >> "</close>")
-				| "/>"
-				)
+			   ('>'
+				>> lexeme[*(char_ - '<')][assign(bind(&close_message::diagnostic, _val), begin(_1), end(_1))]
+				>> "</close>")
+			   | "/>"
+			   )
 			;
 
 		error_tag =
@@ -151,7 +156,7 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 				^
 				(lit("xml:lang") > '='
 				 > char_("'\"")[_a = _1]
-				 > lexeme[+(char_ - char_(_a))]/*[bind(&start_message::server_name, _val)]*/
+				 > lexeme[+(char_ - char_(_a))]
 				 > omit[char_(_a)]
 				 )
 				)
