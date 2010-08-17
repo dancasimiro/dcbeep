@@ -120,6 +120,7 @@ struct output_error_grammar
 	{
 		using karma::uint_;
 		using karma::string;
+		using karma::buffer;
 		using namespace karma::labels;
 		using karma::_1;
 
@@ -128,13 +129,13 @@ struct output_error_grammar
 			<< "code=\""
 			<< uint_[_1 = bind(&error_message::code, _val)]
 			<< '\"'
-			<< -(" language=\""
-				 << string[_1 = bind(&error_message::language, _val)]
-				 << '\"'
-				 )
+			<< -buffer[" language=\""
+					   << string[_1 = bind(&error_message::language, _val), _pass = !bind(&std::string::empty, _1)]
+					   << '\"'
+					   ]
 			<< (
 				('>'
-				 << string[_1 = bind(&error_message::diagnostic, _val)]
+				 << string[_1 = bind(&error_message::diagnostic, _val), _pass = !bind(&std::string::empty, _1)]
 				 << "</error>"
 				 )
 				| " />"
