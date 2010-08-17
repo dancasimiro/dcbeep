@@ -80,10 +80,37 @@ struct output_start_grammar
 	}
 	karma::rule<OutputIterator, profile_element()> profile_tag;
 	karma::rule<OutputIterator, start_message()> start_channel_tag;
-	//karma::rule<OutputIterator, close_message()> close_channel_tag;
-	//karma::rule<OutputIterator, ok_message()> ok_tag;
-	//karma::rule<OutputIterator, error_message()> error_tag;
 };     // output_start_grammar
+
+template <typename OutputIterator>
+struct output_close_grammar
+	: karma::grammar<OutputIterator, close_message()>
+{
+	output_close_grammar()
+		: output_close_grammar::base_type(close_channel_tag)
+	{
+		using karma::uint_;
+		using karma::string;
+		using namespace karma::labels;
+		using karma::_1;
+
+		close_channel_tag =
+			string("<close ")
+			<< "number=\""
+			<< uint_[_1 = bind(&close_message::channel, _val), _pass = (_1 < 2147483648u && _1 > 0)]
+			<< '\"'
+			<< ' '
+			<< "code=\""
+			<< uint_[_1 = bind(&close_message::code, _val)]
+			<< '\"'
+			<< " />"
+			/// \todo add the language attribute
+			/// \todo add the textual diagnostic content
+			;
+	}
+	karma::rule<OutputIterator, close_message()> close_channel_tag;
+	//karma::rule<OutputIterator, error_message()> error_tag;
+};     // output_close_grammar
 
 namespace detail {
 template <class Generator, typename T>
@@ -119,12 +146,13 @@ public:
 		return msg;
 	}
 
-	message operator()(const close_message &/*close*/) const
+	message operator()(const close_message &close) const
 	{
 		message msg;
 		msg.set_mime(mime::beep_xml());
 		msg.set_type(MSG);
-		//msg.set_content(do_generate(close));
+		const output_close_grammar<std::back_insert_iterator<std::string> > grammar;
+		msg.set_content(do_generate(grammar, close));
 		return msg;
 	}
 
