@@ -99,10 +99,12 @@ cmp::protocol_node
 channel_manager::close_channel(const unsigned int channel, const reply_code::rc_enum rc)
 {
 	ch_map::iterator channel_iterator = channels_.find(channel);
-	if (channel > 0 && channel_iterator == channels_.end()) {
+	if (channel_iterator == channels_.end()) {
 		throw std::runtime_error("invalid channel close request!");
 	}
-	channels_.erase(channel_iterator);
+	if (channel != detail::tuning_channel_number()) {
+		channels_.erase(channel_iterator);
+	}
 	cmp::close_message request;
 	request.channel = channel;
 	request.code = rc;
