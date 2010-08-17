@@ -145,6 +145,43 @@ struct output_error_grammar
 	karma::rule<OutputIterator, error_message()> error_tag;
 };     // output_error_grammar
 
+template <typename OutputIterator>
+struct output_profile_grammar
+	: karma::grammar<OutputIterator, profile_element()>
+{
+	output_profile_grammar()
+		: output_profile_grammar::base_type(profile_tag)
+	{
+		using karma::string;
+		using karma::buffer;
+		using namespace karma::labels;
+		using karma::_1;
+
+		profile_tag =
+			string("<profile ")
+			<< "uri=\""
+			<< string[_1 = bind(&profile_element::uri, _val)]
+			<< '\"'
+			<< -buffer[" encoding=\""
+					   << string[_1 = bind(&profile_element::encoding, _val), _pass = !bind(&std::string::empty, _1)]
+					   << '\"'
+					   ]
+#if 0
+			<< (
+				-buffer['>'
+						<< string[_1 = bind(&profile_element::initialization, _val), _pass = !bind(&std::string::empty, _1)]
+						<< "</profile>"
+						]
+				| " />"
+				)
+#endif
+			/// \todo encode the initialization message
+			<< " />"
+			;
+	}
+	karma::rule<OutputIterator, profile_element()> profile_tag;
+};     // output_profile_grammar
+
 namespace detail {
 template <class Generator, typename T>
 std::string do_generate(const Generator &generator, const T &in)
@@ -208,12 +245,13 @@ public:
 		return msg;
 	}
 
-	message operator()(const profile_element &/*profile*/) const
+	message operator()(const profile_element &profile) const
 	{
 		message msg;
 		msg.set_mime(mime::beep_xml());
 		msg.set_type(RPY);
-		//msg.set_content(do_generate(profile));
+		const output_profile_grammar<std::back_insert_iterator<std::string> > grammar;
+		msg.set_content(do_generate(grammar, profile));
 		return msg;
 	}
 };     // node_to_message_visitor
