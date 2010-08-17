@@ -15,3 +15,9 @@ BOOST_FUSION_ADAPT_STRUCT(beep::cmp::close_message,
 						  (std::string, language)
 						  (std::string, diagnostic)
 						  )
+
+BOOST_FUSION_ADAPT_STRUCT(beep::cmp::error_message,
+						  (unsigned int, code)
+						  (std::string, language)
+						  (std::string, diagnostic)
+						  )

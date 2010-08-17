@@ -109,8 +109,40 @@ struct output_close_grammar
 			;
 	}
 	karma::rule<OutputIterator, close_message()> close_channel_tag;
-	//karma::rule<OutputIterator, error_message()> error_tag;
 };     // output_close_grammar
+
+template <typename OutputIterator>
+struct output_error_grammar
+	: karma::grammar<OutputIterator, error_message()>
+{
+	output_error_grammar()
+		: output_error_grammar::base_type(error_tag)
+	{
+		using karma::uint_;
+		using karma::string;
+		using namespace karma::labels;
+		using karma::_1;
+
+		error_tag =
+			string("<error ")
+			<< "code=\""
+			<< uint_[_1 = bind(&error_message::code, _val)]
+			<< '\"'
+			<< -(" language=\""
+				 << string[_1 = bind(&error_message::language, _val)]
+				 << '\"'
+				 )
+			<< (
+				('>'
+				 << string[_1 = bind(&error_message::diagnostic, _val)]
+				 << "</error>"
+				 )
+				| " />"
+				)
+			;
+	}
+	karma::rule<OutputIterator, error_message()> error_tag;
+};     // output_error_grammar
 
 namespace detail {
 template <class Generator, typename T>
@@ -165,12 +197,13 @@ public:
 		return msg;
 	}
 
-	message operator()(const error_message &/*error*/) const
+	message operator()(const error_message &error) const
 	{
 		message msg;
 		msg.set_mime(mime::beep_xml());
 		msg.set_type(RPY);
-		//msg.set_content(do_generate(error));
+		const output_error_grammar<std::back_insert_iterator<std::string> > grammar;
+		msg.set_content(do_generate(grammar, error));
 		return msg;
 	}
 

@@ -135,12 +135,34 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 				)
 			;
 
+		error_tag =
+			"<error"
+			>> (
+				(lit("code") > '='
+				 > char_("'\"")[_a = _1]
+				 > uint_
+				 > omit[char_(_a)]
+				 )
+				^
+				(lit("xml:lang") > '='
+				 > char_("'\"")[_a = _1]
+				 > lexeme[+(char_ - char_(_a))]/*[bind(&start_message::server_name, _val)]*/
+				 > omit[char_(_a)]
+				 )
+				)
+			> (
+				('>' >> lexeme[*(char_ - '<')] >> "</error>")
+				| "/>"
+				)
+			;
+
 		xml %=
 			greeting_tag
 			| profile_tag
 			| start_channel_tag
 			| ok_tag
 			| close_channel_tag
+			| error_tag
 			;
 
 		profile_uri.name("Profile Element");
@@ -150,6 +172,7 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 		start_channel_tag.name("Start Channel Tag");
 		ok_tag.name("OK tag");
 		close_channel_tag.name("Close Channel Tag");
+		error_tag.name("Error Tag");
 
 		on_error<fail>
 			(
@@ -174,6 +197,7 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 	qi::rule<Iterator, start_message(), qi::locals<char>, skipper_type> start_channel_tag;
 	qi::rule<Iterator, ok_message(), skipper_type> ok_tag;
 	qi::rule<Iterator, close_message(), qi::locals<char>, skipper_type> close_channel_tag;
+	qi::rule<Iterator, error_message(), qi::locals<char>, skipper_type> error_tag;
 };     // input_protocol_grammar
 
 protocol_node parse(const message &my_message)
