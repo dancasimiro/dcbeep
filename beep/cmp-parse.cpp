@@ -113,7 +113,8 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 		ok_tag = eps[_val = ok_message()] >> "<ok" > "/>";
 
 		close_channel_tag =
-			"<close"
+			eps[_val = close_message()]
+			>> "<close"
 			>> (
 				(lit("number") > '='
 				 > char_("'\"")[_a = _1]
