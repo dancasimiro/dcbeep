@@ -91,7 +91,11 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 			>> (
 				(lit("number") > '='
 				 > char_("'\"")[_a = _1]
-				 > uint_[_pass = _1 < 2147483648u, bind(&start_message::channel, _val)]
+				 // meaning of "bind(&start_message::channel, _val) = _1" ----
+				 //  This reads: Assign the output of the parser (uint_) to the "channel" member
+				 //              variable of object _val. _val is an object of type start_message,
+				 //              as defined in the rule definition.
+				 > uint_[_pass = _1 < 2147483648u, bind(&start_message::channel, _val) = _1]
 				 > omit[char_(_a)]
 				 )
 				^
@@ -113,13 +117,13 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 			>> (
 				(lit("number") > '='
 				 > char_("'\"")[_a = _1]
-				 > uint_[_pass = _1 < 2147483648u/*, bind(&start_message::channel, _val)*/]
+				 > uint_[_pass = _1 < 2147483648u, bind(&close_message::channel, _val) = _1]
 				 > omit[char_(_a)]
 				 )
 				^
 				(lit("code") > '='
 				 > char_("'\"")[_a = _1]
-				 > uint_
+				 > uint_[bind(&close_message::code, _val) = _1]
 				 > omit[char_(_a)]
 				 )
 				^
