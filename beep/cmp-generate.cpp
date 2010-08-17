@@ -128,12 +128,12 @@ public:
 		return msg;
 	}
 
-	message operator()(const ok_message &/*ok*/) const
+	message operator()(const ok_message &) const
 	{
 		message msg;
 		msg.set_mime(mime::beep_xml());
 		msg.set_type(RPY);
-		//msg.set_content(do_generate(ok));
+		msg.set_content("<ok />");
 		return msg;
 	}
 
