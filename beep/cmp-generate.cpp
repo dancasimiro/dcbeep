@@ -202,7 +202,7 @@ public:
 	{
 		message msg;
 		msg.set_mime(mime::beep_xml());
-		msg.set_type(RPY);
+		msg.set_type(ERR);
 		const output_error_grammar<std::back_insert_iterator<std::string> > grammar;
 		msg.set_content(do_generate(grammar, error));
 		return msg;
