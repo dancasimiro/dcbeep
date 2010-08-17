@@ -10,6 +10,7 @@
 #include <utility>
 #include "channel-manager.hpp"
 #include "message.hpp"
+#include "reply-code.hpp"
 
 namespace beep {
 
@@ -75,8 +76,10 @@ channel_manager::peer_requested_channel_close(const cmp::close_message &close_ms
 	ch_map::iterator channel_iterator = channels_.find(close_msg.channel);
 	if (close_msg.channel > 0 && channel_iterator == channels_.end()) {
 		cmp::error_message err;
-		err.code = 550;
-		err.diagnostic = "The requested channel was not in use.";
+		err.code = reply_code::requested_action_not_accepted;
+		std::ostringstream estrm;
+		estrm << "The requested channel(" << close_msg.channel << ") was not in use.";
+		err.diagnostic = estrm.str();
 		return err;
 	}
 	if (close_msg.channel != detail::tuning_channel_number()) {
