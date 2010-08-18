@@ -221,7 +221,7 @@ struct frame_parser : qi::grammar<Iterator, frame(), skipper_type> {
 			> trailer
 			;
 
-		data %= msg
+		data = msg
 			| rpy
 			| ans
 			| err
@@ -234,9 +234,9 @@ struct frame_parser : qi::grammar<Iterator, frame(), skipper_type> {
 			> size
 			> terminator_rule
 			;
-		mapping %= seq;
+		mapping = seq;
 
-		frame_rule %= data | mapping;
+		frame_rule = data | mapping;
 
 		terminator_rule.name("terminator");
 		trailer.name("trailer");
