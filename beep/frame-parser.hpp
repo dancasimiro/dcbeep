@@ -13,6 +13,7 @@
 namespace beep {
 
 void parse_frames(std::istream &stream, std::vector<frame> &frames, std::string &left_over);
+frame parse_frame(std::istream &content);
 frame parse_frame(const std::string &content);
 
 }      // namespace beep

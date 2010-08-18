@@ -342,4 +342,20 @@ parse_frame(const std::string &content)
 	return myFrame;
 }
 
+frame
+parse_frame(std::istream &stream)
+{
+	const std::ios::fmtflags given_flags = stream.flags();
+	stream.unsetf(std::ios::skipws);
+	const frame_parser<boost::spirit::istream_iterator> grammar;
+	frame myFrame;
+	boost::spirit::istream_iterator begin(stream);
+	const boost::spirit::istream_iterator end;
+	if (!phrase_parse(begin, end, grammar, INPUT_SKIPPER_RULE, myFrame)) {
+		throw std::runtime_error("Bad frame (stream) parse!");
+	}
+	stream.setf(given_flags);
+	return myFrame;
+}
+
 }      // namespace beep
