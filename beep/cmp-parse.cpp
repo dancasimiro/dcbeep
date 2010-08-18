@@ -20,8 +20,7 @@ namespace qi = boost::spirit::qi;
 namespace ascii = boost::spirit::ascii;
 namespace phoenix = boost::phoenix;
 
-#define INPUT_SKIPPER_RULE ((qi::space | qi::eol))
-
+#define INPUT_SKIPPER_RULE (qi::space)
 typedef BOOST_TYPEOF(INPUT_SKIPPER_RULE) skipper_type;
 
 template <typename Iterator>
@@ -220,7 +219,7 @@ protocol_node parse(const message &my_message)
 	const std::string::const_iterator end = msg_content.end();
 	input_protocol_grammar<std::string::const_iterator> my_grammar;
 	protocol_node my_node;
-	if (!phrase_parse(i, end, my_grammar, INPUT_SKIPPER_RULE, my_node) /*|| i != end*/) {
+	if (!phrase_parse(i, end, my_grammar, INPUT_SKIPPER_RULE, my_node)) {
 		std::ostringstream estrm;
 		estrm << "could not parse channel management message: "
 			  << msg_content;
