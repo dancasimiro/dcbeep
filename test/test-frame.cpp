@@ -168,6 +168,82 @@ TEST(PayloadParse, Valid)
 	EXPECT_EQ("Some Payload", get<beep::msg_frame>(aFrame).payload);
 }
 
+TEST(MessageWithParital, Valid)
+{
+	static const std::string content =
+		"MSG 19 2 . 3 12\r\nSome PayloadEND\r\n"
+		"MSG 19 3"
+		;
+
+	std::istringstream stream(content);
+
+	std::vector<beep::frame> my_frames;
+	EXPECT_NO_THROW(beep::parse_frames(stream, my_frames));
+	ASSERT_EQ(1, my_frames.size());
+
+	EXPECT_NO_THROW(get<beep::msg_frame>(my_frames[0]));
+	EXPECT_EQ(19u, get<beep::msg_frame>(my_frames[0]).channel);
+	EXPECT_EQ(2u, get<beep::msg_frame>(my_frames[0]).message);
+	EXPECT_FALSE(get<beep::msg_frame>(my_frames[0]).more);
+	EXPECT_EQ(3u, get<beep::msg_frame>(my_frames[0]).sequence);
+	EXPECT_EQ("Some Payload", get<beep::msg_frame>(my_frames[0]).payload);
+}
+
+TEST(MultipleMessages, Valid)
+{
+	static const std::string content =
+		"MSG 19 2 . 3 12\r\nSome PayloadEND\r\n"
+		"NUL 19 2 . 3 0\r\nEND\r\n"
+		;
+
+	std::istringstream stream(content);
+
+	std::vector<beep::frame> my_frames;
+	EXPECT_NO_THROW(beep::parse_frames(stream, my_frames));
+	ASSERT_EQ(2, my_frames.size());
+
+	EXPECT_NO_THROW(get<beep::msg_frame>(my_frames[0]));
+	EXPECT_EQ(19u, get<beep::msg_frame>(my_frames[0]).channel);
+	EXPECT_EQ(2u, get<beep::msg_frame>(my_frames[0]).message);
+	EXPECT_FALSE(get<beep::msg_frame>(my_frames[0]).more);
+	EXPECT_EQ(3u, get<beep::msg_frame>(my_frames[0]).sequence);
+	EXPECT_EQ("Some Payload", get<beep::msg_frame>(my_frames[0]).payload);
+
+	EXPECT_NO_THROW(get<beep::nul_frame>(my_frames[1]));
+	EXPECT_EQ(19u, get<beep::nul_frame>(my_frames[1]).channel);
+	EXPECT_EQ(2u, get<beep::nul_frame>(my_frames[1]).message);
+	EXPECT_FALSE(get<beep::nul_frame>(my_frames[1]).more);
+	EXPECT_EQ(3u, get<beep::nul_frame>(my_frames[1]).sequence);
+}
+
+TEST(MultipleMessagesWithParital, Valid)
+{
+	static const std::string content =
+		"MSG 19 2 . 3 12\r\nSome PayloadEND\r\n"
+		"NUL 19 2 . 3 0\r\nEND\r\n"
+		"MSG 19 3"
+		;
+
+	std::istringstream stream(content);
+
+	std::vector<beep::frame> my_frames;
+	EXPECT_NO_THROW(beep::parse_frames(stream, my_frames));
+	ASSERT_EQ(2, my_frames.size());
+
+	EXPECT_NO_THROW(get<beep::msg_frame>(my_frames[0]));
+	EXPECT_EQ(19u, get<beep::msg_frame>(my_frames[0]).channel);
+	EXPECT_EQ(2u, get<beep::msg_frame>(my_frames[0]).message);
+	EXPECT_FALSE(get<beep::msg_frame>(my_frames[0]).more);
+	EXPECT_EQ(3u, get<beep::msg_frame>(my_frames[0]).sequence);
+	EXPECT_EQ("Some Payload", get<beep::msg_frame>(my_frames[0]).payload);
+
+	EXPECT_NO_THROW(get<beep::nul_frame>(my_frames[1]));
+	EXPECT_EQ(19u, get<beep::nul_frame>(my_frames[1]).channel);
+	EXPECT_EQ(2u, get<beep::nul_frame>(my_frames[1]).message);
+	EXPECT_FALSE(get<beep::nul_frame>(my_frames[1]).more);
+	EXPECT_EQ(3u, get<beep::nul_frame>(my_frames[1]).sequence);
+}
+
 TEST(BinaryParse, Valid)
 {
 	const float some_data[] = { 1.0f, 2.0f, 3.0f, 4.0f };

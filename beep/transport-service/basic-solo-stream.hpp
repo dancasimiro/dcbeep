@@ -297,9 +297,8 @@ private:
 		timer_.cancel();
 		if (!error || error == boost::asio::error::message_size) {
 			std::vector<frame> current_frames;
-			std::string partial;
 			istream stream(&rsb_);
-			parse_frames(stream, current_frames, partial);
+			parse_frames(stream, current_frames);
 			std::size_t num_frames = 0;
 			for (std::vector<frame>::const_iterator i = current_frames.begin(); i != current_frames.end(); ++i) {
 				const beep::frame current = *i;
@@ -317,11 +316,6 @@ private:
 				}
 			}
 			if (num_frames) {
-				if (!partial.empty()) { // there is a partial message at the end of the streambuf
-					// stuff the partial message back into the streambuf
-					ostream reset_stream(&rsb_);
-					reset_stream << partial;
-				}
 				do_start_read();
 			} else {
 				// There must be at least one valid parsed frame because I read

@@ -184,8 +184,7 @@ private:
 			std::istream stream(&buffer);
 			stream.unsetf(std::ios::skipws);
 			std::vector<beep::frame> current_frames;
-			std::string partial_frame;
-			beep::parse_frames(stream, current_frames, partial_frame);
+			beep::parse_frames(stream, current_frames);
 			for (std::vector<beep::frame>::const_iterator i = current_frames.begin(); i != current_frames.end(); ++i) {
 				const beep::frame current = *i;
 				const beep::seq_frame * const pseq = boost::get<beep::seq_frame>(&current);

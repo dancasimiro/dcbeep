@@ -306,7 +306,7 @@ struct frame_parser : qi::grammar<Iterator, frame(), skipper_type> {
 };     // struct frame_grammar
 
 void
-parse_frames(std::istream &stream, std::vector<frame> &frames, std::string &left_over)
+parse_frames(std::istream &stream, std::vector<frame> &frames)
 {
 	const std::ios::fmtflags given_flags = stream.flags();
 	stream.unsetf(std::ios::skipws);
@@ -317,14 +317,6 @@ parse_frames(std::istream &stream, std::vector<frame> &frames, std::string &left
 	// begin is updated on each pass to the next valid position
 	while (phrase_parse(begin, end, grammar, INPUT_SKIPPER_RULE, current)) {
 		frames.push_back(current);
-		// check if there is a frame trailer at the end of this buffer
-		if (begin != end && std::string(begin, end).find(sentinel()) == std::string::npos) {
-			// Need to read more data before this partial message can be parsed.
-			break;
-		}
-	}
-	if (begin != end) { // there is a partial message at the end of the streambuf
-		left_over = std::string(begin, end);
 	}
 	stream.setf(given_flags);
 }
