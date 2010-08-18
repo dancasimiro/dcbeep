@@ -154,12 +154,12 @@ struct frame_parser : qi::grammar<Iterator, frame(), skipper_type> {
 		trailer = sentinel(); // terminator (\r\n) is included in sentinel().
 
 		// header components
-		channel %= uint_[_pass = _1 < 2147483648u];
-		message_number %= uint_[_pass = _1 < 2147483648u];
+		channel = uint_[_pass = _1 < 2147483648u, _val = _1];
+		message_number = uint_[_pass = _1 < 2147483648u, _val = _1];
 		more %= continuation_symbols;
-		sequence_number %= uint_[_pass = _1 <= 4294967295u];
-		size %= uint_[_pass = _1 < 2147483648u];
-		answer_number %= uint_[_pass = _1 <= 4294967295u];
+		sequence_number = uint_[_pass = _1 <= 4294967295u, _val = _1];
+		size = uint_[_pass = _1 < 2147483648u, _val = _1];
+		answer_number = uint_[_pass = _1 <= 4294967295u, _val = _1];
 
 		//common %= skip(space)[channel >> message_number >> more >> sequence_number >> size[_a = _1]];
 
