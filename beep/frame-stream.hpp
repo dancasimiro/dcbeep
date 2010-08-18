@@ -5,6 +5,7 @@
 #define BEEP_FRAME_STREAM_HEAD 1
 
 #include <istream>
+#include <stdexcept>
 #include "frame.hpp"
 #include "frame-parser.hpp"
 
@@ -125,20 +126,11 @@ std::istream&
 operator>>(std::istream &stream, beep::frame &aFrame)
 {
 	if (stream) {
-		const std::ios::fmtflags given_flags = stream.flags();
-		stream.unsetf(std::ios::skipws);
-
-		std::vector<frame> frames;
-		std::string leftover;
-		/// \todo read only a single frame
-		parse_frames(stream, frames, leftover);
-		/// \todo restore "leftover" to stream
-
-		if (frames.empty()) {
+		try {
+			aFrame = parse_frame(stream);
+		} catch (const std::exception &ex) {
+			std::cerr << "The frame could not be parsed: " << ex.what() << std::endl;
 			stream.setstate(std::ios::failbit);
-		} else {
-			aFrame = frames.front();
-			stream.setf(given_flags);
 		}
 	}
 	return stream;
