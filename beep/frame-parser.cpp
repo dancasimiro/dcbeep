@@ -308,6 +308,8 @@ struct frame_parser : qi::grammar<Iterator, frame(), skipper_type> {
 void
 parse_frames(std::istream &stream, std::vector<frame> &frames, std::string &left_over)
 {
+	const std::ios::fmtflags given_flags = stream.flags();
+	stream.unsetf(std::ios::skipws);
 	const frame_parser<boost::spirit::istream_iterator> grammar;
 	frame current;
 	boost::spirit::istream_iterator begin(stream);
@@ -324,6 +326,7 @@ parse_frames(std::istream &stream, std::vector<frame> &frames, std::string &left
 	if (begin != end) { // there is a partial message at the end of the streambuf
 		left_over = std::string(begin, end);
 	}
+	stream.setf(given_flags);
 }
 
 frame

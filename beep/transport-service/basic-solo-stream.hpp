@@ -299,7 +299,6 @@ private:
 			std::vector<frame> current_frames;
 			std::string partial;
 			istream stream(&rsb_);
-			stream.unsetf(std::ios::skipws);
 			parse_frames(stream, current_frames, partial);
 			std::size_t num_frames = 0;
 			for (std::vector<frame>::const_iterator i = current_frames.begin(); i != current_frames.end(); ++i) {
