@@ -161,8 +161,6 @@ struct frame_parser : qi::grammar<Iterator, frame(), skipper_type> {
 		size = uint_[_pass = _1 < 2147483648u, _val = _1];
 		answer_number = uint_[_pass = _1 <= 4294967295u, _val = _1];
 
-		//common %= skip(space)[channel >> message_number >> more >> sequence_number >> size[_a = _1]];
-
 		payload %= no_skip[repeat(_r1)[byte_]];
 
 		msg %= "MSG"
@@ -245,7 +243,6 @@ struct frame_parser : qi::grammar<Iterator, frame(), skipper_type> {
 		more.name("more");
 		sequence_number.name("sequence_number");
 		size.name("size");
-		//common.name("common");
 		payload.name("payload");
 		msg.name("MSG");
 		rpy.name("RPY");
@@ -281,7 +278,6 @@ struct frame_parser : qi::grammar<Iterator, frame(), skipper_type> {
 	qi::rule<Iterator, std::size_t(), skipper_type> sequence_number;
 	qi::rule<Iterator, std::size_t(), skipper_type> size;
 	qi::rule<Iterator, std::size_t(), skipper_type> answer_number;
-	//qi::rule<Iterator, basic_frame(), qi::locals<std::size_t> > common;
 
 	// supported data header types
 	// RFC 3080: The BEEP Core
