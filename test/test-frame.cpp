@@ -6,7 +6,7 @@
 
 #include <string>
 #include "beep/frame.hpp"
-#include "beep/frame-stream.hpp"
+#include "beep/frame-parser.hpp"
 
 using beep::frame;
 using boost::get;
