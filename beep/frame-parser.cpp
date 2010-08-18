@@ -99,13 +99,9 @@ struct frame_parser : qi::grammar<Iterator, frame(), skipper_type> {
 		using qi::no_skip;
 		using qi::omit;
 		using qi::repeat;
-		using qi::on_error;
-		using qi::fail;
 		using qi::byte_;
 		using namespace qi::labels;
 
-		using phoenix::construct;
-		using phoenix::val;
 		// The channel number ("channel") must be a non-negative integer (in the
 		// range 0..2147483647).
 
@@ -254,6 +250,12 @@ struct frame_parser : qi::grammar<Iterator, frame(), skipper_type> {
 		mapping.name("mapping");
 		frame_rule.name("frame");
 
+		// removing this specification restores the default behavior. The default behavior
+		// is to throw an exception when the input is not matched.
+		using qi::on_error;
+		using qi::fail;
+		using phoenix::construct;
+		using phoenix::val;
 		on_error<fail>
 			(
 			 frame_rule
