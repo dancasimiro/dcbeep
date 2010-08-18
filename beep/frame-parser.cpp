@@ -25,75 +25,15 @@ namespace ascii = boost::spirit::ascii;
 #define INPUT_SKIPPER_RULE (qi::space - terminator())
 typedef BOOST_TYPEOF(INPUT_SKIPPER_RULE) skipper_type;
 
-struct continuation_symbols : qi::symbols<char, bool> {
-	continuation_symbols()
+struct continuation_symbols_ : qi::symbols<char, bool> {
+	continuation_symbols_()
 	{
 		add
 			("*", true)
 			(".", false)
 			;
 	}
-};     // struct continuation_symbols
-
-inline
-continuation_symbols &get_continuation_symbols()
-{
-	static continuation_symbols symbols;
-	return symbols;
-}
-
-// this object is copied by the symbol::for_each function.
-// Therefore, the symbol_ object is lost. Use an internal pointer
-// to keep the results available to the calling function.
-template <typename T>
-class symbol_table_reverse_lookup {
-private:
-	typedef std::string string_type;
-	typedef boost::shared_ptr<string_type> ptr_type;
-	T        key_;
-	ptr_type symbol_;
-public:
-	typedef T key_type;
-	symbol_table_reverse_lookup(const key_type k) : key_(k), symbol_(new string_type) { }
-
-	symbol_table_reverse_lookup(const symbol_table_reverse_lookup &src)
-		: key_(src.key_), symbol_(src.symbol_)
-	{
-	}
-
-	symbol_table_reverse_lookup &operator=(const symbol_table_reverse_lookup &src)
-	{
-		if (this != &src) {
-			this->key_ = src.key_;
-			this->symbol_ = src.symbol_;
-		}
-		return *this;
-	}
-
-	void operator()(const string_type &s, const key_type k)
-	{
-		if (k == key_) {
-			*symbol_ = s;
-		}
-	}
-
-	const string_type &symbol() const { return *symbol_; }
-};     // symbol_table_reverse_lookup
-
-template <typename T>
-bool continuation_lookup(const T &sym)
-{
-	using std::transform;
-	const continuation_symbols &table = get_continuation_symbols();
-	// convert the symbol to lowercase
-	T mySymbol = sym;
-	transform(mySymbol.begin(), mySymbol.end(), mySymbol.begin(), tolower);
-	const bool * const ptr = table.find(mySymbol);
-	if (!ptr) {
-		throw std::range_error("This continuation symbol is unknown.");
-	}
-	return *ptr;
-}
+} continuation_symbols;     // struct continuation_symbols
 
 }      // namespace beep
 
@@ -216,7 +156,7 @@ struct frame_parser : qi::grammar<Iterator, frame(), skipper_type> {
 		// header components
 		channel %= uint_[_pass = _1 < 2147483648u];
 		message_number %= uint_[_pass = _1 < 2147483648u];
-		more %= get_continuation_symbols();
+		more %= continuation_symbols;
 		sequence_number %= uint_[_pass = _1 <= 4294967295u];
 		size %= uint_[_pass = _1 < 2147483648u];
 		answer_number %= uint_[_pass = _1 <= 4294967295u];
