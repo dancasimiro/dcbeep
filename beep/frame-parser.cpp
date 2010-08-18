@@ -22,6 +22,9 @@ namespace phoenix = boost::phoenix;
 namespace qi = boost::spirit::qi;
 namespace ascii = boost::spirit::ascii;
 
+#define INPUT_SKIPPER_RULE (qi::space - terminator())
+typedef BOOST_TYPEOF(INPUT_SKIPPER_RULE) skipper_type;
+
 struct continuation_symbols : qi::symbols<char, bool> {
 	continuation_symbols()
 	{
@@ -144,7 +147,7 @@ BOOST_FUSION_ADAPT_STRUCT(beep::nul_frame,
 namespace beep {
 
 template <typename Iterator>
-struct frame_parser : qi::grammar<Iterator, frame()> {
+struct frame_parser : qi::grammar<Iterator, frame(), skipper_type> {
 
 	frame_parser() : frame_parser::base_type(frame_rule)
 	{
@@ -153,11 +156,8 @@ struct frame_parser : qi::grammar<Iterator, frame()> {
 		using qi::_2;
 		using qi::_3;
 		using qi::_4;
-		using qi::lit;
-		using qi::skip;
 		using qi::no_skip;
 		using qi::omit;
-		using qi::space;
 		using qi::repeat;
 		using qi::on_error;
 		using qi::fail;
@@ -223,62 +223,62 @@ struct frame_parser : qi::grammar<Iterator, frame()> {
 
 		//common %= skip(space)[channel >> message_number >> more >> sequence_number >> size[_a = _1]];
 
-		payload %= repeat(_r1)[byte_];
+		payload %= no_skip[repeat(_r1)[byte_]];
 
-		msg %= no_skip["MSG"]
-			> skip(space)[channel]
-			> skip(space)[message_number]
-			> skip(space)[more]
-			> skip(space)[sequence_number]
-			> omit[skip(space)[size[_a = _1]]]
-			> no_skip[terminator_rule]
-			> no_skip[payload(_a)]
-			> no_skip[trailer]
+		msg %= "MSG"
+			> channel
+			> message_number
+			> more
+			> sequence_number
+			> omit[size[_a = _1]]
+			> terminator_rule
+			> payload(_a)
+			> trailer
 			;
 
-		rpy %= no_skip["RPY"]
-			> skip(space)[channel]
-			> skip(space)[message_number]
-			> skip(space)[more]
-			> skip(space)[sequence_number]
-			> omit[skip(space)[size[_a = _1]]]
-			> no_skip[terminator_rule]
-			> no_skip[payload(_a)]
-			> no_skip[trailer]
+		rpy %= "RPY"
+			> channel
+			> message_number
+			> more
+			> sequence_number
+			> omit[size[_a = _1]]
+			> terminator_rule
+			> payload(_a)
+			> trailer
 			;
 
-		ans %= no_skip["ANS"]
-			> skip(space)[channel]
-			> skip(space)[message_number]
-			> skip(space)[more]
-			> skip(space)[sequence_number]
-			> omit[skip(space)[size[_a = _1]]]
-			> skip(space)[answer_number]
-			> no_skip[terminator_rule]
-			> no_skip[payload(_a)]
-			> no_skip[trailer]
+		ans %= "ANS"
+			> channel
+			> message_number
+			> more
+			> sequence_number
+			> omit[size[_a = _1]]
+			> answer_number
+			> terminator_rule
+			> payload(_a)
+			> trailer
 			;
 
-		err %= no_skip["ERR"]
-			> skip(space)[channel]
-			> skip(space)[message_number]
-			> skip(space)[more]
-			> skip(space)[sequence_number]
-			> omit[skip(space)[size[_a = _1]]]
-			> no_skip[terminator_rule]
-			> no_skip[payload(_a)]
-			> no_skip[trailer]
+		err %= "ERR"
+			> channel
+			> message_number
+			> more
+			> sequence_number
+			> omit[size[_a = _1]]
+			> terminator_rule
+			> payload(_a)
+			> trailer
 			;
 
-		nul %= no_skip["NUL"]
-			> skip(space)[channel]
-			> skip(space)[message_number]
-			> skip(space)[more]
-			> skip(space)[sequence_number]
-			> omit[skip(space)[size[_a = _1]]]
-			> no_skip[terminator_rule]
-			> no_skip[payload(_a)]
-			> no_skip[trailer]
+		nul %= "NUL"
+			> channel
+			> message_number
+			> more
+			> sequence_number
+			> omit[size[_a = _1]]
+			> terminator_rule
+			> payload(_a)
+			> trailer
 			;
 
 		data %= msg
@@ -288,11 +288,11 @@ struct frame_parser : qi::grammar<Iterator, frame()> {
 			| nul
 			;
 
-		seq %= no_skip["SEQ"]
-			> skip(space)[channel]
-			> skip(space)[sequence_number]
-			> skip(space)[size]
-			> no_skip[terminator_rule]
+		seq %= "SEQ"
+			> channel
+			> sequence_number
+			> size
+			> terminator_rule
 			;
 		mapping %= seq;
 
@@ -332,48 +332,48 @@ struct frame_parser : qi::grammar<Iterator, frame()> {
 			 );
 	}
 
-	qi::rule<Iterator> terminator_rule;
+	qi::rule<Iterator, skipper_type> terminator_rule;
 
 	// header components
-	qi::rule<Iterator, std::size_t()> channel;
-	qi::rule<Iterator, std::size_t()> message_number;
-	qi::rule<Iterator, bool()> more;
-	qi::rule<Iterator, std::size_t()> sequence_number;
-	qi::rule<Iterator, std::size_t()> size;
-	qi::rule<Iterator, std::size_t()> answer_number;
+	qi::rule<Iterator, std::size_t(), skipper_type> channel;
+	qi::rule<Iterator, std::size_t(), skipper_type> message_number;
+	qi::rule<Iterator, bool(), skipper_type> more;
+	qi::rule<Iterator, std::size_t(), skipper_type> sequence_number;
+	qi::rule<Iterator, std::size_t(), skipper_type> size;
+	qi::rule<Iterator, std::size_t(), skipper_type> answer_number;
 	//qi::rule<Iterator, basic_frame(), qi::locals<std::size_t> > common;
 
 	// supported data header types
 	// RFC 3080: The BEEP Core
-	qi::rule<Iterator, msg_frame(), qi::locals<std::size_t> > msg;
-	qi::rule<Iterator, rpy_frame(), qi::locals<std::size_t> > rpy;
-	qi::rule<Iterator, ans_frame(), qi::locals<std::size_t> > ans;
-	qi::rule<Iterator, err_frame(), qi::locals<std::size_t> > err;
-	qi::rule<Iterator, nul_frame(), qi::locals<std::size_t> > nul;
+	qi::rule<Iterator, msg_frame(), qi::locals<std::size_t>, skipper_type> msg;
+	qi::rule<Iterator, rpy_frame(), qi::locals<std::size_t>, skipper_type> rpy;
+	qi::rule<Iterator, ans_frame(), qi::locals<std::size_t>, skipper_type> ans;
+	qi::rule<Iterator, err_frame(), qi::locals<std::size_t>, skipper_type> err;
+	qi::rule<Iterator, nul_frame(), qi::locals<std::size_t>, skipper_type> nul;
 
 	// supported mapping header types
 	// RFC 3081: Mapping the BEEP Core onto TCP
-	qi::rule<Iterator, seq_frame()> seq;
+	qi::rule<Iterator, seq_frame(), skipper_type> seq;
 
 	// rules to select the current header
-	qi::rule<Iterator, frame()> data;
-	qi::rule<Iterator, frame()> mapping;
+	qi::rule<Iterator, frame(), skipper_type> data;
+	qi::rule<Iterator, frame(), skipper_type> mapping;
 
-	qi::rule<Iterator, std::string(std::size_t)> payload;
-	qi::rule<Iterator> trailer;
+	qi::rule<Iterator, std::string(std::size_t), skipper_type> payload;
+	qi::rule<Iterator, skipper_type> trailer;
 
-	qi::rule<Iterator, frame()> frame_rule;
+	qi::rule<Iterator, frame(), skipper_type> frame_rule;
 };     // struct frame_grammar
 
 void
 parse_frames(std::istream &stream, std::vector<frame> &frames, std::string &left_over)
 {
-	frame_parser<boost::spirit::istream_iterator> grammar;
+	const frame_parser<boost::spirit::istream_iterator> grammar;
 	frame current;
 	boost::spirit::istream_iterator begin(stream);
 	const boost::spirit::istream_iterator end;
 	// begin is updated on each pass to the next valid position
-	while (parse(begin, end, grammar, current)) {
+	while (phrase_parse(begin, end, grammar, INPUT_SKIPPER_RULE, current)) {
 		frames.push_back(current);
 		// check if there is a frame trailer at the end of this buffer
 		if (begin != end && std::string(begin, end).find(sentinel()) == std::string::npos) {
@@ -389,11 +389,11 @@ parse_frames(std::istream &stream, std::vector<frame> &frames, std::string &left
 frame
 parse_frame(const std::string &content)
 {
-	frame_parser<std::string::const_iterator> grammar;
+	const frame_parser<std::string::const_iterator> grammar;
 	frame myFrame;
 	std::string::const_iterator start = content.begin();
 	const std::string::const_iterator end = content.end();
-	if (!parse(start, end, grammar, myFrame) || start != end) {
+	if (!phrase_parse(start, end, grammar, INPUT_SKIPPER_RULE, myFrame) || start != end) {
 		throw std::runtime_error("Incomplete parse!");
 	}
 	return myFrame;
