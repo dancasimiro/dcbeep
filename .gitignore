@@ -9,9 +9,9 @@ autom4te.cache/
 config.*
 configure
 depcomp
-*/.deps/
-*/.dirstamp
-*/.libs
+.deps
+.dirstamp
+.libs
 example/initiator
 example/listener
 example/beep-compat-test
