@@ -418,7 +418,6 @@ private:
 	void handle_frame(const boost::system::error_code &error, const frame &frm)
 	{
 		if (!error) {
-			/// \todo handle messages that are broken into multiple frames.
 			try {
 				message msg;
 				if (mcompiler_(frm, msg)) {
