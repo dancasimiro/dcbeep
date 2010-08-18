@@ -72,9 +72,10 @@ channel_manager::start_channel(const role r, const std::string &name, const std:
 	return make_pair(number, start);
 }
 
-cmp::protocol_node
+std::pair<bool, cmp::protocol_node>
 channel_manager::peer_requested_channel_close(const cmp::close_message &close_msg)
 {
+	using std::make_pair;
 	ch_map::iterator channel_iterator = channels_.find(close_msg.channel);
 	if (close_msg.channel > 0 && channel_iterator == channels_.end()) {
 		cmp::error_message err;
@@ -82,9 +83,10 @@ channel_manager::peer_requested_channel_close(const cmp::close_message &close_ms
 		std::ostringstream estrm;
 		estrm << "The requested channel(" << close_msg.channel << ") was not in use.";
 		err.diagnostic = estrm.str();
-		return err;
+		return make_pair(false, err);
 	}
-	if (close_msg.channel != detail::tuning_channel_number()) {
+	const bool request_close_normal_channel = close_msg.channel != detail::tuning_channel_number();
+	if (request_close_normal_channel) {
 		boost::system::error_code not_an_error;
 		prof_map::iterator profile_iterator =
 			profiles_.find(channel_iterator->second.get_profile());
@@ -94,7 +96,7 @@ channel_manager::peer_requested_channel_close(const cmp::close_message &close_ms
 		profile_iterator->second(not_an_error, close_msg.channel, true, message());
 	}
 	channels_.erase(channel_iterator);
-	return cmp::ok_message();
+	return make_pair(!request_close_normal_channel, cmp::ok_message());
 }
 
 cmp::protocol_node

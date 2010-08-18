@@ -90,8 +90,10 @@ public:
 	std::pair<unsigned int, cmp::protocol_node>
 	start_channel(const role r, const std::string &name, const std::string &profile_uri);
 
-	// the peer requested that the channel be closed
-	cmp::protocol_node peer_requested_channel_close(const cmp::close_message &close_msg);
+	/// \brief the peer requested that the channel be closed
+	/// \return std::pair<bool peer requested session close, cmp::protocol_node response>
+	std::pair<bool, cmp::protocol_node>
+	peer_requested_channel_close(const cmp::close_message &close_msg);
 
 	cmp::protocol_node close_channel(const unsigned int channel, const reply_code::rc_enum rc);
 

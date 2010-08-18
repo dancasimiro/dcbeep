@@ -118,60 +118,64 @@ private:
 	}
 };     // class handler_user_events
 
-class tuning_message_visitor : public boost::static_visitor<message> {
+using std::make_pair;
+
+/// \return a pair<message, bool> 
+///         The message is the response.
+///         The bool encodes whether the session should be shutdown (call transport_.shutdown_connection(id_))
+class tuning_message_visitor : public boost::static_visitor<std::pair<message, bool> > {
 public:
+	typedef std::pair<message, bool> result_type;
 	tuning_message_visitor (channel_manager &chman) : manager_(chman) { }
 
 	//} else if (msg.get_type() == MSG && cmp::is_start_message(msg)) {
-	message operator()(const cmp::start_message &msg) const
+	result_type operator()(const cmp::start_message &msg) const
 	{
 		// send_tuning_message is in both branches because I want to send
 		// "OK" message before I execute the profile handler and
 		// _possibly_ send channel data.
 		const cmp::protocol_node response = manager_.accept_start(msg);
-		return cmp::generate(response);
+		return make_pair(cmp::generate(response), false);
 	}
 
 	// else if (msg.get_type() == MSG && cmp::is_close_message(msg)) {
-	message operator()(const cmp::close_message &msg) const
+	result_type operator()(const cmp::close_message &msg) const
 	{
-		const cmp::protocol_node response = manager_.peer_requested_channel_close(msg);
-		/// if not an error...
-		///    and if msg.channel == tuning_channel_number
-		///      				transport_.shutdown_connection(id_);
-		return cmp::generate(response);
+		std::pair<bool, cmp::protocol_node> result =
+			manager_.peer_requested_channel_close(msg);
+		return make_pair(cmp::generate(result.second), result.first);
 	}
 
-	message operator()(const cmp::ok_message &) const
+	result_type operator()(const cmp::ok_message &) const
 	{
 		cmp::error_message response;
 		response.code = reply_code::parameter_invalid;
 		response.diagnostic = "This OK message is not expected.";
-		return cmp::generate(response);
+		return make_pair(cmp::generate(response), false);
 	}
 
-	message operator()(const cmp::greeting_message &) const
+	result_type operator()(const cmp::greeting_message &) const
 	{
 		cmp::error_message response;
 		response.code = reply_code::parameter_invalid;
 		response.diagnostic = "The greeting message should arrive in a 'RPY' frame.";
-		return cmp::generate(response);
+		return make_pair(cmp::generate(response), false);
 	}
 
-	message operator()(const cmp::error_message &) const
+	result_type operator()(const cmp::error_message &) const
 	{
 		cmp::error_message response;
 		response.code = reply_code::parameter_invalid;
 		response.diagnostic = "An error message should arrive in an 'ERR' frame.";
-		return cmp::generate(response);
+		return make_pair(cmp::generate(response), false);
 	}
 
-	message operator()(const cmp::profile_element &) const
+	result_type operator()(const cmp::profile_element &) const
 	{
 		cmp::error_message response;
 		response.code = reply_code::parameter_invalid;
 		response.diagnostic = "The profile element should arrive in a 'RPY' frame.";
-		return cmp::generate(response);
+		return make_pair(cmp::generate(response), false);
 	}
 private:
 	channel_manager &manager_;
@@ -451,8 +455,12 @@ private:
 		switch (msg.get_type()) {
 		case MSG:
 			{
-				message response = apply_visitor(detail::tuning_message_visitor(chman_), my_node);
-				send_tuning_message(response);
+				std::pair<message, bool> response =
+					apply_visitor(detail::tuning_message_visitor(chman_), my_node);
+				send_tuning_message(response.first);
+				if (response.second) {
+					transport_.shutdown_connection(id_);
+				}
 			}
 			break;
 		case RPY:
