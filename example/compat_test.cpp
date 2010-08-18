@@ -38,12 +38,12 @@ on_got_data(const boost::system::error_code &error,
 	using boost::bind;
 	using boost::ref;
 	if (!error) {
-		cout << "The initiator got " << msg.get_payload_size()
+		const std::string my_payload = msg.get_payload();
+		cout << "The initiator got " << my_payload.size()
 			 << " bytes of application data on channel " << channel
 			 << "!" << endl;
-		const int num_ints = msg.get_payload_size() / sizeof(uint8_t);
+		const int num_ints = my_payload.size() / sizeof(uint8_t);
 		cout << "received " << num_ints << " integers.\n";
-		const std::string my_payload = msg.get_payload();
 		const std::vector<char> my_data(my_payload.begin(), my_payload.end());
 		const uint8_t * const bytes = reinterpret_cast<const uint8_t*>(&my_data[0]);
 		for (int i = 1; i < num_ints; ++i) {

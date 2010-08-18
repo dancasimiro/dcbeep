@@ -78,4 +78,23 @@ channel::update(const size_t msg_size)
 	seqno_ += msg_size;
 }
 
+bool
+operator<(const channel &lhs, const channel &rhs)
+{
+	return
+		lhs.get_number() < rhs.get_number()
+		&& lhs.get_message_number() < rhs.get_message_number()
+		&& lhs.get_answer_number() < rhs.get_answer_number()
+		;
+}
+
+bool operator!=(const channel &lhs, const channel &rhs)
+{
+	return
+		lhs.get_number() != rhs.get_number()
+		|| lhs.get_message_number() != rhs.get_message_number()
+		|| lhs.get_answer_number() != rhs.get_answer_number()
+		;
+}
+
 } // namespace beep

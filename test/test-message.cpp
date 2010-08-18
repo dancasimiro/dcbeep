@@ -17,8 +17,9 @@ TEST(Message, ContentSetting)
 {
 	beep::message msg;
 	msg.set_content("Test");
-	EXPECT_EQ("Content-Type: application/octet-stream\r\n\r\nTest", msg.get_payload());
-	EXPECT_EQ(46u, msg.get_payload_size());
+	const std::string payload = msg.get_payload();
+	EXPECT_EQ("Content-Type: application/octet-stream\r\n\r\nTest", payload);
+	EXPECT_EQ(46u, payload.size());
 }
 
 TEST(Message, ChangeMIME)
@@ -28,39 +29,32 @@ TEST(Message, ChangeMIME)
 	beep::message msg;
 	msg.set_content("Test");
 	msg.set_mime(mime);
-	EXPECT_EQ("Content-Type: application/beep+xml\r\n\r\nTest", msg.get_payload());
-	EXPECT_EQ(42u, msg.get_payload_size());
+	const std::string payload = msg.get_payload();
+	EXPECT_EQ("Content-Type: application/beep+xml\r\n\r\nTest", payload);
+	EXPECT_EQ(42u, payload.size());
 }
 
 TEST(Message, TextStreamInsertion)
 {
-	std::istringstream stream("Content-Type: application/beep+xml\r\n\r\nTest-Content");
 	beep::message msg;
-	EXPECT_TRUE(stream >> msg);
+	msg.set_payload("Content-Type: application/beep+xml\r\n\r\nTest-Content");
 	EXPECT_EQ("Content-Type: application/beep+xml", msg.get_mime().get_content_type());
 	EXPECT_EQ("Test-Content", msg.get_content());
 }
 
 TEST(Message, TextStreamInsertionWithMissingMIME)
 {
-	std::istringstream stream("Test-Content");
 	beep::message msg;
-	EXPECT_FALSE(stream >> msg);
-	EXPECT_TRUE(stream.eof());
+	msg.set_payload("Test-Content");
 	EXPECT_EQ("Content-Type: application/octet-stream", msg.get_mime().get_content_type());
 	EXPECT_EQ("Test-Content", msg.get_content());
 }
 
 TEST(Message, BinaryStreamInsertion)
 {
-	const int aNumber = 9;
-	std::ostringstream ostream;
-	ostream << "content-type: application/octet-stream\r\n\r\n";
-	EXPECT_TRUE(ostream.write(reinterpret_cast<const char*>(&aNumber), sizeof(int)));
-
-	std::istringstream stream(ostream.str());
 	beep::message msg;
-	EXPECT_TRUE(stream >> msg);
+	msg.set_mime(beep::mime("application/octet-stream", ""));
+	msg.set_payload(9);
 
 	EXPECT_EQ("Content-Type: application/octet-stream", msg.get_mime().get_content_type());
 	std::istringstream is(msg.get_content());
@@ -74,7 +68,7 @@ TEST(Channel, UpdateProperties)
 	beep::channel ch;
 	beep::message msg;
 	msg.set_content("Test");
-	ch.update(msg.get_payload_size());
+	ch.update(msg.get_payload().size());
 
 	EXPECT_EQ(0u, ch.get_number());
 	EXPECT_EQ(1u, ch.get_message_number());
@@ -98,7 +92,7 @@ TEST(FrameGenerator, GetFrames)
 	EXPECT_NO_THROW(beep::make_frames(msg, std::back_inserter(frames)));
 	ASSERT_EQ(1u, frames.size());
 
-	ch.update(msg.get_payload_size());
+	ch.update(msg.get_payload().size());
 
 	beep::msg_frame expected_frame;
 	expected_frame.channel = 0;

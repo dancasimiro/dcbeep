@@ -75,7 +75,10 @@ private:
 	unsigned int seqno_;
 	unsigned int ansno_;
 	profile_type profile_; // URI identifier
-};     // class channel  
+};     // class channel
+
+bool operator<(const channel &lhs, const channel &rhs);
+bool operator!=(const channel &lhs, const channel &rhs);
 
 }      // namespace beep
 #endif // BEEP_CHANNEL_HEAD

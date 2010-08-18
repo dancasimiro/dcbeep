@@ -37,7 +37,9 @@ channel_manager::prepare_message_for_channel(const unsigned int ch, message &msg
 	}
 	channel &my_channel = channel_iterator->second;
 	msg.set_channel(my_channel);
-	my_channel.update(msg.get_payload_size());
+	/// \todo cache the payload object.
+	const std::string my_payload = msg.get_payload();
+	my_channel.update(my_payload.size());
 }
 
 cmp::protocol_node

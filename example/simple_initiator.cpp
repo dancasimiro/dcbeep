@@ -37,7 +37,7 @@ on_got_data(const boost::system::error_code &error,
 	using boost::bind;
 	using boost::ref;
 	if (!error) {
-		cout << "The initiator got " << msg.get_payload_size()
+		cout << "The initiator got " << msg.get_payload().size()
 			 << " bytes of application data on channel " << channel
 			 << "!" << endl;
 		cout << "Contents:\n";// << a_global_buffer << endl;
