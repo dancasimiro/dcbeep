@@ -354,6 +354,8 @@ parse_frame(std::istream &stream)
 	if (!phrase_parse(begin, end, grammar, INPUT_SKIPPER_RULE, myFrame)) {
 		throw std::runtime_error("Bad frame (stream) parse!");
 	}
+	// the parser consumes one extra character, replace it here
+	stream.unget();
 	stream.setf(given_flags);
 	return myFrame;
 }
