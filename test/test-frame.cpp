@@ -168,7 +168,7 @@ TEST(PayloadParse, Valid)
 	EXPECT_EQ("Some Payload", get<beep::msg_frame>(aFrame).payload);
 }
 
-TEST(MessageWithParital, Valid)
+TEST(MessageWithPartial, Valid)
 {
 	static const std::string content =
 		"MSG 19 2 . 3 12\r\nSome PayloadEND\r\n"
@@ -216,7 +216,7 @@ TEST(MultipleMessages, Valid)
 	EXPECT_EQ(3u, get<beep::nul_frame>(my_frames[1]).sequence);
 }
 
-TEST(MultipleMessagesWithParital, Valid)
+TEST(MultipleMessagesWithPartial, Valid)
 {
 	static const std::string content =
 		"MSG 19 2 . 3 12\r\nSome PayloadEND\r\n"
