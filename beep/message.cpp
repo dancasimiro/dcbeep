@@ -7,7 +7,10 @@
 #endif
 
 #include <string>
+#include <boost/variant.hpp>
+#include "frame.hpp"
 #include "message.hpp"
+#include "message-generator.hpp"
 
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/phoenix.hpp>
@@ -158,6 +161,68 @@ operator+(const message &lhs, const message &rhs)
 	message output = lhs;
 	output += rhs;
 	return output;
+}
+
+namespace detail {
+using std::make_pair;
+
+/// \return a message object and a bool indicating if the frame completes the message
+class frame_aggregator : public boost::static_visitor<std::pair<message, bool> > {
+public:
+	/// MSG, RPY, ANS, NUL, and ERR frames
+	template <core_message_types CoreFrameType>
+	std::pair<message, bool> operator()(const basic_frame<CoreFrameType> &frm) const
+	{
+		message out;
+		out.set_type(frm.header());
+		out.set_channel(channel(frm.channel, frm.message));
+		out.set_payload(frm.payload);
+		return make_pair(out, !frm.more);
+	}
+
+	std::pair<message, bool> operator()(const seq_frame &/*seq*/) const
+	{
+		assert(false);
+		throw std::runtime_error("SEQ frames are not supported at this location");
+		return make_pair(message(), false);
+	}
+};
+} // namespace detail
+
+message_compiler::message_compiler()
+	: pending_()
+{
+}
+
+bool
+message_compiler::operator()(const frame &in, message &out)
+{
+	typedef std::set<message>::iterator iterator;
+	const std::pair<message, bool> result =
+		apply_visitor(detail::frame_aggregator(), in);
+	iterator i = pending_.find(result.first);
+	if (i != pending_.end()) {
+		const message combined = *i + result.first;
+		pending_.erase(i);
+		const std::pair<iterator, bool> insert_result = pending_.insert(combined);
+		if (!insert_result.second) {
+			throw std::runtime_error("The updated message could not be updated in the set.");
+		}
+		i = insert_result.first;
+	}
+	// if message is complete...
+	if (result.second) {
+		if (i != pending_.end()) {
+			out = *i;
+			pending_.erase(i);
+		} else {
+			out = result.first;
+		}
+		return true;
+	} else if (i == pending_.end()) {
+		pending_.insert(result.first);
+	}
+	return false;
 }
 
 } // namespace beep

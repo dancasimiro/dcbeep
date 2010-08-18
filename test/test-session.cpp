@@ -510,10 +510,8 @@ TEST_F(SessionChannelInitiator, AsyncRead)
 	EXPECT_NO_THROW(run_event_loop_until_user_read());
 
 	EXPECT_EQ(1u, session_channel);
-	beep::message expected;
-	expected.set_content("Test Payload");
-	EXPECT_EQ(expected, user_message);
-	EXPECT_EQ(expected.get_content(), user_message.get_content());
+	EXPECT_EQ(boost::system::error_code(), last_error);
+	EXPECT_EQ("Test Payload", user_message.get_content());
 }
 
 TEST_F(SessionChannelInitiator, AsyncWrite)
@@ -813,6 +811,8 @@ TEST_F(SessionChannelListener, AsyncRead)
 	EXPECT_EQ(1u, session_channel);
 	beep::message expected;
 	expected.set_content("Test Payload");
+	expected.set_type(beep::MSG);
+	expected.set_channel(beep::channel(1, 0));
 	EXPECT_EQ(expected, user_message);
 }
 

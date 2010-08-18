@@ -290,6 +290,7 @@ public:
 		, id_()
 		, frmsig_()
 		, chman_()
+		, mcompiler_()
 		, tuning_handler_()
 		, user_handler_()
 		, session_signal_()
@@ -301,6 +302,7 @@ public:
 		, id_(id)
 		, frmsig_()
 		, chman_()
+		, mcompiler_()
 		, tuning_handler_()
 		, user_handler_()
 		, session_signal_()
@@ -406,6 +408,7 @@ private:
 	signal_connection_t           frmsig_;
 
 	channel_manager               chman_;
+	message_compiler              mcompiler_;
 
 	detail::handler_tuning_events tuning_handler_;
 	detail::handler_user_events   user_handler_;
@@ -418,11 +421,12 @@ private:
 			/// \todo handle messages that are broken into multiple frames.
 			try {
 				message msg;
-				make_message(&frm, &frm + 1, msg);
-				if (msg.get_channel().get_number() == detail::tuning_channel_number()) {
-					handle_tuning_message(msg);
-				} else {
-					handle_user_message(msg);
+				if (mcompiler_(frm, msg)) {
+					if (msg.get_channel().get_number() == detail::tuning_channel_number()) {
+						handle_tuning_message(msg);
+					} else {
+						handle_user_message(msg);
+					}
 				}
 			} catch (const std::exception &ex) {
 				/// \todo handle the error condition!

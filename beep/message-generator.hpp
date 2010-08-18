@@ -5,86 +5,23 @@
 #ifndef BEEP_MESSAGE_GENERATOR_HEAD
 #define BEEP_MESSAGE_GENERATOR_HEAD 1
 
-#include <cassert>
-#include <stdexcept>
-#include <algorithm>
-#include <string>
-#include <sstream>
-#include <boost/variant.hpp>
+#include <functional>
+#include <set>
 
-#include "message.hpp"
-#include "message-stream.hpp"
+#include "frame.hpp"
+
 namespace beep {
 
-class frame_content_aggregator : public boost::static_visitor<> {
+class message;
+class message_compiler : public std::unary_function<frame, message> {
 public:
-	frame_content_aggregator(message::content_type &sink)
-		: boost::static_visitor<>()
-		, sink_(sink)
-	{
-	}
-
-	/// MSG, RPY, ANS, NUL, and ERR frames
-	template <core_message_types CoreFrameType>
-	void operator()(const basic_frame<CoreFrameType> &frm) const
-	{
-		sink_ += frm.payload;
-	}
-
-	void operator()(const seq_frame &/*seq*/) const
-	{
-	}
+	message_compiler();
+	/// \brief compile a frame into a message
+	/// \return true if a complete message was output
+	bool operator()(const frame&, message&);
 private:
-	message::content_type &sink_;
-};
-
-class frame_type_aggregator : public boost::static_visitor<> {
-public:
-	frame_type_aggregator(message &msg)
-		: boost::static_visitor<>()
-		, msg_(msg)
-	{
-	}
-
-	template <typename T>
-	void operator()(const T &frm) const
-	{
-		/// \todo add checking that all frames have the same values...
-		msg_.set_type(frm.header());
-		msg_.set_channel(channel(frm.channel, frm.message));
-	}
-
-	void operator()(const seq_frame &/*frm*/) const
-	{
-		std::cerr << "cannot make messages from SEQ frames!\n";
-		assert(false);
-	}
-private:
-	message &msg_;
-};
-
-template <typename FwdIterator>
-void
-make_message(FwdIterator first, const FwdIterator last, message &out)
-{
-	using std::distance;
-	using std::istringstream;
-	using std::for_each;
-	using boost::apply_visitor;
-
-	if (!distance(first, last)) {
-		throw std::runtime_error("Zero frames were provided to the message generator!");
-	}
-	frame_type_aggregator type_visitor(out);
-	for_each(first, last, apply_visitor(type_visitor));
-
-	message::content_type content;
-	frame_content_aggregator visitor(content);
-	for_each(first, last, apply_visitor(visitor));
-
-	istringstream strm(content);
-	strm >> out;
-}
+	std::set<message> pending_; // these are partial messages
+};     // message_compiler
 
 }      // namespace beep
 #endif // BEEP_MESSAGE_GENERATOR_HEAD
