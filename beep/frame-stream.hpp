@@ -129,7 +129,6 @@ operator>>(std::istream &stream, beep::frame &aFrame)
 		try {
 			aFrame = parse_frame(stream);
 		} catch (const std::exception &ex) {
-			std::cerr << "The frame could not be parsed: " << ex.what() << std::endl;
 			stream.setstate(std::ios::failbit);
 		}
 	}
