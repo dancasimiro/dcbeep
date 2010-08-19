@@ -22,8 +22,9 @@
 #include <boost/asio.hpp>
 #include <boost/signals2.hpp>
 #include <boost/date_time.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
 
-#include "beep/identifier.hpp"
 #include "beep/role.hpp"
 #include "beep/frame.hpp"
 #include "beep/frame-parser.hpp"
@@ -31,6 +32,8 @@
 #include "beep/reply-code.hpp"
 
 namespace beep {
+typedef boost::uuids::uuid identifier;
+
 namespace transport_service {
 namespace detail {
 
@@ -103,6 +106,8 @@ public:
 	typedef stream_type&            stream_reference;
 	typedef boost::asio::io_service service_type;
 	typedef service_type&           service_reference;
+
+	typedef beep::identifier identifier;
 
 	typedef boost::signals2::connection signal_connection;
 	typedef boost::system::error_code   error_code_type;
@@ -418,6 +423,9 @@ public:
 	typedef stream_type&                stream_reference;
 	typedef boost::signals2::connection signal_connection;
 
+	typedef detail::solo_stream_service_impl<stream_type> impl_type;
+	typedef typename impl_type::identifier identifier;
+
 	typedef boost::signals2::signal<void (const boost::system::error_code&, const identifier&)> network_signal_t;
 	typedef boost::signals2::signal<void (const boost::system::error_code&, const frame&)>      frame_signal_t;
 
@@ -431,7 +439,7 @@ public:
 
 	virtual ~basic_solo_stream() {}
 
-	void shutdown_connection(const beep::identifier &ident)
+	void shutdown_connection(const identifier &ident)
 	{
 		typedef typename container_type::iterator iterator;
 		iterator i = connections_.find(ident);
@@ -442,7 +450,7 @@ public:
 	}
 
 	// closes the associated socket and removes the connection object
-	void stop_connection(const beep::identifier &ident)
+	void stop_connection(const identifier &ident)
 	{
 		typedef typename container_type::iterator iterator;
 		iterator i = connections_.find(ident);
@@ -454,7 +462,7 @@ public:
 	}
 
 	/// \brief Get notified when a new network session is established
-	signal_connection install_network_handler(const network_signal_t::slot_type slot)
+	signal_connection install_network_handler(const typename network_signal_t::slot_type slot)
 	{
 		return network_signal_.connect(slot);
 	}
@@ -500,7 +508,6 @@ public:
 		}
 	}
 protected:
-	typedef detail::solo_stream_service_impl<stream_type> impl_type;
 	typedef boost::shared_ptr<impl_type>                  pimpl_type;
 
 	identifier add_connection(const pimpl_type connection)
@@ -543,6 +550,7 @@ public:
 	typedef typename stream_type::endpoint_type endpoint_type;
 
 	typedef basic_solo_stream<stream_type, initiating_role> super_type;
+	typedef typename super_type::identifier identifier;
 	
 	basic_solo_stream_initiator(service_reference service, const std::size_t maxbufsz = std::numeric_limits<std::size_t>::max())
 		: super_type()
@@ -599,6 +607,7 @@ public:
 	typedef typename stream_type::endpoint_type endpoint_type;
 
 	typedef basic_solo_stream<stream_type, listening_role> super_type;
+	typedef typename super_type::identifier identifier;
 
 	basic_solo_stream_listener(service_reference service, const std::size_t maxbufsz = std::numeric_limits<std::size_t>::max())
 		: super_type()

@@ -284,6 +284,8 @@ public:
 	typedef basic_session<transport_service> base_type;
 	typedef std::size_t                      size_type;
 
+	typedef typename transport_service::identifier identifier;
+
 	typedef boost::signals2::connection      signal_connection;
 	typedef boost::signals2::signal<void (const boost::system::error_code&)> session_signal_t;
 
