@@ -24,6 +24,7 @@
 #include <boost/date_time.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <boost/uuid/uuid_generators.hpp>
 
 #include "beep/role.hpp"
 #include "beep/frame.hpp"
@@ -514,7 +515,7 @@ protected:
 	{
 		using boost::bind;
 		using std::make_pair;
-		identifier id;
+		identifier id = boost::uuids::random_generator()();
 		connections_.insert(make_pair(id, connection));
 		connection->set_network_callback(bind(&basic_solo_stream::invoke_network_signal, this, _1, _2));
 		return id;
