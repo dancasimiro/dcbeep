@@ -36,6 +36,7 @@ nobase_include_HEADERS = \
 
 beep_libbeepcore_la_SOURCES = \
 	beep/frame-parser.cpp \
+	beep/frame-stream.cpp \
 	beep/message.cpp \
 	beep/message.hpp \
 	beep/message-generator.hpp
