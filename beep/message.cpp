@@ -53,8 +53,7 @@ message::message()
 void
 message::set_payload(const std::string &p)
 {
-	using boost::spirit::qi::phrase_parse;
-	using boost::spirit::qi::space;
+	using boost::spirit::qi::parse;
 	using boost::spirit::qi::print;
 	using boost::spirit::qi::no_case;
 	using boost::phoenix::ref;
@@ -66,12 +65,11 @@ message::set_payload(const std::string &p)
 	std::string::const_iterator i = p.begin();
 	const std::string::const_iterator i_end = p.end();
 	std::string mime_content_type = mime_.get_content_type();
-	if (phrase_parse(i, i_end,
-					 no_case["Content-Type:"]
-					 >> (+print)[assign(ref(mime_content_type), begin(_1), end(_1))]
-					 >> "\r\n\r\n"
-					 ,
-					 space - "\r\n")) {
+	if (parse(i, i_end,
+			  no_case["Content-Type:"]
+			  >> (+print)[assign(ref(mime_content_type), begin(_1), end(_1))]
+			  >> "\r\n\r\n"
+			  )) {
 		mime_.set_content_type(mime_content_type);
 		content_.assign(i, i_end);
 	} else {
