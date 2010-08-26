@@ -128,7 +128,6 @@ public:
 	typedef std::pair<message, bool> result_type;
 	tuning_message_visitor (channel_manager &chman) : manager_(chman) { }
 
-	//} else if (msg.get_type() == MSG && cmp::is_start_message(msg)) {
 	result_type operator()(const cmp::start_message &msg) const
 	{
 		// send_tuning_message is in both branches because I want to send
@@ -138,7 +137,6 @@ public:
 		return make_pair(cmp::generate(response), false);
 	}
 
-	// else if (msg.get_type() == MSG && cmp::is_close_message(msg)) {
 	result_type operator()(const cmp::close_message &msg) const
 	{
 		std::pair<bool, cmp::protocol_node> result =
@@ -507,55 +505,6 @@ private:
 			assert(false);
 			throw std::runtime_error("invalid message type in tuning handler...");
 		}
-#if 0
-		if (msg.get_type() == RPY && cmp::is_greeting_message(msg)) {
-			chman_.copy_profiles(msg, back_inserter(profiles_));
-			session_signal_(boost::system::error_code());
-		} else if (msg.get_type() == MSG && cmp::is_start_message(msg)) {
-			message response;
-			profile acceptedProfile;
-			// send_tuning_message is in both branches because I want to send
-			// "OK" message before I execute the profile handler and
-			// _possibly_ send channel data.
-			if (const unsigned int chnum =
-				chman_.accept_start(msg, profiles_.begin(), profiles_.end(),
-									acceptedProfile, response)) {
-				send_tuning_message(response);
-				boost::system::error_code not_an_error;
-				const detail::wrapped_profile &myProfile =
-					get_profile(acceptedProfile.uri());
-				myProfile.execute(chnum, not_an_error, acceptedProfile.initial_message(), false);
-			} else {
-				send_tuning_message(response);
-			}
-		} else if (msg.get_type() == MSG && cmp::is_close_message(msg)) {
-			message response;
-			const unsigned chnum = chman_.close_channel(msg, response);
-			send_tuning_message(response);
-			if (response.get_type() == RPY) {
-				assert(chnum != numeric_limits<unsigned>::max());
-				if (chnum != chman_.tuning_channel().get_number()) {
-					boost::system::error_code not_an_error;
-					const detail::wrapped_profile &myProfile = get_profile(chnum);
-					myProfile.execute(chnum, not_an_error, response, true);
-				} else {
-					transport_.shutdown_connection(id_);
-				}
-			}
-		} else if (msg.get_type() == RPY && (cmp::is_ok_message(msg) || cmp::is_profile_message(msg))) {
-			boost::system::error_code message_error;
-			tuning_handler_.execute(msg.get_number(), message_error);
-		} else if (msg.get_type() == ERR) {
-			const boost::system::system_error error = make_error(msg);
-			/// \todo log the error description (error.what())
-			/// \todo should I throw the system_error error here?
-			tuning_handler_.execute(msg.get_number(), error.code());
-		} else {
-			/// \todo handle other frame types
-			std::cerr << "there was an unexpected message type:  " << msg.get_type() << std::endl;
-			assert(false);
-		}
-#endif
 	}
 
 	void handle_user_message(const message &msg)
