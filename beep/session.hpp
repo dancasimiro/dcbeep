@@ -130,8 +130,7 @@ public:
 
 	result_type operator()(const cmp::start_message &msg) const
 	{
-		// send_tuning_message is in both branches because I want to send
-		// "OK" message before I execute the profile handler and
+		// send "OK" message before I execute the profile handler and
 		// _possibly_ send channel data.
 		const cmp::protocol_node response = manager_.accept_start(msg);
 		return make_pair(cmp::generate(response), false);
@@ -458,6 +457,7 @@ private:
 				std::pair<message, bool> response =
 					apply_visitor(detail::tuning_message_visitor(chman_), my_node);
 				send_tuning_message(response.first);
+				chman_.invoke_pending_channel_notifications();
 				if (response.second) {
 					transport_.shutdown_connection(id_);
 				}
