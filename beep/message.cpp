@@ -32,7 +32,11 @@ mime::mime(const std::string &c, const std::string &e)
 void
 mime::set_content_type(const std::string &ct)
 {
-	type_ = std::string("Content-Type: ") + ct;
+	type_ = "Content-Type:";
+	if (!ct.empty() && ct[0] != ' ') {
+		type_ += ' ';
+	}
+	type_ += ct;
 }
 
 const mime &
