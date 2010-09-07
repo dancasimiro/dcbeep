@@ -8,6 +8,7 @@
 
 #include <stdexcept>
 #include <utility>
+#include <boost/bind.hpp>
 #include "channel-manager.hpp"
 #include "message.hpp"
 #include "reply-code.hpp"
@@ -18,6 +19,7 @@ channel_manager::channel_manager()
 	: profiles_()
 	, channels_()
 	, guess_(0)
+	, notifications_()
 {
 	// used for adding/removing subsequent channels
 	using std::make_pair;
@@ -121,6 +123,7 @@ channel_manager::accept_start(const cmp::start_message &start_msg)
 	using std::ostringstream;
 	using std::ostream_iterator;
 	using std::make_pair;
+	using boost::bind;
 	if (!channels_.count(start_msg.channel)) {
 		prof_map::const_iterator profile_iter = profiles_.end();
 		typedef std::vector<cmp::profile_element>::const_iterator start_iterator;
@@ -137,7 +140,8 @@ channel_manager::accept_start(const cmp::start_message &start_msg)
 				///       positive response for this channel creation is sent. Use the flow
 				///       management architecture.
 				boost::system::error_code not_an_error;
-				(profile_iter->second)(not_an_error, start_msg.channel, false, i->initialization);
+				notifications_.push_back(bind(profile_iter->second, not_an_error, start_msg.channel, false, i->initialization));
+				//(profile_iter->second)(not_an_error, start_msg.channel, false, i->initialization);
 				return response;
 			}
 		}
@@ -157,6 +161,15 @@ channel_manager::accept_start(const cmp::start_message &start_msg)
 	error.code = reply_code::requested_action_not_accepted;
 	error.diagnostic = estrm.str();
 	return error;
+}
+
+void
+channel_manager::invoke_pending_channel_notifications()
+{
+	for (notifications_container::const_iterator i = notifications_.begin(); i != notifications_.end(); ++i) {
+		(*i)();
+	}
+	notifications_.clear();
 }
 
 static unsigned int get_first_number(const role r)

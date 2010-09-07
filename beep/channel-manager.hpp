@@ -99,6 +99,18 @@ public:
 
 	/// \return Accepted channel number, zero indicates an error
 	cmp::protocol_node accept_start(const cmp::start_message &start_msg);
+
+	/// \brief temporary hack
+	///
+	/// This function is used to invoke any queued notifications that a new channel was created.
+	/// This function exists because the notifications cannot be invoked directly within the
+	/// \em accept_start member function. If so, any wire traffic would be sent before the channel
+	/// accept message (tuning channel). This is not easy to fix currently. It should be easier
+	/// after I implement channel transmission priorities.
+	///
+	/// For now, invoke this function after a call to accept_start and after you transmit the
+	/// channel start-up response.
+	void invoke_pending_channel_notifications();
 private:
 	typedef std::map<unsigned int, channel> ch_map;
 	typedef boost::system::error_code error_code;
@@ -108,6 +120,9 @@ private:
 	prof_map     profiles_;
 	ch_map       channels_;
 	unsigned int guess_; // guess at next channel number
+
+	typedef std::vector<boost::function<void ()> > notifications_container;
+	notifications_container notifications_; // pending notifications of channel start-up
 
 	unsigned int get_next_channel(const role r);
 
