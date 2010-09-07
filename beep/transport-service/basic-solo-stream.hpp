@@ -565,6 +565,8 @@ public:
 	{
 	}
 
+	service_reference get_io_service() { return service_; }
+
 	virtual ~basic_solo_stream_initiator() {}
 
 	/// \note should I change this to async_connect and accept a handler?
@@ -644,6 +646,8 @@ public:
 		conn_.disconnect();
 		stop_listening();
 	}
+
+	service_reference get_io_service() { return service_; }
 
 	void stop_listening()
 	{
