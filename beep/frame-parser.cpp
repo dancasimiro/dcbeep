@@ -303,7 +303,7 @@ struct frame_parser : qi::grammar<Iterator, frame(), skipper_type> {
 	qi::rule<Iterator, frame(), skipper_type> frame_rule;
 };     // struct frame_grammar
 
-void
+std::string
 parse_frames(std::istream &stream, std::vector<frame> &frames)
 {
 	const std::ios::fmtflags given_flags = stream.flags();
@@ -315,8 +315,13 @@ parse_frames(std::istream &stream, std::vector<frame> &frames)
 	// begin is updated on each pass to the next valid position
 	while (phrase_parse(begin, end, grammar, INPUT_SKIPPER_RULE, current)) {
 		frames.push_back(current);
+		if (std::string(begin, end).find(sentinel()) == std::string::npos) {
+			// need to put begin, end back into stream
+			break;
+		}
 	}
 	stream.setf(given_flags);
+	return std::string(begin, end);
 }
 
 frame

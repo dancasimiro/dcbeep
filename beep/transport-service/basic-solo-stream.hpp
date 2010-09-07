@@ -304,7 +304,10 @@ private:
 		if (!error || error == boost::asio::error::message_size) {
 			std::vector<frame> current_frames;
 			istream stream(&rsb_);
-			parse_frames(stream, current_frames);
+			const std::string incomplete = parse_frames(stream, current_frames);
+			// replace the incomplete stream into the read buffer.
+			ostream reset_buffer(&rsb_);
+			reset_buffer << incomplete;
 			std::size_t num_frames = 0;
 			for (std::vector<frame>::const_iterator i = current_frames.begin(); i != current_frames.end(); ++i) {
 				const beep::frame current = *i;
