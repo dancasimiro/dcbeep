@@ -460,9 +460,14 @@ private:
 			{
 				std::pair<message, bool> response =
 					apply_visitor(detail::tuning_message_visitor(chman_), my_node);
-				send_tuning_message(response.first);
-				chman_.invoke_pending_channel_notifications();
-				if (response.second) {
+				try {
+					message my_message = response.first;
+					send_tuning_message(my_message);
+					chman_.invoke_pending_channel_notifications();
+					if (response.second) {
+						transport_.shutdown_connection(id_);
+					}
+				} catch (const std::exception &ex) {
 					transport_.shutdown_connection(id_);
 				}
 			}
