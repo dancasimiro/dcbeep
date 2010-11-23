@@ -7,6 +7,7 @@
 #endif
 
 #include <stdexcept>
+#include <sstream>
 #include <utility>
 #include <boost/bind.hpp>
 #include "channel-manager.hpp"
@@ -35,7 +36,9 @@ channel_manager::prepare_message_for_channel(const unsigned int ch, message &msg
 {
 	ch_map::iterator channel_iterator = channels_.find(ch);
 	if (channel_iterator == channels_.end()) {
-		throw std::runtime_error("the selected channel is not in use.");
+		std::ostringstream estrm;
+		estrm << "channel_manager::prepare_message_for_channel -- The selected channel (" << ch << ") is not in use.";
+		throw std::runtime_error(estrm.str().c_str());
 	}
 	channel &my_channel = channel_iterator->second;
 	msg.set_channel(my_channel);
@@ -106,7 +109,9 @@ channel_manager::close_channel(const unsigned int channel, const reply_code::rc_
 {
 	ch_map::iterator channel_iterator = channels_.find(channel);
 	if (channel_iterator == channels_.end()) {
-		throw std::runtime_error("invalid channel close request!");
+		std::ostringstream estrm;
+		estrm << "channel_manager::close_channel -- invalid channel (" << channel << ") close request!";
+		throw std::runtime_error(estrm.str().c_str());
 	}
 	if (channel != detail::tuning_channel_number()) {
 		channels_.erase(channel_iterator);
