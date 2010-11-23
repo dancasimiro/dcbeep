@@ -548,11 +548,11 @@ private:
 template <typename TransportServiceT>
 void shutdown_session(basic_session<TransportServiceT> &session)
 {
-	using boost::bind;
 	typedef basic_session<TransportServiceT> session_type;
-	session.async_close_channel(0, reply_code::success,
-								bind(&session_type::close_transport,
-									 &session, _1));
+	if (session.chman_.channel_in_use(0)) {
+		session.async_close_channel(0, reply_code::success,
+					    bind(&session_type::close_transport, &session, _1));
+	}
 }
 
 }      // namespace beep
