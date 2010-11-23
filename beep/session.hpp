@@ -365,10 +365,15 @@ public:
 		const unsigned int channel_number = result.first;
 		if (channel_number > 0) {
 			message start = cmp::generate(result.second);
-			// send_tuning_message updates message_number inside start message
-			send_tuning_message(start);
-			const unsigned int msgno = start.get_channel().get_message_number();
-			tuning_handler_.add(msgno, bind(handler, _1, channel_number, profile_uri));
+			try {
+				// send_tuning_message updates message_number inside start message
+				send_tuning_message(start);
+				const unsigned int msgno = start.get_channel().get_message_number();
+				tuning_handler_.add(msgno, bind(handler, _1, channel_number, profile_uri));
+			} catch (const std::exception &ex) {
+				chman_.close_channel(channel_number, reply_code::requested_action_aborted);
+				return 0u;
+			}
 		}
 		return channel_number;
 	}
