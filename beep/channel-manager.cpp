@@ -100,7 +100,9 @@ channel_manager::peer_requested_channel_close(const cmp::close_message &close_ms
 		}
 		profile_iterator->second(not_an_error, close_msg.channel, true, message());
 	}
-	channels_.erase(channel_iterator);
+	// con't erase the channel_iterator from channels_ here because the session object
+	// still needs to generate an "OK" message to send to the peer. prepare_message_for_channel
+	// will throw an exception if it cannot find the referenced channel number.
 	return make_pair(!request_close_normal_channel, cmp::ok_message());
 }
 

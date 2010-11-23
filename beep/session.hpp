@@ -464,6 +464,7 @@ private:
 					message my_message = response.first;
 					send_tuning_message(my_message);
 					chman_.invoke_pending_channel_notifications();
+					chman_.close_channel(my_message.get_channel().get_number(), reply_code::success);
 					if (response.second) {
 						transport_.shutdown_connection(id_);
 					}
