@@ -454,7 +454,6 @@ private:
 
 	void handle_tuning_message(const message &msg)
 	{
-		using boost::apply_visitor;
 		const cmp::protocol_node my_node = cmp::parse(msg);
 		switch (msg.get_type()) {
 		case MSG:
