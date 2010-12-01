@@ -107,21 +107,29 @@ channel_manager::peer_requested_channel_close(const cmp::close_message &close_ms
 }
 
 cmp::protocol_node
-channel_manager::close_channel(const unsigned int channel, const reply_code::rc_enum rc)
+channel_manager::request_close_channel(const unsigned int channel, const reply_code::rc_enum rc)
 {
 	ch_map::iterator channel_iterator = channels_.find(channel);
 	if (channel_iterator == channels_.end()) {
 		std::ostringstream estrm;
-		estrm << "channel_manager::close_channel -- invalid channel (" << channel << ") close request!";
+		estrm << "channel_manager::request_close_channel -- invalid channel (" << channel << ") close request!";
 		throw std::runtime_error(estrm.str().c_str());
-	}
-	if (channel != detail::tuning_channel_number()) {
-		channels_.erase(channel_iterator);
 	}
 	cmp::close_message request;
 	request.channel = channel;
 	request.code = rc;
 	return request;
+}
+
+void
+channel_manager::close_channel(const unsigned int channel)
+{
+	if (channel != detail::tuning_channel_number()) {
+		if (0u == channels_.erase(channel)) {
+			std::ostringstream estrm;
+			estrm << "channel_manager::close_channel -- invalid channel (" << channel << ") close!";
+		}
+	}
 }
 
 cmp::protocol_node

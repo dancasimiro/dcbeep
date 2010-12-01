@@ -371,7 +371,7 @@ public:
 				const unsigned int msgno = start.get_channel().get_message_number();
 				tuning_handler_.add(msgno, bind(handler, _1, channel_number, profile_uri));
 			} catch (const std::exception &ex) {
-				chman_.close_channel(channel_number, reply_code::requested_action_aborted);
+				chman_.close_channel(channel_number);
 				return 0u;
 			}
 		}
@@ -382,7 +382,7 @@ public:
 	void async_close_channel(const unsigned int channel,
 							 const reply_code::rc_enum rc, Handler handler)
 	{
-		const cmp::protocol_node request = chman_.close_channel(channel, rc);
+		const cmp::protocol_node request = chman_.request_close_channel(channel, rc);
 		message close = cmp::generate(request);
 		// send_tuning_message updates the message number inside of 'close'
 		send_tuning_message(close);
@@ -465,7 +465,7 @@ private:
 					send_tuning_message(my_message);
 					chman_.invoke_pending_channel_notifications();
 					if (boost::get<1>(response)) { // if should close channel
-						chman_.close_channel(my_message.get_channel().get_number(), reply_code::success);
+						chman_.close_channel(my_message.get_channel().get_number());
 					}
 					if (boost::get<2>(response)) { // if should shutdown session
 						transport_.shutdown_connection(id_);
@@ -488,6 +488,7 @@ private:
 				//session_signal_(boost::system::error_code());
 				// else
 				tuning_handler_.execute(msg.get_channel().get_message_number(), boost::system::error_code());
+				chman_.close_channel(msg.get_channel().get_message_number());
 				break;
 			case detail::invalid_message_received:
 				{

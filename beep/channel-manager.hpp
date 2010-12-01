@@ -95,7 +95,8 @@ public:
 	std::pair<bool, cmp::protocol_node>
 	peer_requested_channel_close(const cmp::close_message &close_msg);
 
-	cmp::protocol_node close_channel(const unsigned int channel, const reply_code::rc_enum rc);
+	cmp::protocol_node request_close_channel(const unsigned int channel, const reply_code::rc_enum rc);
+	void close_channel(const unsigned int channel);
 
 	/// \return Accepted channel number, zero indicates an error
 	cmp::protocol_node accept_start(const cmp::start_message &start_msg);
