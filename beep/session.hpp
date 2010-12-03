@@ -75,11 +75,12 @@ private:
 typedef boost::system::error_code error_code;
 
 class handler_tuning_events
-	: public basic_event_handler<boost::function<void (const error_code&)> > {
+	: public basic_event_handler<boost::function<unsigned int (const error_code&)> > {
 public:
 	virtual ~handler_tuning_events() {}
 
-	void execute(const key_type num, const error_code &error)
+	/// \return the affected channel number
+	unsigned int execute(const key_type num, const error_code &error)
 	{
 		const iterator i = get_callback(num);
 		/// copy the callback and then remove it from the list
@@ -87,7 +88,7 @@ public:
 		const function_type cb = i->second;
 		remove_callback(i);
 		/// Now, invoke the callback
-		cb(error);
+		return cb(error);
 	}
 private:
 	virtual const std::string &descr() const
@@ -375,6 +376,21 @@ public:
 		return chman_.get_profiles(out);
 	}
 
+	struct wrap_user_handler_with_channel {
+		typedef boost::system::error_code error_code;
+		typedef boost::function<void (const error_code&)> function_type;
+		unsigned int chno; // channel number
+		function_type handler;
+
+		wrap_user_handler_with_channel(const unsigned int c, function_type h) : chno(c), handler(h) { }
+
+		unsigned int operator()(const boost::system::error_code &error) const
+		{
+			handler(error);
+			return chno;
+		}
+	};
+
 	template <class Handler>
 	unsigned int async_add_channel(const std::string &profile_uri, Handler handler)
 	{
@@ -392,7 +408,7 @@ public:
 				// send_tuning_message updates message_number inside start message
 				send_tuning_message(start);
 				const unsigned int msgno = start.get_channel().get_message_number();
-				tuning_handler_.add(msgno, bind(handler, _1, channel_number, profile_uri));
+				tuning_handler_.add(msgno, wrap_user_handler_with_channel(channel_number, bind(handler, _1, channel_number, profile_uri)));
 			} catch (const std::exception &ex) {
 				chman_.close_channel(channel_number);
 				return 0u;
@@ -410,7 +426,9 @@ public:
 		// send_tuning_message updates the message number inside of 'close'
 		send_tuning_message(close);
 		const unsigned int msgno = close.get_channel().get_message_number();
-		tuning_handler_.add(msgno, bind(handler, _1, channel));
+		// I need to extract this channel number when the callback is invoked so
+		// that I can remove the correct channel from the channel-manager.
+		tuning_handler_.add(msgno, wrap_user_handler_with_channel(channel, bind(handler, _1, channel)));
 	}
 
 	template <class Handler>
@@ -509,8 +527,13 @@ private:
 				// if msg.channel == tuning_channel
 				//session_signal_(boost::system::error_code());
 				// else
-				tuning_handler_.execute(msg.get_channel().get_message_number(), boost::system::error_code());
-				chman_.close_channel(msg.get_channel().get_message_number());
+				{
+					// The message channel may be modified by the tuning handler.
+					const unsigned int msgno = msg.get_channel().get_message_number();
+					const unsigned int closed_channel_number =
+						tuning_handler_.execute(msgno, boost::system::error_code());
+					chman_.close_channel(closed_channel_number);
+				}
 				break;
 			case detail::invalid_message_received:
 				{
