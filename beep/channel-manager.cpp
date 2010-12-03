@@ -124,12 +124,10 @@ channel_manager::request_close_channel(const unsigned int channel, const reply_c
 void
 channel_manager::close_channel(const unsigned int channel)
 {
-	if (channel != detail::tuning_channel_number()) {
-		if (0u == channels_.erase(channel)) {
-			std::ostringstream estrm;
-			estrm << "channel_manager::close_channel -- invalid channel (" << channel << ") close!";
-			throw std::runtime_error(estrm.str().c_str());
-		}
+	if (0u == channels_.erase(channel)) {
+		std::ostringstream estrm;
+		estrm << "channel_manager::close_channel -- invalid channel (" << channel << ") close!";
+		throw std::runtime_error(estrm.str().c_str());
 	}
 }
 
