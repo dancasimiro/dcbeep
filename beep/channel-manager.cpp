@@ -128,6 +128,7 @@ channel_manager::close_channel(const unsigned int channel)
 		if (0u == channels_.erase(channel)) {
 			std::ostringstream estrm;
 			estrm << "channel_manager::close_channel -- invalid channel (" << channel << ") close!";
+			throw std::runtime_error(estrm.str().c_str());
 		}
 	}
 }
