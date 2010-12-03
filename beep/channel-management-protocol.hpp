@@ -301,6 +301,7 @@ typedef boost::variant<
 	>
 protocol_node;
 
+protocol_node parse(const std::string &msg_content);
 protocol_node parse(const message &my_message);
 message generate(const protocol_node &my_node);
 

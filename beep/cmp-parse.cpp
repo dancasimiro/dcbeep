@@ -211,10 +211,9 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 	qi::rule<Iterator, error_message(), qi::locals<char>, skipper_type> error_tag;
 };     // input_protocol_grammar
 
-protocol_node parse(const message &my_message)
+protocol_node parse(const std::string &msg_content)
 {
 	using qi::phrase_parse;
-	const std::string msg_content = my_message.get_content();
 	std::string::const_iterator i = msg_content.begin();
 	const std::string::const_iterator end = msg_content.end();
 	input_protocol_grammar<std::string::const_iterator> my_grammar;
@@ -226,6 +225,11 @@ protocol_node parse(const message &my_message)
 		throw std::runtime_error(estrm.str());
 	}
 	return my_node;
+}
+
+protocol_node parse(const message &my_message)
+{
+	return parse(my_message.get_content());
 }
 
 } // namespace cmp
