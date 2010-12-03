@@ -151,18 +151,19 @@ struct input_protocol_grammar : qi::grammar<Iterator, protocol_node(), skipper_t
 			>> (
 				(lit("code") > '='
 				 > char_("'\"")[_a = _1]
-				 > uint_
+				 > uint_[bind(&error_message::code, _val) = _1]
 				 > omit[char_(_a)]
 				 )
 				^
 				(lit("xml:lang") > '='
 				 > char_("'\"")[_a = _1]
-				 > lexeme[+(char_ - char_(_a))]
+				 > lexeme[+(char_ - char_(_a))][assign(bind(&error_message::language, _val), begin(_1), end(_1))]
 				 > omit[char_(_a)]
 				 )
 				)
 			> (
-				('>' >> lexeme[*(char_ - '<')] >> "</error>")
+				('>' >> lexeme[*(char_ - '<')][assign(bind(&error_message::diagnostic, _val), begin(_1), end(_1))]
+				 >> "</error>")
 				| "/>"
 				)
 			;
