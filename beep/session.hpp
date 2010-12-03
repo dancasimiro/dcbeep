@@ -524,9 +524,6 @@ private:
 				tuning_handler_.execute(msg.get_channel().get_message_number(), boost::system::error_code());
 				break;
 			case detail::channel_close_was_accepted:
-				// if msg.channel == tuning_channel
-				//session_signal_(boost::system::error_code());
-				// else
 				{
 					// The message channel may be modified by the tuning handler.
 					const unsigned int msgno = msg.get_channel().get_message_number();
@@ -601,6 +598,7 @@ private:
 		if (error) {
 			throw boost::system::system_error(error);
 		}
+		session_signal_(error);
 		transport_.shutdown_connection(id_);
 	}
 };     // class basic_session
