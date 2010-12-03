@@ -534,7 +534,9 @@ private:
 			{
 				const error_code ec = apply_visitor(detail::tuning_error_visitor(), my_node);
 				/// \todo log the error description (error.what())
-				tuning_handler_.execute(msg.get_channel().get_message_number(), ec);
+				frmsig_.disconnect();
+				transport_.stop_connection(id_);
+				session_signal_(ec);
 			}
 			break;
 		case ANS:
