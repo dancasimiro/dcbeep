@@ -13,12 +13,14 @@ noinst_LTLIBRARIES = beep/libbeepcmp.la beep/libbeepcore.la
 check_PROGRAMS = \
 	test/utframe \
 	test/utmessage \
+	test/utcmp \
 	test/utsession \
 	test/uterror \
 	test/utsolotcp
 TESTS = \
 	test/utframe \
 	test/utmessage \
+	test/utcmp \
 	test/utsession \
 	test/uterror \
 	test/utsolotcp
@@ -72,6 +74,16 @@ test_utmessage_SOURCES = test/test-message.cpp
 test_utmessage_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
 test_utmessage_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
 test_utmessage_LDADD = $(AM_LDFLAGS) \
+	$(top_builddir)/beep/libbeepcore.la \
+	$(top_builddir)/beep/libbeepcmp.la \
+	@BOOST_SYSTEM_LIB@ \
+	@GTEST_LIBS@
+# Channel Management Protocol Parsing and Generator Unit Test
+# -----------------------------------------------------------------------------
+test_utcmp_SOURCES = test/test-cmp.cpp
+test_utcmp_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
+test_utcmp_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
+test_utcmp_LDADD = $(AM_LDFLAGS) \
 	$(top_builddir)/beep/libbeepcore.la \
 	$(top_builddir)/beep/libbeepcmp.la \
 	@BOOST_SYSTEM_LIB@ \
