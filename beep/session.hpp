@@ -254,8 +254,33 @@ public:
 
 	boost::system::error_code operator()(const cmp::error_message &msg) const
 	{
-		/// \todo Check that msg.code is a valid reply code
-		return boost::system::error_code(msg.code, beep::beep_category);
+		using namespace reply_code;
+		switch (msg.code) {
+		case success:
+		case service_not_available:
+		case requested_action_not_taken:
+		case requested_action_aborted:
+		case temporary_authentication_failure:
+		case general_syntax_error:
+		case syntax_error_in_parameters:
+		case parameter_not_implemented:
+		case authentication_required:
+		case authentication_mechanism_insufficient:
+		case authentication_failure:
+		case action_not_authorized_for_user:
+		case authentication_mechanism_requires_encryption:
+		case requested_action_not_accepted:
+		case parameter_invalid:
+		case transaction_failed:
+			return boost::system::error_code(msg.code, beep::beep_category);
+			break;
+		default:
+			assert(false);
+		}
+		std::ostringstream estrm;
+		estrm << "The received error code (" << msg.code << ") is not recognized.";
+		throw std::runtime_error(estrm.str().c_str());
+		return boost::system::error_code(parameter_invalid, beep::beep_category);
 	}
 
 	boost::system::error_code operator()(const cmp::profile_element &) const
