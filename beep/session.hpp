@@ -360,7 +360,6 @@ public:
 	/// Set the new identifier and associate this session with the transport
 	void set_id(const identifier &id)
 	{
-		using boost::bind;
 		frmsig_.disconnect();
 		id_ = id;
 		frmsig_ =
@@ -380,7 +379,6 @@ public:
 	unsigned int async_add_channel(const std::string &profile_uri, Handler handler)
 	{
 		using std::ostringstream;
-		using boost::bind;
 		using std::make_pair;
 
 		ostringstream strm;
@@ -418,7 +416,6 @@ public:
 	template <class Handler>
 	void async_read(const unsigned int channel, Handler handler)
 	{
-		using boost::bind;
 		if (chman_.channel_in_use(channel)) {
 			user_handler_.add(channel, bind(handler, _1, _2, channel));
 		} else {
