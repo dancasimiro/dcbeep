@@ -151,7 +151,6 @@ public:
 
 	void send_frame(const frame &aFrame)
 	{
-		using boost::bind;
 		wstrand_.dispatch(bind(&solo_stream_service_impl::serialize_frame,
 							   this->shared_from_this(),
 							   aFrame));
@@ -163,7 +162,6 @@ public:
 	template <typename FwdIterator>
 	void send_frames(FwdIterator first, const FwdIterator last)
 	{
-		using boost::bind;
 		for (; first != last; ++first) {
 			wstrand_.dispatch(bind(&solo_stream_service_impl::serialize_frame,
 								   this->shared_from_this(), *first));
@@ -242,7 +240,6 @@ private:
 
 	void do_send_if_possible()
 	{
-		using boost::bind;
 		if (fwsb_->size() == 0 && stream_.lowest_layer().is_open() && bwsb_->size() > 0) {
 			do_send();
 			/// Time out if the peer does not send a response
@@ -256,8 +253,6 @@ private:
 
 	void do_send()
 	{
-		using boost::swap;
-		using boost::bind;
 		using namespace boost::asio;
 
 		swap(bwsb_, fwsb_);
@@ -271,7 +266,6 @@ private:
 	void
 	do_start_read()
 	{
-		using boost::bind;
 		using namespace boost::asio;
 		async_read_until(stream_, rsb_,
 						 sentinel(),
@@ -284,7 +278,6 @@ private:
 	void handle_send(const boost::system::error_code &error,
 					 std::size_t /*bytes_transferred*/)
 	{
-		using boost::bind;
 		if (!error || error == boost::asio::error::message_size) {
 			if (bwsb_->size()) {
 				wstrand_.dispatch(bind(&solo_stream_service_impl::do_send,
@@ -391,7 +384,6 @@ public:
 
 	void async_accept(const connection_pointer ptr)
 	{
-		using boost::bind;
 		acceptor_.async_accept(ptr->get_stream().lowest_layer(),
 							   bind(&acceptor_impl::handle_accept,
 									this->shared_from_this(),
@@ -516,7 +508,6 @@ protected:
 
 	identifier add_connection(const pimpl_type connection)
 	{
-		using boost::bind;
 		using std::make_pair;
 		identifier id = boost::uuids::random_generator()();
 		connections_.insert(make_pair(id, connection));
@@ -572,8 +563,6 @@ public:
 	/// \note should I change this to async_connect and accept a handler?
 	void set_endpoint(const endpoint_type &ep)
 	{
-		using boost::bind;
-		using boost::swap;
 		using namespace boost::asio;
 
 		pimpl_type next(new impl_type(service_, maxbufsz_));
@@ -622,7 +611,6 @@ public:
 		, conn_()
 		, maxbufsz_(maxbufsz)
 	{
-		using boost::bind;
 		conn_ =
 			pimpl_->subscribe(bind(&basic_solo_stream_listener::handle_accept,
 								   this, _1, _2));
@@ -634,7 +622,6 @@ public:
 		, pimpl_(new listener_type(svc))
 		, maxbufsz_(maxbufsz)
 	{
-		using boost::bind;
 		conn_ =
 			pimpl_->subscribe(bind(&basic_solo_stream_listener::handle_accept,
 								   this, _1, _2));
