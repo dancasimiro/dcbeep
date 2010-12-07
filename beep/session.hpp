@@ -124,9 +124,11 @@ private:
 ///         The message is the response.
 ///         The second bool encodes whether the channel should be closed
 ///         The third bool encodes whether the session should be shutdown (call transport_.shutdown_connection(id_))
-class tuning_message_visitor : public boost::static_visitor<boost::tuple<message, bool, bool> > {
+///         The fourth paramenter (unsigned int) is the referenced channel number. The value defaults to zero if the
+///             message does not reference a channel.
+class tuning_message_visitor : public boost::static_visitor<boost::tuple<message, bool, bool, unsigned int> > {
 public:
-	typedef boost::tuple<message, bool, bool> result_type;
+	typedef boost::tuple<message, bool, bool, unsigned int> result_type;
 	tuning_message_visitor (channel_manager &chman) : manager_(chman) { }
 
 	result_type operator()(const cmp::start_message &msg) const
@@ -134,14 +136,14 @@ public:
 		// send "OK" message before I execute the profile handler and
 		// _possibly_ send channel data.
 		const cmp::protocol_node response = manager_.accept_start(msg);
-		return boost::make_tuple(cmp::generate(response), false, false);
+		return boost::make_tuple(cmp::generate(response), false, false, msg.channel);
 	}
 
 	result_type operator()(const cmp::close_message &msg) const
 	{
 		std::pair<bool, cmp::protocol_node> result =
 			manager_.peer_requested_channel_close(msg);
-		return boost::make_tuple(cmp::generate(result.second), true, result.first);
+		return boost::make_tuple(cmp::generate(result.second), true, result.first, msg.channel);
 	}
 
 	result_type operator()(const cmp::ok_message &) const
@@ -149,7 +151,7 @@ public:
 		cmp::error_message response;
 		response.code = reply_code::parameter_invalid;
 		response.diagnostic = "This OK message is not expected.";
-		return boost::make_tuple(cmp::generate(response), false, false);
+		return boost::make_tuple(cmp::generate(response), false, false, 0u);
 	}
 
 	result_type operator()(const cmp::greeting_message &) const
@@ -157,7 +159,7 @@ public:
 		cmp::error_message response;
 		response.code = reply_code::parameter_invalid;
 		response.diagnostic = "The greeting message should arrive in a 'RPY' frame.";
-		return boost::make_tuple(cmp::generate(response), false, false);
+		return boost::make_tuple(cmp::generate(response), false, false, 0u);
 	}
 
 	result_type operator()(const cmp::error_message &) const
@@ -165,7 +167,7 @@ public:
 		cmp::error_message response;
 		response.code = reply_code::parameter_invalid;
 		response.diagnostic = "An error message should arrive in an 'ERR' frame.";
-		return boost::make_tuple(cmp::generate(response), false, false);
+		return boost::make_tuple(cmp::generate(response), false, false, 0u);
 	}
 
 	result_type operator()(const cmp::profile_element &) const
@@ -173,7 +175,7 @@ public:
 		cmp::error_message response;
 		response.code = reply_code::parameter_invalid;
 		response.diagnostic = "The profile element should arrive in a 'RPY' frame.";
-		return boost::make_tuple(cmp::generate(response), false, false);
+		return boost::make_tuple(cmp::generate(response), false, false, 0u);
 	}
 private:
 	channel_manager &manager_;
@@ -498,14 +500,15 @@ private:
 		switch (msg.get_type()) {
 		case MSG:
 			{
-				const boost::tuple<message, bool, bool> response =
+				const boost::tuple<message, bool, bool, unsigned int> response =
 					apply_visitor(detail::tuning_message_visitor(chman_), my_node);
 				try {
 					message my_message = boost::get<0>(response);
 					send_tuning_message(my_message);
 					chman_.invoke_pending_channel_notifications();
 					if (boost::get<1>(response)) { // if should close channel
-						chman_.close_channel(my_message.get_channel().get_number());
+						const unsigned closed_channel_number = boost::get<3>(response);
+						chman_.close_channel(closed_channel_number);
 					}
 					if (boost::get<2>(response)) { // if should shutdown session
 						transport_.shutdown_connection(id_);
