@@ -244,6 +244,15 @@ private:
 			// I'm guessing the operator<< failed because the bwsb_ is too small.
 			// I'm not sure how to get access to the actual error condition.
 			set_error(make_error_code(value_too_large));
+			return;
+		}
+		stream.flush();
+		static const size_t threshold = 4096u;
+		if (bwsb_->max_size() > threshold && bwsb_->max_size() - bwsb_->size() < threshold) {
+			// try to flush fwsb_ ASAP if the bwsb_ is getting full
+			// this should fix the problem if there were a bunch of serialize_frame calls
+			// without an interspersed do_send_if_possible
+			do_send_if_possible();
 		}
 	}
 
