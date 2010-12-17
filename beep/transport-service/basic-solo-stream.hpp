@@ -236,10 +236,9 @@ private:
 
 	void serialize_frame(const frame &frame)
 	{
-		using std::ostream;
 		/// \todo split frame into multiple frames if it is larger than the advertized SEQ window
 		/// \todo implement flow control?
-		ostream stream(bwsb_);
+		std::ostream stream(bwsb_);
 		if (!(stream << frame)) {
 			using namespace boost::system::errc;
 			// I'm guessing the operator<< failed because the bwsb_ is too small.
