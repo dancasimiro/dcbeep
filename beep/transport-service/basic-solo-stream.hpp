@@ -306,15 +306,13 @@ private:
 	void handle_frame_read(const boost::system::error_code &error,
 						   std::size_t /*bytes_transferred*/)
 	{
-		using std::istream;
-		using std::ostream;
 		timer_.cancel();
 		if (!error || error == boost::asio::error::message_size) {
 			std::vector<frame> current_frames;
-			istream stream(&rsb_);
+			std::istream stream(&rsb_);
 			const std::string incomplete = parse_frames(stream, current_frames);
 			// replace the incomplete stream into the read buffer.
-			ostream reset_buffer(&rsb_);
+			std::ostream reset_buffer(&rsb_);
 			reset_buffer << incomplete;
 			std::size_t num_frames = 0;
 			for (std::vector<frame>::const_iterator i = current_frames.begin(); i != current_frames.end(); ++i) {
