@@ -271,28 +271,25 @@ private:
 
 	void do_send()
 	{
-		using namespace boost::asio;
-
 		swap(bwsb_, fwsb_);
 		async_write(stream_, *fwsb_,
 					wstrand_.wrap(bind(&solo_stream_service_impl::handle_send,
 									   this->shared_from_this(),
-									   placeholders::error,
-									   placeholders::bytes_transferred)));
+									   boost::asio::placeholders::error,
+									   boost::asio::placeholders::bytes_transferred)));
 	}
 
 	void
 	do_start_read()
 	{
-		using namespace boost::asio;
 		// read until END\r\n is received (denoting a complete, normal frame), or
 		// a SEQ frame is received, which is of the form SEQ****\r\n
 		async_read_until(stream_, rsb_,
 						 get_end_of_frame_regex(),
 						 bind(&solo_stream_service_impl::handle_frame_read,
 							  this->shared_from_this(),
-							  placeholders::error,
-							  placeholders::bytes_transferred));
+							  boost::asio::placeholders::error,
+							  boost::asio::placeholders::bytes_transferred));
 	}
 
 	void handle_send(const boost::system::error_code &error,
