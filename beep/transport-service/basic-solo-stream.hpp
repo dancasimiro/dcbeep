@@ -296,10 +296,8 @@ private:
 					 std::size_t /*bytes_transferred*/)
 	{
 		if (!error || error == boost::asio::error::message_size) {
-			if (bwsb_->size()) {
-				wstrand_.dispatch(bind(&solo_stream_service_impl::do_send,
-									   this->shared_from_this()));
-			}
+			wstrand_.dispatch(bind(&solo_stream_service_impl::do_send_if_possible,
+								   this->shared_from_this()));
 		} else {
 			set_error(error);
 		}
