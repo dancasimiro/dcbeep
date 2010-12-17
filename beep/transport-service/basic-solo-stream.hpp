@@ -25,6 +25,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/uuid/uuid_generators.hpp>
+#include <boost/regex.hpp>
 
 #include "beep/role.hpp"
 #include "beep/frame.hpp"
@@ -193,6 +194,7 @@ private:
 	typedef boost::asio::deadline_timer timer_type;
 	typedef boost::asio::streambuf streambuf_type;
 	typedef service_type::strand   strand_type;
+	typedef boost::regex regex_type;
 	typedef size_t size_type;
 
 	stream_type    stream_;
@@ -209,6 +211,14 @@ private:
 	static boost::posix_time::time_duration get_response_timeout()
 	{
 		return boost::posix_time::minutes(5);
+	}
+
+	static const regex_type &get_end_of_frame_regex()
+	{
+		// Match the sentinel END CR LF or a SEQ frame
+		// A SEQ frame takes the form: "SEQ" SP channel SP ackno SP window CR LF
+		static const regex_type my_expression("(END|SEQ([[:space:]][[:digit:]]+){3})\r\n");
+		return my_expression;
 	}
 
 	void set_error(const boost::system::error_code &error)
@@ -267,8 +277,10 @@ private:
 	do_start_read()
 	{
 		using namespace boost::asio;
+		// read until END\r\n is received (denoting a complete, normal frame), or
+		// a SEQ frame is received, which is of the form SEQ****\r\n
 		async_read_until(stream_, rsb_,
-						 sentinel(),
+						 get_end_of_frame_regex(),
 						 bind(&solo_stream_service_impl::handle_frame_read,
 							  this->shared_from_this(),
 							  placeholders::error,
@@ -317,17 +329,7 @@ private:
 					send_frame(new_window_ad);
 				}
 			}
-			if (num_frames) {
-				do_start_read();
-			} else {
-				// There must be at least one valid parsed frame because I read
-				// until there was at least one END\r\n sequence in the streambuf.
-				// There must be a syntax error if I did not parse at least one data
-				// frame correctly. Subsequent errors could be due to incomplete frames
-				// sitting in the streambuf.
-				set_error(boost::system::error_code(beep::reply_code::general_syntax_error,
-													beep::beep_category));
-			}
+			do_start_read();
 		} else {
 			set_error(error);
 		}
