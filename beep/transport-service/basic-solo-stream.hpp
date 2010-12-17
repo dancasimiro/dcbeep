@@ -314,6 +314,7 @@ private:
 			// replace the incomplete stream into the read buffer.
 			std::ostream reset_buffer(&rsb_);
 			reset_buffer << incomplete;
+			do_start_read();
 			std::size_t num_frames = 0;
 			for (std::vector<frame>::const_iterator i = current_frames.begin(); i != current_frames.end(); ++i) {
 				const beep::frame current = *i;
@@ -330,7 +331,6 @@ private:
 					send_frame(new_window_ad);
 				}
 			}
-			do_start_read();
 		} else {
 			set_error(error);
 		}
