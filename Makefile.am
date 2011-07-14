@@ -83,6 +83,7 @@ test_utframe_CPPFLAGS = $(AM_CPPFLAGS) \
 	-I$(top_srcdir)/gtest/include -I$(top_srcdir)/gtest
 test_utframe_LDADD = $(AM_LDFLAGS) \
 	$(top_builddir)/beep/libbeepcore.la \
+	@BOOST_REGEX_LIB@ \
 	@BOOST_SYSTEM_LIB@ \
 	$(top_builddir)/gtest/src/libgtest.la
 # Message Unit Test
@@ -93,6 +94,7 @@ test_utmessage_CPPFLAGS = $(AM_CPPFLAGS) \
 test_utmessage_LDADD = $(AM_LDFLAGS) \
 	$(top_builddir)/beep/libbeepcore.la \
 	$(top_builddir)/beep/libbeepcmp.la \
+	@BOOST_REGEX_LIB@ \
 	@BOOST_SYSTEM_LIB@ \
 	$(top_builddir)/gtest/src/libgtest.la
 # Channel Management Protocol Parsing and Generator Unit Test
@@ -103,6 +105,7 @@ test_utcmp_CPPFLAGS = $(AM_CPPFLAGS) \
 test_utcmp_LDADD = $(AM_LDFLAGS) \
 	$(top_builddir)/beep/libbeepcore.la \
 	$(top_builddir)/beep/libbeepcmp.la \
+	@BOOST_REGEX_LIB@ \
 	@BOOST_SYSTEM_LIB@ \
 	$(top_builddir)/gtest/src/libgtest.la
 # BEEP session over single TCP/IP connection Unit Test
@@ -112,6 +115,7 @@ test_utsolotcp_CPPFLAGS = $(AM_CPPFLAGS) \
 	-I$(top_srcdir)/gtest/include -I$(top_srcdir)/gtest
 test_utsolotcp_LDADD = $(AM_LDFLAGS) \
 	$(top_builddir)/beep/libbeepcore.la \
+	@BOOST_REGEX_LIB@ \
 	@BOOST_SYSTEM_LIB@ \
 	$(top_builddir)/gtest/src/libgtest.la
 # BEEP session over single TCP/IP connection Error Handling Unit Test
@@ -121,6 +125,7 @@ test_uterror_CPPFLAGS = $(AM_CPPFLAGS) \
 	-I$(top_srcdir)/gtest/include -I$(top_srcdir)/gtest
 test_uterror_LDADD = $(AM_LDFLAGS) \
 	$(top_builddir)/beep/libbeepcore.la \
+	@BOOST_REGEX_LIB@ \
 	@BOOST_SYSTEM_LIB@ \
 	$(top_builddir)/gtest/src/libgtest.la
 # BEEP session test
@@ -131,6 +136,7 @@ test_utsession_CPPFLAGS = $(AM_CPPFLAGS) \
 test_utsession_LDADD = $(AM_LDFLAGS) \
 	$(top_builddir)/beep/libbeepcore.la \
 	$(top_builddir)/beep/libbeepcmp.la \
+	@BOOST_REGEX_LIB@ \
 	@BOOST_SYSTEM_LIB@ \
 	$(top_builddir)/gtest/src/libgtest.la
 
@@ -144,6 +150,7 @@ example_listener_SOURCES = example/simple_listener.cpp
 example_listener_LDADD = \
 	$(top_builddir)/beep/libbeepcore.la \
 	$(top_builddir)/beep/libbeepcmp.la \
+	@BOOST_REGEX_LIB@ \
 	@BOOST_SYSTEM_LIB@
 # Example Initiator
 # -----------------------------------------------------------------------------
@@ -151,6 +158,7 @@ example_initiator_SOURCES = example/simple_initiator.cpp
 example_initiator_LDADD = \
 	$(top_builddir)/beep/libbeepcore.la \
 	$(top_builddir)/beep/libbeepcmp.la \
+	@BOOST_REGEX_LIB@ \
 	@BOOST_SYSTEM_LIB@
 # Example compatibility test
 # -----------------------------------------------------------------------------
@@ -158,4 +166,5 @@ example_beep_compat_test_SOURCES = example/compat_test.cpp
 example_beep_compat_test_LDADD = \
 	$(top_builddir)/beep/libbeepcore.la \
 	$(top_builddir)/beep/libbeepcmp.la \
+	@BOOST_REGEX_LIB@ \
 	@BOOST_SYSTEM_LIB@
