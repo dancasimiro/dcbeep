@@ -8,7 +8,7 @@ AM_CXXFLAGS = \
 AM_LDFLAGS = @BOOST_LDFLAGS@
 
 noinst_PROGRAMS = example/listener example/initiator example/beep-compat-test
-noinst_LTLIBRARIES = beep/libbeepcmp.la beep/libbeepcore.la
+noinst_LTLIBRARIES = gtest/src/libgtest.la beep/libbeepcmp.la beep/libbeepcore.la
 
 check_PROGRAMS = \
 	test/utframe \
@@ -24,6 +24,23 @@ TESTS = \
 	test/utsession \
 	test/uterror \
 	test/utsolotcp
+
+###############################################################################
+# GTest Library
+# -----------------------------------------------------------------------------
+gtest_src_libgtest_la_SOURCES = \
+	gtest/include/gtest/* \
+	gtest/include/gtest/internal/* \
+	gtest/src/gtest-internal-inl.h \
+	gtest/src/gtest.cc \
+	gtest/src/gtest-death-test.cc \
+	gtest/src/gtest-filepath.cc \
+	gtest/src/gtest-port.cc \
+	gtest/src/gtest-printers.cc \
+	gtest/src/gtest-test-part.cc \
+	gtest/src/gtest-typed-test.cc
+gtest_src_libgtest_la_CPPFLAGS = $(AM_CPPFLAGS) \
+	-I$(top_srcdir)/gtest/include -I$(top_srcdir)/gtest
 
 ###############################################################################
 # Header only library
@@ -62,59 +79,60 @@ beep_libbeepcmp_la_LIBADD =
 # Frames Unit Test
 # -----------------------------------------------------------------------------
 test_utframe_SOURCES = test/test-frame.cpp
-test_utframe_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
-test_utframe_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
+test_utframe_CPPFLAGS = $(AM_CPPFLAGS) \
+	-I$(top_srcdir)/gtest/include -I$(top_srcdir)/gtest
 test_utframe_LDADD = $(AM_LDFLAGS) \
 	$(top_builddir)/beep/libbeepcore.la \
 	@BOOST_SYSTEM_LIB@ \
-	@GTEST_LIBS@
+	$(top_builddir)/gtest/src/libgtest.la
 # Message Unit Test
 # -----------------------------------------------------------------------------
 test_utmessage_SOURCES = test/test-message.cpp
-test_utmessage_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
-test_utmessage_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
+test_utmessage_CPPFLAGS = $(AM_CPPFLAGS) \
+	-I$(top_srcdir)/gtest/include -I$(top_srcdir)/gtest
 test_utmessage_LDADD = $(AM_LDFLAGS) \
 	$(top_builddir)/beep/libbeepcore.la \
 	$(top_builddir)/beep/libbeepcmp.la \
 	@BOOST_SYSTEM_LIB@ \
-	@GTEST_LIBS@
+	$(top_builddir)/gtest/src/libgtest.la
 # Channel Management Protocol Parsing and Generator Unit Test
 # -----------------------------------------------------------------------------
 test_utcmp_SOURCES = test/test-cmp.cpp
-test_utcmp_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
-test_utcmp_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
+test_utcmp_CPPFLAGS = $(AM_CPPFLAGS) \
+	-I$(top_srcdir)/gtest/include -I$(top_srcdir)/gtest
 test_utcmp_LDADD = $(AM_LDFLAGS) \
 	$(top_builddir)/beep/libbeepcore.la \
 	$(top_builddir)/beep/libbeepcmp.la \
 	@BOOST_SYSTEM_LIB@ \
-	@GTEST_LIBS@
+	$(top_builddir)/gtest/src/libgtest.la
 # BEEP session over single TCP/IP connection Unit Test
 # -----------------------------------------------------------------------------
 test_utsolotcp_SOURCES = test/test-solo-tcp-transport-service.cpp
-test_utsolotcp_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
-test_utsolotcp_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
+test_utsolotcp_CPPFLAGS = $(AM_CPPFLAGS) \
+	-I$(top_srcdir)/gtest/include -I$(top_srcdir)/gtest
 test_utsolotcp_LDADD = $(AM_LDFLAGS) \
 	$(top_builddir)/beep/libbeepcore.la \
 	@BOOST_SYSTEM_LIB@ \
-	@GTEST_LIBS@
+	$(top_builddir)/gtest/src/libgtest.la
 # BEEP session over single TCP/IP connection Error Handling Unit Test
 # -----------------------------------------------------------------------------
 test_uterror_SOURCES = test/test-solo-tcp-error-handling.cpp
-test_uterror_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
-test_uterror_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
+test_uterror_CPPFLAGS = $(AM_CPPFLAGS) \
+	-I$(top_srcdir)/gtest/include -I$(top_srcdir)/gtest
 test_uterror_LDADD = $(AM_LDFLAGS) \
 	$(top_builddir)/beep/libbeepcore.la \
 	@BOOST_SYSTEM_LIB@ \
-	@GTEST_LIBS@
+	$(top_builddir)/gtest/src/libgtest.la
 # BEEP session test
 # -----------------------------------------------------------------------------
 test_utsession_SOURCES = test/test-session.cpp
-test_utsession_CPPFLAGS = $(AM_CPPFLAGS) @GTEST_CPPFLAGS@
-test_utsession_CXXFLAGS = $(AM_CXXFLAGS) @GTEST_CXXFLAGS@
+test_utsession_CPPFLAGS = $(AM_CPPFLAGS) \
+	-I$(top_srcdir)/gtest/include -I$(top_srcdir)/gtest
 test_utsession_LDADD = $(AM_LDFLAGS) \
 	$(top_builddir)/beep/libbeepcore.la \
 	$(top_builddir)/beep/libbeepcmp.la \
-	@BOOST_SYSTEM_LIB@ @GTEST_LIBS@
+	@BOOST_SYSTEM_LIB@ \
+	$(top_builddir)/gtest/src/libgtest.la
 
 ###############################################################################
 # Examples
